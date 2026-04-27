@@ -1,0 +1,11 @@
+name,gender,blood,department,conditions
+John Doe,Male,O+,CHS,Diabetes|Hypertension
+Jane Smith,Female,A+,COE,
+Robert Johnson,Male,B+,CBEA,Asthma
+Maria Garcia,Female,AB-,CAS,Diabetes|Heart Disease
+Michael Brown,Male,O-,CTE,Hypertension
+Emily Davis,Female,A-,CHS,Asthma|Allergies
+David Wilson,Male,B-,COE,
+Sarah Martinez,Female,O+,CBEA,Diabetes
+James Anderson,Male,A+,CAS,Heart Disease
+Lisa Taylor,Female,AB+,CTE,

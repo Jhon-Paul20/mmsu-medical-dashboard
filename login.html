@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MMSU Medical Dashboard - Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #144A24;
+      --green-dark: #0d3319;
+      --gold: #FFD700;
+      --gold-dark: #c9a900;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+    }
+
+    .login-card {
+      background: var(--green);
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 16px;
+      padding: 48px 40px;
+      text-align: center;
+    }
+
+    .logo-section {
+      margin-bottom: 32px;
+    }
+
+    .logo-circle {
+      width: 70px;
+      height: 70px;
+      background: var(--gold);
+      border-radius: 50%;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Serif Display', serif;
+      font-size: 32px;
+      font-weight: bold;
+      color: var(--green);
+    }
+
+    .login-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      color: var(--gold);
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    .login-subtitle {
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 32px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,215,0,0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input:focus {
+      border-color: rgba(255,215,0,0.5);
+      background: rgba(255,255,255,0.12);
+    }
+
+    input::placeholder {
+      color: rgba(255,255,255,0.3);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--gold);
+      color: var(--green);
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 12px;
+    }
+
+    .login-btn:hover {
+      background: var(--gold-dark);
+      transform: translateY(-2px);
+    }
+
+    .login-btn:active {
+      transform: translateY(0);
+    }
+
+    .login-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .error-message {
+      background: rgba(239,68,68,0.15);
+      color: #fca5a5;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+      border-left: 3px solid #ef4444;
+    }
+
+    .error-message.visible {
+      display: block;
+    }
+
+    .loading {
+      display: none;
+    }
+
+    .loading.visible {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(20,74,36,0.3);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .footer-text {
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-container">
+  <div class="login-card">
+    <div class="logo-section">
+      <div class="logo-circle">M</div>
+      <div class="login-title">MMSU Medical</div>
+      <div class="login-subtitle">Personnel Dashboard</div>
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input 
+          type="text" 
+          id="username" 
+          placeholder="Enter username" 
+          required
+          autocomplete="username"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          placeholder="Enter password" 
+          required
+          autocomplete="current-password"
+        >
+      </div>
+
+      <button type="submit" class="login-btn" id="loginBtn">
+        <span class="loading" id="loadingSpinner"></span>
+        Sign In
+      </button>
+    </form>
+
+    <div class="footer-text">
+      Demo credentials:<br>
+      Username: <strong>admin</strong><br>
+      Password: <strong>mmsu2024</strong>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function handleLogin(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const loginBtn = document.getElementById('loginBtn');
+    const spinner = document.getElementById('loadingSpinner');
+    const errorMsg = document.getElementById('errorMessage');
+
+    loginBtn.disabled = true;
+    spinner.classList.add('visible');
+    errorMsg.classList.remove('visible');
+
+    try {
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Login successful, redirect to dashboard
+        window.location.href = '/';
+      } else {
+        // Login failed
+        errorMsg.textContent = data.error || 'Invalid username or password';
+        errorMsg.classList.add('visible');
+        loginBtn.disabled = false;
+        spinner.classList.remove('visible');
+      }
+    } catch (error) {
+      errorMsg.textContent = 'An error occurred. Please try again.';
+      errorMsg.classList.add('visible');
+      loginBtn.disabled = false;
+      spinner.classList.remove('visible');
+    }
+  }
+
+  // Focus on username field when page loads
+  window.addEventListener('load', () => {
+    document.getElementById('username').focus();
+  });
+</script>
+
+</body>
+</html>
