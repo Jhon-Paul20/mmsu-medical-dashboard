@@ -1,0 +1,22 @@
+[
+  { "name": "Ana Reyes",          "gender": "Female", "blood": "O+",  "department": "CHS",  "conditions": ["Hypertension", "Diabetes"] },
+  { "name": "Juan dela Cruz",     "gender": "Male",   "blood": "A+",  "department": "COE",  "conditions": ["Asthma"] },
+  { "name": "Maria Santos",       "gender": "Female", "blood": "B+",  "department": "CTE",  "conditions": ["Allergies", "Migraine"] },
+  { "name": "Carlos Mendoza",     "gender": "Male",   "blood": "AB+", "department": "CBEA", "conditions": ["Hypertension"] },
+  { "name": "Liza Fernandez",     "gender": "Female", "blood": "O-",  "department": "CAS",  "conditions": ["Anemia"] },
+  { "name": "Ramon Torres",       "gender": "Male",   "blood": "A+",  "department": "CHS",  "conditions": ["Diabetes", "Obesity"] },
+  { "name": "Gloria Villanueva",  "gender": "Female", "blood": "B-",  "department": "COE",  "conditions": ["Arthritis"] },
+  { "name": "Eduardo Garcia",     "gender": "Male",   "blood": "O+",  "department": "CTE",  "conditions": ["Heart Disease"] },
+  { "name": "Nora Bautista",      "gender": "Female", "blood": "A-",  "department": "CBEA", "conditions": ["Thyroid Disorder", "Hypertension"] },
+  { "name": "Miguel Ramos",       "gender": "Male",   "blood": "AB-", "department": "CAS",  "conditions": ["Gastritis"] },
+  { "name": "Josie Aquino",       "gender": "Female", "blood": "O+",  "department": "CHS",  "conditions": ["Asthma", "Allergies"] },
+  { "name": "Andres Flores",      "gender": "Male",   "blood": "B+",  "department": "COE",  "conditions": ["Ulcer"] },
+  { "name": "Cristina Lopez",     "gender": "Female", "blood": "A+",  "department": "CTE",  "conditions": ["Mental Health"] },
+  { "name": "Roberto Cruz",       "gender": "Male",   "blood": "O-",  "department": "CBEA", "conditions": ["Hypertension", "Kidney Disease"] },
+  { "name": "Teresita Ocampo",    "gender": "Female", "blood": "B+",  "department": "CAS",  "conditions": ["Diabetes"] },
+  { "name": "Danilo Castillo",    "gender": "Male",   "blood": "A+",  "department": "CHS",  "conditions": ["Bronchitis"] },
+  { "name": "Maribel Reyes",      "gender": "Female", "blood": "AB+", "department": "COE",  "conditions": ["Migraine", "Anemia"] },
+  { "name": "Ernesto Salazar",    "gender": "Male",   "blood": "O+",  "department": "CTE",  "conditions": ["Liver Disease"] },
+  { "name": "Rowena Pascual",     "gender": "Female", "blood": "A-",  "department": "CBEA", "conditions": ["Asthma"] },
+  { "name": "Felix Navarro",      "gender": "Male",   "blood": "B-",  "department": "CAS",  "conditions": ["Heart Disease", "Diabetes"] }
+]

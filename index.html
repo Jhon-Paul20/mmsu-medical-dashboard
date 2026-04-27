@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MMSU Health Records · Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -222,30 +221,7 @@
       border-top: 1px solid var(--border);
       flex-shrink: 0;
     }
-    .upload-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      width: 100%;
-      padding: 10px 16px;
-      background: var(--accent);
-      color: #0a0f0d;
-      border: none;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 600;
-      font-family: 'Figtree', sans-serif;
-      cursor: pointer;
-      transition: all 0.15s;
-      box-shadow: 0 4px 20px rgba(232,200,74,0.2);
-    }
-    .upload-btn:hover {
-      background: var(--accent2);
-      box-shadow: 0 4px 24px rgba(232,200,74,0.35);
-      transform: translateY(-1px);
-    }
-    .upload-btn svg { width: 14px; height: 14px; }
+
 
     /* ── MAIN ── */
     .main {
@@ -846,15 +822,7 @@
     <div id="conditionList"></div>
   </nav>
 
-  <div class="sidebar-footer">
-    <label class="upload-btn" for="csvUpload">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M8 11V3M5 6l3-3 3 3"/><path d="M3 12h10" stroke-linecap="round"/>
-      </svg>
-      Upload CSV
-    </label>
-    <input type="file" accept=".csv" id="csvUpload" style="display:none">
-  </div>
+
 </aside>
 
 <!-- ── MAIN ── -->
@@ -863,7 +831,7 @@
   <div class="topbar">
     <div>
       <div class="page-heading">Personnel <em>Health Records</em></div>
-      <div class="page-sub" id="activeFilterLabel">Upload a CSV file to begin — all personnel will appear here</div>
+      <div class="page-sub" id="activeFilterLabel">All personnel — records loaded</div>
     </div>
     <div class="topbar-right">
       <div class="status-pill">
@@ -970,7 +938,7 @@
                 </svg>
               </div>
               <div class="empty-title">No records loaded</div>
-              <div class="empty-sub">Upload a CSV file using the button in the sidebar</div>
+              <div class="empty-sub">No records found for the selected filter</div>
             </div>
           </td>
         </tr>
@@ -1431,25 +1399,16 @@
     if (e.key === 'Escape') closeModalDirect();
   });
 
-  document.getElementById("csvUpload").addEventListener("change", function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: function(results) {
-        allData = results.data.map(row => ({
-          name: row.name || row.Name || '',
-          gender: row.gender || row.Gender || '',
-          blood: row.blood || row.Blood || row['blood_type'] || '',
-          department: row.department || row.Department || '',
-          conditions: (row.conditions || row.Conditions || '').split('|').map(s => s.trim()).filter(Boolean)
-        })).filter(r => r.name);
-        filterData('All');
-        showToast(`${allData.length} records loaded successfully`);
-      }
+  // Load personnel data from data.json
+  fetch('data.json')
+    .then(res => res.json())
+    .then(data => {
+      allData = data;
+      filterData('All');
+    })
+    .catch(err => {
+      console.error('Failed to load data.json:', err);
     });
-  });
 
   generateConditionList();
 </script>
