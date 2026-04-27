@@ -11,7 +11,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'mmsu_medical_dashboard_secret_2024_CHANGE_IN_PRODUCTION')
 
 # Configure session for better security
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
@@ -44,6 +44,46 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+
+def seed_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM personnel")
+    count = c.fetchone()[0]
+    if count == 0:
+        records = [
+            ('Ana Reyes',          'Female', 'O+',  'CHS',  'Hypertension|Diabetes'),
+            ('Juan dela Cruz',     'Male',   'A+',  'COE',  'Asthma'),
+            ('Maria Santos',       'Female', 'B+',  'CTE',  'Allergies|Migraine'),
+            ('Carlos Mendoza',     'Male',   'AB+', 'CBEA', 'Hypertension'),
+            ('Liza Fernandez',     'Female', 'O-',  'CAS',  'Anemia'),
+            ('Ramon Torres',       'Male',   'A+',  'CHS',  'Diabetes|Obesity'),
+            ('Gloria Villanueva',  'Female', 'B-',  'COE',  'Arthritis'),
+            ('Eduardo Garcia',     'Male',   'O+',  'CTE',  'Heart Disease'),
+            ('Nora Bautista',      'Female', 'A-',  'CBEA', 'Thyroid Disorder|Hypertension'),
+            ('Miguel Ramos',       'Male',   'AB-', 'CAS',  'Gastritis'),
+            ('Josie Aquino',       'Female', 'O+',  'CHS',  'Asthma|Allergies'),
+            ('Andres Flores',      'Male',   'B+',  'COE',  'Ulcer'),
+            ('Cristina Lopez',     'Female', 'A+',  'CTE',  'Mental Health'),
+            ('Roberto Cruz',       'Male',   'O-',  'CBEA', 'Hypertension|Kidney Disease'),
+            ('Teresita Ocampo',    'Female', 'B+',  'CAS',  'Diabetes'),
+            ('Danilo Castillo',    'Male',   'A+',  'CHS',  'Bronchitis'),
+            ('Maribel Reyes',      'Female', 'AB+', 'COE',  'Migraine|Anemia'),
+            ('Ernesto Salazar',    'Male',   'O+',  'CTE',  'Liver Disease'),
+            ('Rowena Pascual',     'Female', 'A-',  'CBEA', 'Asthma'),
+            ('Felix Navarro',      'Male',   'B-',  'CAS',  'Heart Disease|Diabetes'),
+        ]
+        c.executemany(
+            'INSERT INTO personnel (name, gender, blood, department, conditions) VALUES (?, ?, ?, ?, ?)',
+            records
+        )
+        conn.commit()
+        print(f"Seeded {len(records)} personnel records.")
+    conn.close()
+
+# Initialize and seed on startup (runs with gunicorn too)
+init_db()
+seed_db()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -148,6 +188,7 @@ def delete_personnel(pid):
 
 if __name__ == '__main__':
     init_db()
+    seed_db()
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
     print(f"✅ MMSU Medical Dashboard running at http://127.0.0.1:{port}")
