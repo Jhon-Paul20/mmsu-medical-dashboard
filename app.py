@@ -6,7 +6,8 @@ import csv
 import io
 import secrets
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=BASE_DIR)
 
 # Use environment variable for secret key in production
 app.secret_key = os.environ.get('SECRET_KEY', 'mmsu_medical_dashboard_secret_2024_CHANGE_IN_PRODUCTION')
@@ -16,7 +17,7 @@ app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-DB_PATH = "mmsu.db"
+DB_PATH = os.path.join(BASE_DIR, "mmsu.db")
 
 # Admin credentials - Use environment variables in production
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
