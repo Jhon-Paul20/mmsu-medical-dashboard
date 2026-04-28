@@ -285,6 +285,10 @@
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16V8l4-3 4 4 4-6 4 2v11H2z"/></svg>
       Reports & Analytics
     </button>
+    <button class="nav-item" onclick="showPage('medlookup',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2v16M2 10h16"/><circle cx="10" cy="10" r="8"/></svg>
+      Medicine Lookup
+    </button>
 
     <div class="sidebar-divider"></div>
     <div class="nav-label">Admin</div>
@@ -446,6 +450,64 @@
             <div class="empty-sub">Choose from the list to view visit history</div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MEDICINE LOOKUP PAGE ═══════════════ -->
+  <div class="page" id="page-medlookup">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Medicine <em>Lookup</em></div>
+        <div class="page-sub">Search a disease or condition to see suggested medicines</div>
+      </div>
+    </div>
+
+    <!-- Search / select input -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+          <label class="form-label">Type or select a condition</label>
+          <div style="position:relative;">
+            <input class="form-input" id="medLookupInput" placeholder="e.g. Hypertension, Diabetes…" oninput="onMedLookupInput(this.value)" autocomplete="off" style="padding-right:36px;">
+            <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-3);pointer-events:none;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
+            <!-- Dropdown suggestions -->
+            <div id="medLookupDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4);"></div>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">&nbsp;</label>
+          <select class="form-input form-select" id="medLookupSelect" onchange="lookupMedicine(this.value)" style="min-width:200px;">
+            <option value="">— or pick from list —</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearMedLookup()" style="margin-bottom:1px;">Clear</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="medLookupResult" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#e8c84a" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+        <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;">Treatment Suggestions —</span>
+        <span id="medLookupConditionLabel" style="font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);"></span>
+      </div>
+      <div class="med-grid" id="medLookupCards"></div>
+    </div>
+
+    <div id="medLookupEmpty" style="display:none;">
+      <div class="empty-state">
+        <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <div class="empty-title">No medicines listed</div>
+        <div class="empty-sub" id="medLookupEmptyLabel">This condition has no mapped medicines yet.</div>
+      </div>
+    </div>
+
+    <div id="medLookupPlaceholder">
+      <div class="empty-state">
+        <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+        <div class="empty-title">Start typing a condition</div>
+        <div class="empty-sub">Suggested medicines will appear here automatically</div>
       </div>
     </div>
   </div>
@@ -612,7 +674,12 @@
     <div class="form-group"><label class="form-label">Address</label><input class="form-input" id="pAddress" placeholder="e.g. Laoag City, Ilocos Norte"></div>
     <div class="form-group">
       <label class="form-label">Conditions (comma separated)</label>
-      <input class="form-input" id="pConditions" placeholder="e.g. Hypertension, Diabetes">
+      <input class="form-input" id="pConditions" placeholder="e.g. Hypertension, Diabetes" oninput="previewModalMeds(this.value)">
+    </div>
+    <!-- Live medicine preview -->
+    <div id="modalMedPreview" style="display:none;background:var(--surface2);border:1px solid rgba(232,200,74,0.18);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:4px;">
+      <div style="font-size:10.5px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">💊 Medicine Suggestions for entered conditions</div>
+      <div id="modalMedPreviewGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
       <button class="btn btn-ghost" onclick="document.getElementById('addPersonnelOverlay').classList.remove('open')">Cancel</button>
@@ -687,6 +754,7 @@
     if (name === 'reports') renderReports();
     if (name === 'settings') loadDepartments();
     if (name === 'visits') renderPersonPicker();
+    if (name === 'medlookup') initMedLookupPage();
   }
 
   // ── PERSONNEL ──
@@ -1142,6 +1210,89 @@
   };
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModalDirect(); document.getElementById('addPersonnelOverlay').classList.remove('open'); document.getElementById('addVisitOverlay').classList.remove('open'); document.getElementById('confirmOverlay').classList.remove('open'); } });
+
+  // ── MEDICINE LOOKUP PAGE ──
+  function initMedLookupPage() {
+    const sel = document.getElementById('medLookupSelect');
+    sel.innerHTML = '<option value="">— or pick from list —</option>' +
+      allConditionsList.map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
+  function onMedLookupInput(val) {
+    const dd = document.getElementById('medLookupDropdown');
+    const q = val.trim().toLowerCase();
+    if (!q) { dd.style.display = 'none'; clearMedLookup(); return; }
+    const matches = allConditionsList.filter(c => c.toLowerCase().includes(q));
+    if (!matches.length) { dd.style.display = 'none'; return; }
+    dd.style.display = 'block';
+    dd.innerHTML = matches.map(c =>
+      `<button onclick="selectMedLookup('${c}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:transparent;color:var(--text-2);font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;transition:background .1s;" onmouseover="this.style.background='var(--border)';this.style.color='var(--text)';" onmouseout="this.style.background='transparent';this.style.color='var(--text-2)';">${c}</button>`
+    ).join('');
+  }
+
+  function selectMedLookup(cond) {
+    document.getElementById('medLookupInput').value = cond;
+    document.getElementById('medLookupDropdown').style.display = 'none';
+    lookupMedicine(cond);
+  }
+
+  function lookupMedicine(cond) {
+    const result = document.getElementById('medLookupResult');
+    const empty = document.getElementById('medLookupEmpty');
+    const placeholder = document.getElementById('medLookupPlaceholder');
+    placeholder.style.display = 'none';
+    if (!cond) { result.style.display = 'none'; empty.style.display = 'none'; placeholder.style.display = ''; return; }
+    document.getElementById('medLookupSelect').value = cond;
+    if (MEDICINES[cond] && MEDICINES[cond].length) {
+      document.getElementById('medLookupConditionLabel').textContent = cond;
+      document.getElementById('medLookupCards').innerHTML = MEDICINES[cond].map(m =>
+        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn ? `<div class="med-warn">⚠ ${m.warn}</div>` : ''}</div>`
+      ).join('');
+      result.style.display = 'block';
+      empty.style.display = 'none';
+    } else {
+      document.getElementById('medLookupEmptyLabel').textContent = `"${cond}" has no mapped medicines yet.`;
+      result.style.display = 'none';
+      empty.style.display = 'block';
+    }
+  }
+
+  function clearMedLookup() {
+    document.getElementById('medLookupInput').value = '';
+    document.getElementById('medLookupSelect').value = '';
+    document.getElementById('medLookupDropdown').style.display = 'none';
+    document.getElementById('medLookupResult').style.display = 'none';
+    document.getElementById('medLookupEmpty').style.display = 'none';
+    document.getElementById('medLookupPlaceholder').style.display = '';
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', e => {
+    const dd = document.getElementById('medLookupDropdown');
+    if (dd && !e.target.closest('#medLookupInput') && !e.target.closest('#medLookupDropdown')) {
+      dd.style.display = 'none';
+    }
+  });
+
+  // ── MODAL LIVE MEDICINE PREVIEW ──
+  function previewModalMeds(val) {
+    const conditions = val.split(',').map(s => s.trim()).filter(Boolean);
+    const preview = document.getElementById('modalMedPreview');
+    const grid = document.getElementById('modalMedPreviewGrid');
+    const matches = conditions.filter(c => MEDICINES[c]);
+    if (!matches.length) { preview.style.display = 'none'; return; }
+    preview.style.display = 'block';
+    grid.innerHTML = matches.flatMap(c =>
+      MEDICINES[c].slice(0, 2).map(m =>
+        `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:9.5px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">${c}</div>
+          <div style="font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:3px;">${m.name}</div>
+          <div style="font-size:11px;color:var(--text-2);">${m.desc}</div>
+          ${m.warn ? `<div style="font-size:10.5px;color:var(--danger);margin-top:4px;">⚠ ${m.warn}</div>` : ''}
+        </div>`
+      )
+    ).join('');
+  }
 
   init();
 </script>
