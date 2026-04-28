@@ -1046,16 +1046,19 @@
     document.getElementById('rpt-normal').textContent = total - highRisk;
     document.getElementById('rpt-highrisk').textContent = highRisk;
 
-    // Visit count
-    try {
-      let visitCount = 0;
-      await Promise.all(allData.map(async p => {
-        const r = await fetch(`/personnel/${p.id}/visits`);
-        const v = await r.json();
-        visitCount += v.length;
-      }));
-      document.getElementById('rpt-visits').textContent = visitCount;
-    } catch(e) { document.getElementById('rpt-visits').textContent = '—'; }
+    // Visit count (non-blocking - runs in background)
+    document.getElementById('rpt-visits').textContent = '…';
+    (async () => {
+      try {
+        let visitCount = 0;
+        await Promise.all(allData.map(async p => {
+          const r = await fetch(`/personnel/${p.id}/visits`);
+          const v = await r.json();
+          visitCount += v.length;
+        }));
+        document.getElementById('rpt-visits').textContent = visitCount;
+      } catch(e) { document.getElementById('rpt-visits').textContent = '—'; }
+    })();
 
     // Conditions bar chart
     const condFreq = {};
@@ -1069,16 +1072,20 @@
     // Age chart
     const ageGroups = {'<30':0,'30-39':0,'40-49':0,'50-59':0,'60+':0};
     allData.forEach(p => {
-      if (!p.age) return;
-      if (p.age < 30) ageGroups['<30']++;
-      else if (p.age < 40) ageGroups['30-39']++;
-      else if (p.age < 50) ageGroups['40-49']++;
-      else if (p.age < 60) ageGroups['50-59']++;
+      const age = parseInt(p.age);
+      if (!age || isNaN(age) || age <= 0) return;
+      if (age < 30) ageGroups['<30']++;
+      else if (age < 40) ageGroups['30-39']++;
+      else if (age < 50) ageGroups['40-49']++;
+      else if (age < 60) ageGroups['50-59']++;
       else ageGroups['60+']++;
     });
-    if (ageChart) ageChart.destroy();
-    const tc = 'rgba(240,237,232,0.4)', gc = 'rgba(255,255,255,0.04)', cf = {family:'Figtree',size:11};
-    ageChart = new Chart(document.getElementById('ageChart'), { type:'bar', data:{ labels:Object.keys(ageGroups), datasets:[{ label:'Count', data:Object.values(ageGroups), backgroundColor:'rgba(91,164,212,0.7)', borderRadius:4 }] }, options:{ plugins:{legend:{display:false},tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'}}, scales:{x:{ticks:{color:tc,font:cf},grid:{color:gc}},y:{ticks:{color:tc,font:cf},grid:{color:gc}}} } });
+    try { if (ageChart) { ageChart.destroy(); ageChart = null; } } catch(e) {}
+    const tcA = 'rgba(240,237,232,0.4)', gcA = 'rgba(255,255,255,0.04)', cfA = {family:'Figtree',size:11};
+    const ageCanvas = document.getElementById('ageChart');
+    if (ageCanvas) {
+      ageChart = new Chart(ageCanvas, { type:'bar', data:{ labels:Object.keys(ageGroups), datasets:[{ label:'Count', data:Object.values(ageGroups), backgroundColor:'rgba(91,164,212,0.7)', borderRadius:4 }] }, options:{ plugins:{legend:{display:false},tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'}}, scales:{x:{ticks:{color:tcA,font:cfA},grid:{color:gcA}},y:{beginAtZero:true,ticks:{stepSize:1,color:tcA,font:cfA},grid:{color:gcA}}} } });
+    }
 
     // Dept risk chart
     const depts = [...new Set(allData.map(p=>p.department))].filter(Boolean);
