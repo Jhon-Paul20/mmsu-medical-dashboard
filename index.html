@@ -2,914 +2,255 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=1280"/>
-  <title>MMSU Medical · Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MMSU Health Records · Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:          #f4f6f4;
-      --surface:     #ffffff;
-      --surface-2:   #f9faf9;
-      --border:      rgba(14,26,19,0.08);
-      --border-2:    rgba(14,26,19,0.13);
-      --forest:      #14532d;
-      --forest-mid:  #166534;
-      --forest-dim:  rgba(20,83,45,0.08);
-      --forest-dim2: rgba(20,83,45,0.14);
-      --gold:        #ca8a04;
-      --gold-bg:     rgba(202,138,4,0.08);
-      --leaf:        #16a34a;
-      --leaf-bg:     rgba(22,163,74,0.09);
-      --blue:        #2563eb;
-      --blue-bg:     rgba(37,99,235,0.08);
-      --red:         #dc2626;
-      --red-bg:      rgba(220,38,38,0.08);
-      --amber:       #d97706;
-      --amber-bg:    rgba(217,119,6,0.09);
-      --text:        #0e1a13;
-      --text-2:      rgba(14,26,19,0.55);
-      --text-3:      rgba(14,26,19,0.35);
-      --sidebar-w:   264px;
-      --radius:      14px;
-      --radius-sm:   9px;
+      --bg:         #0a0f0d;
+      --surface:    #111a15;
+      --surface2:   #162019;
+      --border:     rgba(255,255,255,0.06);
+      --border2:    rgba(255,255,255,0.10);
+      --green:      #1a7a3c;
+      --green-dim:  #0f4a24;
+      --accent:     #e8c84a;
+      --accent2:    #f5dfa0;
+      --accent-dim: rgba(232,200,74,0.12);
+      --text:       #f0ede8;
+      --text-2:     rgba(240,237,232,0.55);
+      --text-3:     rgba(240,237,232,0.30);
+      --danger:     #e05555;
+      --danger-bg:  rgba(224,85,85,0.12);
+      --safe:       #4ec97a;
+      --safe-bg:    rgba(78,201,122,0.12);
+      --blue:       #5ba4d4;
+      --blue-bg:    rgba(91,164,212,0.12);
+      --pink:       #d47eb0;
+      --sidebar-w:  256px;
+      --radius:     14px;
+      --radius-sm:  8px;
     }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Figtree',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    /* ── SIDEBAR ── */
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;overflow:hidden;}
+    .sidebar::before{content:'';position:absolute;top:-60px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(232,200,74,0.07) 0%,transparent 70%);pointer-events:none;}
+    .sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-shrink:0;}
+    .logo-mark{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#c9a82e);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 16px rgba(232,200,74,0.25);}
+    .logo-mark svg{width:20px;height:20px;}
+    .logo-title{font-family:'Instrument Serif',serif;font-size:15px;color:var(--text);line-height:1.2;}
+    .logo-sub{font-size:10.5px;color:var(--text-3);margin-top:2px;letter-spacing:.04em;}
+    .sidebar-nav{padding:16px 12px;flex:1;overflow-y:auto;overflow-x:hidden;}
+    .sidebar-nav::-webkit-scrollbar{width:3px;}
+    .sidebar-nav::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+    .nav-label{font-size:9.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;padding:10px 10px 4px;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);border:none;background:transparent;color:var(--text-2);font-size:13px;font-family:'Figtree',sans-serif;font-weight:400;cursor:pointer;width:100%;text-align:left;margin-bottom:1px;transition:all .15s ease;position:relative;}
+    .nav-item:hover{background:var(--border);color:var(--text);}
+    .nav-item.active{background:var(--accent-dim);color:var(--accent);font-weight:500;}
+    .nav-item.active::before{content:'';position:absolute;left:0;top:25%;bottom:25%;width:2px;background:var(--accent);border-radius:4px;}
+    .nav-icon{width:18px;height:18px;opacity:.8;flex-shrink:0;}
+    .nav-item.active .nav-icon{opacity:1;}
+    .sidebar-divider{height:1px;background:var(--border);margin:12px 10px;}
+    .sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);flex-shrink:0;}
 
-    body {
-      font-family: 'Sora', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+    /* ── MAIN ── */
+    .main{margin-left:var(--sidebar-w);padding:32px 36px;min-height:100vh;}
+    .page{display:none;}
+    .page.active{display:block;}
 
-    /* ─── SIDEBAR ─────────────────────────────────── */
-    .sidebar {
-      position: fixed;
-      left: 0; top: 0; bottom: 0;
-      width: var(--sidebar-w);
-      background: var(--forest);
-      display: flex;
-      flex-direction: column;
-      z-index: 100;
-    }
+    /* ── TOPBAR ── */
+    .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;}
+    .page-heading{font-family:'Instrument Serif',serif;font-size:30px;color:var(--text);line-height:1.1;}
+    .page-heading em{font-style:italic;color:var(--accent);}
+    .page-sub{font-size:13px;color:var(--text-2);margin-top:5px;}
+    .topbar-right{display:flex;align-items:center;gap:10px;padding-top:4px;}
+    .status-pill{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text-2);}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:var(--safe);box-shadow:0 0 8px var(--safe);animation:pulse-dot 2s ease-in-out infinite;}
+    @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.4;}}
 
-    .sidebar-logo {
-      padding: 26px 22px 22px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-shrink: 0;
-    }
+    /* ── BUTTONS ── */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);border:none;font-size:13px;font-family:'Figtree',sans-serif;font-weight:500;cursor:pointer;transition:all .15s;}
+    .btn-primary{background:var(--accent);color:#0a0f0d;}
+    .btn-primary:hover{background:var(--accent2);}
+    .btn-ghost{background:transparent;color:var(--text-2);border:1px solid var(--border);}
+    .btn-ghost:hover{background:var(--border);color:var(--text);}
+    .btn-danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,.2);}
+    .btn-danger:hover{background:rgba(224,85,85,.22);}
+    .btn-sm{padding:5px 12px;font-size:12px;}
 
-    .logo-mark {
-      width: 38px; height: 38px;
-      background: #ca8a04;
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .logo-mark svg { width: 19px; height: 19px; }
+    /* ── KPI CARDS ── */
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+    .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s;}
+    .kpi-card:hover{border-color:var(--border2);transform:translateY(-1px);}
+    .kpi-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.3;}
+    .kpi-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:16px;}
+    .kpi-icon.gold{background:var(--accent-dim);}
+    .kpi-icon.blue{background:rgba(91,164,212,.12);}
+    .kpi-icon.pink{background:rgba(212,126,176,.12);}
+    .kpi-icon.green{background:rgba(78,201,122,.12);}
+    .kpi-label{font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+    .kpi-value{font-family:'Instrument Serif',serif;font-size:34px;color:var(--text);line-height:1;}
+    .kpi-sub{font-size:11.5px;color:var(--text-3);margin-top:5px;}
 
-    .logo-info {}
-    .logo-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 15px;
-      color: #fff;
-      line-height: 1.2;
-    }
-    .logo-sub {
-      font-size: 10px;
-      color: rgba(255,255,255,0.38);
-      margin-top: 2px;
-      letter-spacing: 0.03em;
-    }
+    /* ── CHARTS ── */
+    .charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:24px;}
+    .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+    .chart-card.wide{grid-column:1/3;}
+    .chart-label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;}
+    .chart-title-text{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);margin-bottom:18px;}
+    canvas{max-height:200px;}
 
-    .sidebar-nav {
-      padding: 18px 12px;
-      flex: 1;
-      overflow-y: auto;
-    }
-    .sidebar-nav::-webkit-scrollbar { width: 3px; }
-    .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 8px; }
+    /* ── MED PANEL ── */
+    .med-panel{display:none;background:var(--surface2);border:1px solid rgba(232,200,74,.2);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px;animation:slideIn .25s ease;}
+    .med-panel.visible{display:block;}
+    @keyframes slideIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+    .med-panel-head{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+    .med-panel-title{font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;}
+    .med-panel-cond{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);margin-left:4px;}
+    .med-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+    .med-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:border-color .15s;}
+    .med-card:hover{border-color:rgba(232,200,74,.25);}
+    .med-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+    .med-desc{font-size:11.5px;color:var(--text-2);line-height:1.5;}
+    .med-warn{font-size:11px;color:var(--danger);margin-top:6px;display:flex;align-items:center;gap:4px;}
 
-    .nav-section-label {
-      font-size: 9.5px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.30);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      padding: 12px 10px 6px;
-    }
+    /* ── TABLE ── */
+    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+    .table-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);}
+    .table-title{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;}
+    .table-count{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);margin-top:2px;}
+    .table-actions{display:flex;align-items:center;gap:10px;}
+    .table-search{padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;font-family:'Figtree',sans-serif;outline:none;width:200px;transition:border-color .15s;}
+    .table-search::placeholder{color:var(--text-3);}
+    .table-search:focus{border-color:rgba(232,200,74,.3);}
+    .active-filter{font-size:11.5px;padding:5px 12px;background:var(--accent-dim);color:var(--accent);border-radius:20px;font-weight:500;}
+    table{width:100%;border-collapse:collapse;}
+    thead tr{border-bottom:1px solid var(--border);}
+    thead th{padding:10px 18px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:rgba(255,255,255,.025);}
+    tbody td{padding:13px 18px;font-size:13px;color:var(--text-2);}
+    td.name-col{font-weight:500;color:var(--text);}
+    .blood-badge{font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-dim);padding:2px 8px;border-radius:5px;}
+    .conditions-cell{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+    .risk-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+    .risk-tag.high{background:var(--danger-bg);color:var(--danger);}
+    .risk-tag.normal{background:var(--safe-bg);color:var(--safe);}
 
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      border-radius: 8px;
-      border: none;
-      background: transparent;
-      color: rgba(255,255,255,0.55);
-      font-size: 13px;
-      font-family: 'Sora', sans-serif;
-      font-weight: 400;
-      cursor: pointer;
-      width: 100%;
-      text-align: left;
-      margin-bottom: 2px;
-      transition: all 0.15s;
-      position: relative;
-    }
-    .nav-item:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.90); }
-    .nav-item.active { background: rgba(255,255,255,0.12); color: #fff; font-weight: 500; }
+    /* ── FORM ELEMENTS ── */
+    .form-group{margin-bottom:16px;}
+    .form-label{display:block;font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+    .form-input{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13.5px;font-family:'Figtree',sans-serif;outline:none;transition:border-color .15s;}
+    .form-input:focus{border-color:rgba(232,200,74,.35);}
+    .form-input::placeholder{color:var(--text-3);}
+    .form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(240,237,232,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+    textarea.form-input{resize:vertical;min-height:80px;}
 
-    .nav-icon {
-      width: 17px; height: 17px;
-      flex-shrink: 0;
-      opacity: 0.75;
-    }
-    .nav-item.active .nav-icon,
-    .nav-item:hover .nav-icon { opacity: 1; }
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;}
+    .modal-overlay.open{opacity:1;pointer-events:all;}
+    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:18px;width:560px;max-width:90vw;max-height:88vh;overflow-y:auto;padding:32px;position:relative;transform:scale(.96) translateY(10px);transition:transform .2s ease;box-shadow:0 32px 80px rgba(0,0,0,.6);}
+    .modal-overlay.open .modal{transform:scale(1) translateY(0);}
+    .modal::-webkit-scrollbar{width:4px;}
+    .modal::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+    .modal-close{position:absolute;top:20px;right:20px;width:30px;height:30px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);font-size:16px;transition:all .15s;}
+    .modal-close:hover{background:var(--border);color:var(--text);}
+    .modal-avatar{width:56px;height:56px;background:linear-gradient(135deg,var(--green-dim),var(--green));border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:22px;color:var(--accent);margin-bottom:14px;box-shadow:0 8px 24px rgba(26,122,60,.25);}
+    .modal-name{font-family:'Instrument Serif',serif;font-size:22px;color:var(--text);margin-bottom:2px;}
+    .modal-dept{font-size:12.5px;color:var(--text-2);margin-bottom:20px;}
+    .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+    .modal-field{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+    .modal-field-label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;}
+    .modal-field-val{font-size:14px;font-weight:600;color:var(--text);}
+    .modal-section-title{font-size:10.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px;margin-top:20px;}
+    .pills-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;}
+    .pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;background:var(--surface2);border:1px solid var(--border);color:var(--text-2);}
+    .pill.high{background:var(--danger-bg);border-color:rgba(224,85,85,.2);color:var(--danger);}
+    .modal-meds-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .modal-med-card{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;}
+    .modal-med-cond-label{font-size:9.5px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+    .modal-med-name{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:3px;}
+    .modal-med-desc{font-size:11px;color:var(--text-2);}
 
-    .sidebar-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 10px 10px; }
+    /* ── EMPTY STATE ── */
+    .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;gap:10px;}
+    .empty-icon{width:52px;height:52px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;}
+    .empty-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text-2);}
+    .empty-sub{font-size:12.5px;color:var(--text-3);}
 
-    /* Condition filter list */
-    .cond-search-wrap {
-      position: relative;
-      padding: 4px 2px 8px;
-    }
-    .cond-search-wrap svg {
-      position: absolute;
-      left: 12px; top: 50%;
-      transform: translateY(-55%);
-      width: 13px; height: 13px;
-      color: rgba(255,255,255,0.30);
-    }
-    .cond-search {
-      width: 100%;
-      padding: 8px 10px 8px 32px;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 7px;
-      color: rgba(255,255,255,0.85);
-      font-size: 12px;
-      font-family: 'Sora', sans-serif;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .cond-search::placeholder { color: rgba(255,255,255,0.28); }
-    .cond-search:focus { border-color: rgba(255,255,255,0.25); }
+    /* ── TOAST ── */
+    .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;transition:all .3s ease;z-index:300;display:flex;align-items:center;gap:8px;}
+    .toast.show{transform:translateY(0);opacity:1;}
+    .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--safe);}
+    .toast.error .toast-dot{background:var(--danger);}
 
-    .cond-btn {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding: 7px 12px;
-      border-radius: 7px;
-      border: none;
-      background: transparent;
-      color: rgba(255,255,255,0.50);
-      font-size: 12.5px;
-      font-family: 'Sora', sans-serif;
-      cursor: pointer;
-      transition: all 0.12s;
-      text-align: left;
-      margin-bottom: 1px;
-    }
-    .cond-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); }
-    .cond-btn.active { background: rgba(255,255,255,0.13); color: #fff; font-weight: 500; }
-    .cond-dot {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: currentColor;
-      opacity: 0.4;
-      flex-shrink: 0;
-    }
-    .cond-btn.active .cond-dot { opacity: 1; }
+    /* ── VISITS ── */
+    .visit-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;}
+    .visit-date{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+    .visit-reason{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+    .visit-notes{font-size:12px;color:var(--text-2);line-height:1.5;}
 
-    .sidebar-footer {
-      padding: 16px 14px;
-      border-top: 1px solid rgba(255,255,255,0.07);
-      flex-shrink: 0;
-    }
-    .footer-user {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .footer-avatar {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.12);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.85);
-      flex-shrink: 0;
-    }
-    .footer-name {
-      font-size: 13px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.80);
-    }
-    .footer-role {
-      font-size: 11px;
-      color: rgba(255,255,255,0.35);
-    }
-    .btn-signout {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 12px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: transparent;
-      color: rgba(255,255,255,0.45);
-      font-size: 12.5px;
-      font-family: 'Sora', sans-serif;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .btn-signout:hover {
-      background: rgba(220,38,38,0.15);
-      border-color: rgba(220,38,38,0.25);
-      color: #fca5a5;
-    }
+    /* ── SETTINGS SECTION ── */
+    .settings-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;}
+    .settings-title{font-family:'Instrument Serif',serif;font-size:18px;color:var(--text);margin-bottom:4px;}
+    .settings-desc{font-size:12.5px;color:var(--text-2);margin-bottom:20px;}
+    .dept-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;}
+    .dept-name{font-size:13px;font-weight:500;color:var(--text);}
 
-    /* ─── MAIN ────────────────────────────────────── */
-    .main {
-      margin-left: var(--sidebar-w);
-      padding: 36px 40px;
-      min-height: 100vh;
-    }
+    /* ── AUDIT LOG ── */
+    .audit-item{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);}
+    .audit-item:last-child{border-bottom:none;}
+    .audit-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+    .audit-icon.login{background:var(--safe-bg);}
+    .audit-icon.logout{background:var(--blue-bg);}
+    .audit-icon.add{background:var(--accent-dim);}
+    .audit-icon.delete{background:var(--danger-bg);}
+    .audit-icon.export{background:rgba(212,126,176,.12);}
+    .audit-icon.other{background:var(--surface2);}
+    .audit-action{font-size:13px;font-weight:500;color:var(--text);}
+    .audit-detail{font-size:12px;color:var(--text-2);margin-top:2px;}
+    .audit-time{font-size:11px;color:var(--text-3);flex-shrink:0;margin-top:2px;}
 
-    /* Top bar */
-    .topbar {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: 32px;
-    }
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar{width:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
 
-    .page-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 28px;
-      color: var(--text);
-      line-height: 1.15;
-    }
-    .page-title em { font-style: italic; color: var(--forest-mid); }
-    .page-sub {
-      font-size: 13px;
-      color: var(--text-3);
-      margin-top: 5px;
-    }
+    /* ── ANIM ── */
+    .fade-in{opacity:0;animation:fadeUp .4s ease forwards;}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    .kpi-card:nth-child(1){animation-delay:.05s;}
+    .kpi-card:nth-child(2){animation-delay:.1s;}
+    .kpi-card:nth-child(3){animation-delay:.15s;}
+    .kpi-card:nth-child(4){animation-delay:.2s;}
 
-    .topbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    /* ── COND SIDEBAR ── */
+    .cond-search-wrap{padding:4px 4px 8px;position:relative;}
+    .cond-search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-60%);width:13px;height:13px;color:var(--text-3);}
+    .cond-search{width:100%;padding:8px 10px 8px 32px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12px;font-family:'Figtree',sans-serif;outline:none;transition:border-color .15s;}
+    .cond-search::placeholder{color:var(--text-3);}
+    .cond-search:focus{border-color:rgba(232,200,74,.3);}
+    .cond-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 12px;border-radius:6px;border:none;background:transparent;color:var(--text-2);font-size:12.5px;font-family:'Figtree',sans-serif;cursor:pointer;transition:all .12s;text-align:left;}
+    .cond-btn:hover{background:var(--border);color:var(--text);}
+    .cond-btn.active{background:var(--accent-dim);color:var(--accent);font-weight:500;}
+    .cond-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0;}
+    .cond-btn.active .cond-dot{opacity:1;}
 
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 8px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      font-size: 12.5px;
-      color: var(--text-2);
-    }
-    .status-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--leaf);
-      animation: blink 2s ease-in-out infinite;
-    }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-    .btn-add {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 9px 18px;
-      background: var(--forest);
-      color: #fff;
-      border: none;
-      border-radius: 9px;
-      font-size: 13px;
-      font-family: 'Sora', sans-serif;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .btn-add:hover { background: var(--forest-mid); }
-
-    .btn-upload {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 9px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border-2);
-      border-radius: 9px;
-      font-size: 13px;
-      font-family: 'Sora', sans-serif;
-      color: var(--text-2);
-      cursor: pointer;
-      transition: all 0.15s;
-      position: relative;
-    }
-    .btn-upload:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-2); }
-    #csvInput { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-
-    /* ─── KPI CARDS ─────────────────────────────── */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4,1fr);
-      gap: 14px;
-      margin-bottom: 28px;
-    }
-
-    .kpi-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      transition: box-shadow 0.2s, transform 0.2s;
-      opacity: 0;
-      animation: fadeUp 0.4s ease forwards;
-    }
-    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(14,26,19,0.07); }
-    .kpi-card:nth-child(1){animation-delay:0.05s}
-    .kpi-card:nth-child(2){animation-delay:0.10s}
-    .kpi-card:nth-child(3){animation-delay:0.15s}
-    .kpi-card:nth-child(4){animation-delay:0.20s}
-
-    @keyframes fadeUp {
-      from { opacity:0; transform:translateY(10px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-
-    .kpi-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .kpi-icon {
-      width: 36px; height: 36px;
-      border-radius: 9px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .kpi-icon svg { width: 18px; height: 18px; }
-    .kpi-icon.green  { background: var(--leaf-bg); color: var(--leaf); }
-    .kpi-icon.gold   { background: var(--gold-bg); color: var(--gold); }
-    .kpi-icon.blue   { background: var(--blue-bg); color: var(--blue); }
-    .kpi-icon.red    { background: var(--red-bg);  color: var(--red); }
-    .kpi-icon.forest { background: var(--forest-dim); color: var(--forest); }
-
-    .kpi-label {
-      font-size: 11.5px;
-      color: var(--text-3);
-      font-weight: 400;
-    }
-    .kpi-value {
-      font-family: 'Playfair Display', serif;
-      font-size: 32px;
-      color: var(--text);
-      line-height: 1;
-    }
-    .kpi-sub {
-      font-size: 11.5px;
-      color: var(--text-3);
-    }
-
-    /* ─── MEDICINE PANEL ─────────────────────────── */
-    .med-panel {
-      display: none;
-      background: var(--surface);
-      border: 1px solid rgba(202,138,4,0.20);
-      border-top: 3px solid var(--gold);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      margin-bottom: 24px;
-      animation: slideDown 0.22s ease;
-    }
-    .med-panel.visible { display: block; }
-    @keyframes slideDown {
-      from { opacity:0; transform:translateY(-6px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    .med-panel-head {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .med-panel-label {
-      font-size: 10.5px;
-      font-weight: 500;
-      color: var(--gold);
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-    }
-    .med-panel-cond {
-      font-family: 'Playfair Display', serif;
-      font-size: 16px;
-      color: var(--text);
-    }
-    .med-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(190px,1fr));
-      gap: 10px;
-    }
-    .med-card {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 16px;
-      transition: border-color 0.15s;
-    }
-    .med-card:hover { border-color: rgba(202,138,4,0.25); }
-    .med-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
-    .med-desc { font-size: 12px; color: var(--text-2); line-height: 1.5; }
-    .med-warn { font-size: 11.5px; color: var(--amber); margin-top: 6px; display: flex; align-items: center; gap: 5px; }
-
-    /* ─── CHARTS ─────────────────────────────────── */
-    .charts-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 14px;
-      margin-bottom: 28px;
-    }
-    .chart-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px 22px;
-    }
-    .chart-eyebrow {
-      font-size: 10.5px;
-      font-weight: 500;
-      color: var(--text-3);
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-      margin-bottom: 3px;
-    }
-    .chart-heading {
-      font-family: 'Playfair Display', serif;
-      font-size: 15px;
-      color: var(--text);
-      margin-bottom: 18px;
-    }
-    canvas { max-height: 200px; }
-
-    .charts-right {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .chart-card-sm {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px 22px;
-      flex: 1;
-    }
-
-    .charts-bottom {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-bottom: 28px;
-    }
-
-    /* ─── TABLE ─────────────────────────────────── */
-    .table-wrap {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-bottom: 40px;
-    }
-
-    .table-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 18px 22px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .table-title {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-3);
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-    }
-    .table-count {
-      font-family: 'Playfair Display', serif;
-      font-size: 18px;
-      color: var(--text);
-      margin-top: 2px;
-    }
-
-    .table-controls {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .filter-badge {
-      font-size: 12px;
-      padding: 5px 12px;
-      background: var(--forest-dim);
-      color: var(--forest);
-      border-radius: 999px;
-      font-weight: 500;
-    }
-
-    .search-wrap {
-      position: relative;
-    }
-    .search-wrap svg {
-      position: absolute;
-      left: 11px; top: 50%;
-      transform: translateY(-50%);
-      width: 14px; height: 14px;
-      color: var(--text-3);
-      pointer-events: none;
-    }
-    .table-search {
-      padding: 8px 12px 8px 34px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 13px;
-      font-family: 'Sora', sans-serif;
-      outline: none;
-      width: 210px;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .table-search::placeholder { color: var(--text-3); }
-    .table-search:focus { border-color: var(--forest-mid); box-shadow: 0 0 0 3px var(--forest-dim); }
-
-    table { width: 100%; border-collapse: collapse; }
-
-    thead th {
-      padding: 10px 20px;
-      text-align: left;
-      font-size: 10.5px;
-      font-weight: 500;
-      color: var(--text-3);
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface-2);
-      white-space: nowrap;
-    }
-
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.12s;
-    }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: var(--forest-dim); }
-
-    tbody td { padding: 13px 20px; font-size: 13px; color: var(--text-2); }
-
-    .name-cell {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .row-avatar {
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      background: var(--forest-dim);
-      color: var(--forest);
-      font-size: 11px;
-      font-weight: 600;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .row-name { font-weight: 500; color: var(--text); }
-
-    .blood-badge {
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--gold);
-      background: var(--gold-bg);
-      padding: 2px 9px;
-      border-radius: 5px;
-    }
-
-    .conditions-cell {
-      max-width: 200px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 12.5px;
-    }
-
-    .risk-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 500;
-    }
-    .risk-tag.high { background: var(--red-bg); color: var(--red); }
-    .risk-tag.normal { background: var(--leaf-bg); color: var(--leaf); }
-
-    .delete-btn {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      color: var(--text-3);
-      padding: 4px;
-      border-radius: 5px;
-      display: flex; align-items: center;
-      transition: color 0.15s, background 0.15s;
-    }
-    .delete-btn:hover { color: var(--red); background: var(--red-bg); }
-
-    /* ─── EMPTY STATE ────────────────────────────── */
-    .empty-state {
-      padding: 60px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-    .empty-icon {
-      width: 48px; height: 48px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 4px;
-      color: var(--text-3);
-    }
-    .empty-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 16px;
-      color: var(--text-2);
-    }
-    .empty-sub { font-size: 12.5px; color: var(--text-3); }
-
-    /* ─── MODAL ─────────────────────────────────── */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(14,26,19,0.45);
-      backdrop-filter: blur(4px);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 200;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s;
-    }
-    .modal-overlay.open { opacity:1; pointer-events:all; }
-
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border-2);
-      border-radius: 18px;
-      width: 520px;
-      max-width: 92vw;
-      max-height: 88vh;
-      overflow-y: auto;
-      padding: 32px;
-      position: relative;
-      transform: scale(0.96) translateY(12px);
-      transition: transform 0.2s ease;
-      box-shadow: 0 24px 64px rgba(14,26,19,0.15);
-    }
-    .modal-overlay.open .modal { transform: scale(1) translateY(0); }
-    .modal::-webkit-scrollbar { width: 4px; }
-    .modal::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 8px; }
-
-    .modal-close {
-      position: absolute; top: 18px; right: 18px;
-      width: 28px; height: 28px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text-2);
-      font-size: 14px;
-      transition: all 0.15s;
-    }
-    .modal-close:hover { background: var(--red-bg); color: var(--red); border-color: transparent; }
-
-    .modal-avatar {
-      width: 54px; height: 54px;
-      background: var(--forest-dim2);
-      border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Playfair Display', serif;
-      font-size: 20px;
-      color: var(--forest);
-      margin-bottom: 14px;
-    }
-    .modal-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 22px;
-      color: var(--text);
-      margin-bottom: 3px;
-    }
-    .modal-dept { font-size: 13px; color: var(--text-3); margin-bottom: 22px; }
-
-    .modal-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px;
-    }
-    .modal-field {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 13px 15px;
-    }
-    .modal-field-label { font-size: 10px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 5px; }
-    .modal-field-val { font-size: 14px; font-weight: 500; color: var(--text); }
-
-    .section-label { font-size: 10.5px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 10px; }
-
-    .pills-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 22px; }
-    .pill {
-      padding: 4px 12px;
-      border-radius: 999px;
-      font-size: 12.5px;
-      font-weight: 400;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      color: var(--text-2);
-    }
-    .pill.high { background: var(--red-bg); border-color: rgba(220,38,38,0.18); color: var(--red); }
-
-    .modal-meds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .modal-med-card {
-      background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 12px 14px;
-    }
-    .modal-med-cond { font-size: 9.5px; font-weight: 500; color: var(--gold); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 5px; }
-    .modal-med-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
-    .modal-med-desc { font-size: 11.5px; color: var(--text-2); line-height: 1.5; }
-
-    /* ─── ADD FORM MODAL ─────────────────────────── */
-    .form-field { margin-bottom: 16px; }
-    .form-label {
-      display: block;
-      font-size: 11.5px;
-      font-weight: 500;
-      color: var(--text-2);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 6px;
-    }
-    .form-input {
-      width: 100%;
-      padding: 11px 14px;
-      background: var(--surface-2);
-      border: 1.5px solid var(--border);
-      border-radius: 9px;
-      font-size: 13.5px;
-      font-family: 'Sora', sans-serif;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .form-input:focus { border-color: var(--forest-mid); box-shadow: 0 0 0 3px var(--forest-dim); }
-    .form-input::placeholder { color: var(--text-3); }
-    .form-input option { background: #fff; }
-
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-    .btn-submit {
-      width: 100%;
-      padding: 12px;
-      background: var(--forest);
-      color: #fff;
-      border: none;
-      border-radius: 9px;
-      font-size: 13.5px;
-      font-weight: 500;
-      font-family: 'Sora', sans-serif;
-      cursor: pointer;
-      margin-top: 6px;
-      transition: background 0.15s;
-    }
-    .btn-submit:hover { background: var(--forest-mid); }
-
-    .conditions-tags {
-      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
-    }
-    .cond-tag {
-      display: flex; align-items: center; gap: 5px;
-      padding: 4px 10px;
-      background: var(--forest-dim);
-      color: var(--forest);
-      border-radius: 999px;
-      font-size: 12px;
-    }
-    .cond-tag button {
-      background: none; border: none; cursor: pointer;
-      color: var(--forest); font-size: 13px; line-height: 1;
-      padding: 0; display: flex; align-items: center;
-    }
-
-    /* ─── CONFIRM MODAL ─────────────────────────── */
-    .confirm-icon {
-      width: 48px; height: 48px;
-      background: var(--red-bg);
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--red);
-      margin: 0 auto 16px;
-    }
-    .confirm-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 20px;
-      color: var(--text);
-      text-align: center;
-      margin-bottom: 8px;
-    }
-    .confirm-body {
-      font-size: 13.5px;
-      color: var(--text-2);
-      text-align: center;
-      line-height: 1.65;
-      margin-bottom: 24px;
-    }
-    .confirm-actions {
-      display: flex; gap: 10px;
-    }
-    .btn-cancel {
-      flex: 1;
-      padding: 11px;
-      border: 1px solid var(--border-2);
-      background: transparent;
-      border-radius: 9px;
-      font-size: 13.5px;
-      font-family: 'Sora', sans-serif;
-      color: var(--text-2);
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .btn-cancel:hover { background: var(--surface-2); }
-    .btn-danger {
-      flex: 1;
-      padding: 11px;
-      border: none;
-      background: var(--red);
-      border-radius: 9px;
-      font-size: 13.5px;
-      font-family: 'Sora', sans-serif;
-      font-weight: 500;
-      color: #fff;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-    .btn-danger:hover { opacity: 0.88; }
-
-    /* ─── TOAST ─────────────────────────────────── */
-    .toast {
-      position: fixed;
-      bottom: 24px; right: 24px;
-      background: var(--text);
-      border-radius: 10px;
-      padding: 12px 18px;
-      font-size: 13px;
-      color: #fff;
-      display: flex; align-items: center; gap: 9px;
-      transform: translateY(80px);
-      opacity: 0;
-      transition: all 0.3s ease;
-      z-index: 400;
-    }
-    .toast.show { transform: translateY(0); opacity: 1; }
-    .toast-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--leaf); flex-shrink: 0; }
-
-    /* ─── SCROLLBAR ─────────────────────────────── */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 8px; }
+    /* ── REPORTS ── */
+    .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
+    .report-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;}
+    .report-card.wide{grid-column:1/-1;}
+    .conditions-bar{margin-bottom:10px;}
+    .cbar-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:5px;}
+    .cbar-track{height:6px;background:var(--surface2);border-radius:10px;overflow:hidden;}
+    .cbar-fill{height:100%;border-radius:10px;background:var(--accent);transition:width .6s ease;}
   </style>
 </head>
 <body>
@@ -918,62 +259,59 @@
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
-      <svg viewBox="0 0 22 22" fill="none">
-        <path d="M11 3v16M3 11h16" stroke="#0e1a13" stroke-width="2.8" stroke-linecap="round"/>
-      </svg>
+      <svg viewBox="0 0 20 20" fill="none"><path d="M10 2v16M2 10h16" stroke="#0a0f0d" stroke-width="2.5" stroke-linecap="round"/></svg>
     </div>
-    <div class="logo-info">
+    <div>
       <div class="logo-title">MMSU Medical</div>
       <div class="logo-sub">Health Records System</div>
     </div>
   </div>
 
   <nav class="sidebar-nav">
-    <div class="nav-section-label">Navigation</div>
-    <button class="nav-item active" onclick="scrollTo({top:0,behavior:'smooth'})">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-        <rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/>
-        <rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/>
-      </svg>
+    <div class="nav-label">Main</div>
+    <button class="nav-item active" onclick="showPage('overview',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="7" height="7" rx="2"/><rect x="11" y="2" width="7" height="7" rx="2"/><rect x="2" y="11" width="7" height="7" rx="2"/><rect x="11" y="11" width="7" height="7" rx="2"/></svg>
       Overview
     </button>
-    <button class="nav-item" onclick="document.querySelector('.table-wrap').scrollIntoView({behavior:'smooth'})">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M3 5h14M3 10h14M3 15h14"/>
-      </svg>
+    <button class="nav-item" onclick="showPage('personnel',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.31 2.69-6 6-6s6 2.69 6 6"/><circle cx="16" cy="7" r="2"/><path d="M16 12c1.66 0 3 1.34 3 3"/></svg>
       Personnel
     </button>
-    <button class="nav-item" onclick="document.querySelector('.charts-grid').scrollIntoView({behavior:'smooth'})">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M3 14l4-5 4 3 4-7 3 2v7H3z"/>
-      </svg>
-      Analytics
+    <button class="nav-item" onclick="showPage('visits',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M3 8h14M8 4V2M12 4V2"/></svg>
+      Patient Visits
+    </button>
+    <button class="nav-item" onclick="showPage('reports',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16V8l4-3 4 4 4-6 4 2v11H2z"/></svg>
+      Reports & Analytics
     </button>
 
     <div class="sidebar-divider"></div>
-    <div class="nav-section-label">Filter by Condition</div>
+    <div class="nav-label">Admin</div>
+    <button class="nav-item" onclick="showPage('settings',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"/></svg>
+      System Settings
+    </button>
+    <button class="nav-item" onclick="showPage('audit',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6M9 16h6M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2z"/><path d="M5 7H3a2 2 0 00-2 2v8a2 2 0 002 2h4"/></svg>
+      Audit Log
+    </button>
 
+    <div class="sidebar-divider"></div>
+    <div class="nav-label">Filter by Condition</div>
     <div class="cond-search-wrap">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-        <circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/>
-      </svg>
-      <input class="cond-search" type="text" id="conditionSearch" placeholder="Search condition…" oninput="searchCondition()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
+      <input class="cond-search" type="text" placeholder="Search condition…" oninput="searchCondition(this.value)">
     </div>
     <div id="conditionList"></div>
   </nav>
 
   <div class="sidebar-footer">
-    <div class="footer-user">
-      <div class="footer-avatar" id="avatarInitials">A</div>
-      <div>
-        <div class="footer-name" id="loggedInUser">Admin</div>
-        <div class="footer-role">System Administrator</div>
-      </div>
+    <div style="font-size:12px;color:var(--text-3);margin-bottom:10px;padding:0 2px;">
+      Logged in as <span style="color:var(--accent);font-weight:500;" id="loggedInUser">admin</span>
     </div>
-    <button class="btn-signout" onclick="handleLogout()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-      </svg>
+    <button onclick="handleLogout()" class="btn btn-ghost" style="width:100%;justify-content:center;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       Sign Out
     </button>
   </div>
@@ -982,705 +320,830 @@
 <!-- ── MAIN ── -->
 <main class="main">
 
-  <div class="topbar">
-    <div>
-      <div class="page-title">Personnel <em>Health</em> Records</div>
-      <div class="page-sub" id="activeFilterLabel">Loading records…</div>
-    </div>
-    <div class="topbar-actions">
-      <div class="status-badge">
-        <div class="status-dot"></div>
-        System Online
-      </div>
-      <button class="btn-upload" onclick="void(0)">
-        <input type="file" id="csvInput" accept=".csv" onchange="requestUpload(this.files[0])">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-        </svg>
-        Import CSV
-      </button>
-      <button class="btn-add" onclick="openAddModal()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        Add Personnel
-      </button>
-    </div>
-  </div>
-
-  <!-- KPI Cards -->
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-label">Total Personnel</div>
-        <div class="kpi-icon forest">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-          </svg>
-        </div>
-      </div>
-      <div class="kpi-value" id="totalRecords">—</div>
-      <div class="kpi-sub">Active records in database</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-label">Most Common Blood Type</div>
-        <div class="kpi-icon red">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M12 2C8 9 5 14 5 17a7 7 0 0014 0c0-3-3-8-7-15z"/>
-          </svg>
-        </div>
-      </div>
-      <div class="kpi-value" id="commonBloodType">—</div>
-      <div class="kpi-sub">Most frequent type</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-label">Male Personnel</div>
-        <div class="kpi-icon blue">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="10" cy="14" r="6"/>
-            <line x1="16" y1="2" x2="22" y2="8"/><line x1="17" y1="2" x2="22" y2="2"/><line x1="22" y1="7" x2="22" y2="2"/>
-          </svg>
-        </div>
-      </div>
-      <div class="kpi-value" id="malePercent">—</div>
-      <div class="kpi-sub">Of total personnel</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-label">Female Personnel</div>
-        <div class="kpi-icon gold">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="12" cy="8" r="6"/>
-            <line x1="12" y1="14" x2="12" y2="22"/>
-            <line x1="9" y1="19" x2="15" y2="19"/>
-          </svg>
-        </div>
-      </div>
-      <div class="kpi-value" id="femalePercent">—</div>
-      <div class="kpi-sub">Of total personnel</div>
-    </div>
-  </div>
-
-  <!-- Medicine Panel -->
-  <div class="med-panel" id="medPanel">
-    <div class="med-panel-head">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="1.8">
-        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0016.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 002 8.5c0 2.3 1.5 4.05 3 5.5l7 7 7-7z"/>
-      </svg>
-      <div class="med-panel-label">Treatment suggestions —</div>
-      <div class="med-panel-cond" id="medPanelCondition"></div>
-    </div>
-    <div class="med-grid" id="medGrid"></div>
-  </div>
-
-  <!-- Charts -->
-  <div class="charts-grid">
-    <div class="chart-card">
-      <div class="chart-eyebrow">Distribution</div>
-      <div class="chart-heading">Blood Type Frequency</div>
-      <canvas id="bloodTypeChart"></canvas>
-    </div>
-    <div class="charts-right">
-      <div class="chart-card-sm">
-        <div class="chart-eyebrow">Demographics</div>
-        <div class="chart-heading">Gender Split</div>
-        <canvas id="genderChart"></canvas>
-      </div>
-      <div class="chart-card-sm">
-        <div class="chart-eyebrow">Risk</div>
-        <div class="chart-heading">High Risk Rate</div>
-        <canvas id="riskChart"></canvas>
-      </div>
-    </div>
-  </div>
-  <div class="charts-bottom">
-    <div class="chart-card" style="grid-column:1/-1;">
-      <div class="chart-eyebrow">Breakdown</div>
-      <div class="chart-heading">Personnel by Department</div>
-      <canvas id="deptChart"></canvas>
-    </div>
-  </div>
-
-  <!-- Personnel Table -->
-  <div class="table-wrap">
-    <div class="table-header">
+  <!-- ═══════════════ OVERVIEW PAGE ═══════════════ -->
+  <div class="page active" id="page-overview">
+    <div class="topbar">
       <div>
-        <div class="table-title">Personnel Records</div>
-        <div class="table-count" id="tableCountLabel">Loading…</div>
+        <div class="page-heading">Personnel <em>Health Records</em></div>
+        <div class="page-sub" id="activeFilterLabel">All personnel — records loaded</div>
       </div>
-      <div class="table-controls">
-        <span class="filter-badge" id="filterBadge">All</span>
-        <div class="search-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-          </svg>
+      <div class="topbar-right">
+        <div class="status-pill"><div class="status-dot"></div>System Active</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card fade-in"><div class="kpi-icon gold">👥</div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="totalRecords">—</div><div class="kpi-sub">Active records</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon blue">🩸</div><div class="kpi-label">Common Blood Type</div><div class="kpi-value" id="commonBloodType">—</div><div class="kpi-sub">Most frequent type</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon blue">♂</div><div class="kpi-label">Male</div><div class="kpi-value" id="malePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon pink">♀</div><div class="kpi-label">Female</div><div class="kpi-value" id="femalePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
+    </div>
+
+    <div class="med-panel" id="medPanel">
+      <div class="med-panel-head">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#e8c84a" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+        <div class="med-panel-title">Treatment Suggestions —</div>
+        <div class="med-panel-cond" id="medPanelCondition"></div>
+      </div>
+      <div class="med-grid" id="medGrid"></div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card wide"><div class="chart-label">Distribution</div><div class="chart-title-text">Blood Type Frequency</div><canvas id="bloodTypeChart"></canvas></div>
+      <div class="chart-card"><div class="chart-label">Demographics</div><div class="chart-title-text">Gender Split</div><canvas id="genderChart"></canvas></div>
+      <div class="chart-card wide"><div class="chart-label">Breakdown</div><div class="chart-title-text">Personnel by Department</div><canvas id="deptChart"></canvas></div>
+      <div class="chart-card"><div class="chart-label">Risk</div><div class="chart-title-text">High Risk Rate</div><canvas id="riskChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PERSONNEL PAGE ═══════════════ -->
+  <div class="page" id="page-personnel">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Personnel <em>Management</em></div>
+        <div class="page-sub">View, add, edit and manage all personnel records</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="exportPersonnel()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openAddPersonnelModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add Personnel
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Personnel Records</div>
+          <div class="table-count" id="personnelCountLabel">Loading…</div>
+        </div>
+        <div class="table-actions">
+          <span class="active-filter" id="filterBadge">All</span>
           <input type="text" class="table-search" placeholder="Search name or dept…" oninput="searchTable(this.value)" id="tableSearch">
         </div>
       </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Age</th><th>Gender</th><th>Blood</th><th>Department</th><th>Phone</th><th>Conditions</th><th>Risk</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="personnelTable"></tbody>
+      </table>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Gender</th>
-          <th>Blood</th>
-          <th>Department</th>
-          <th>Conditions</th>
-          <th>Risk Level</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="personnelTable">
-        <tr><td colspan="7">
-          <div class="empty-state">
-            <div class="empty-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M9 12h6M9 16h6M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2z"/>
-              </svg>
-            </div>
-            <div class="empty-title">Loading records…</div>
-          </div>
-        </td></tr>
-      </tbody>
-    </table>
   </div>
+
+  <!-- ═══════════════ VISITS PAGE ═══════════════ -->
+  <div class="page" id="page-visits">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Patient <em>Visit Records</em></div>
+        <div class="page-sub">Record and view clinic visits for each personnel</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="exportVisits()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export Visits
+        </button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;">
+      <!-- Person picker -->
+      <div class="table-wrap" style="height:fit-content;">
+        <div class="table-header" style="padding:14px 16px;">
+          <div>
+            <div class="table-title">Select Personnel</div>
+          </div>
+        </div>
+        <div style="padding:10px;">
+          <input type="text" class="table-search" style="width:100%;margin-bottom:8px;" placeholder="Search…" oninput="filterPersonPicker(this.value)">
+          <div id="personPicker" style="max-height:400px;overflow-y:auto;"></div>
+        </div>
+      </div>
+      <!-- Visit panel -->
+      <div>
+        <div id="visitPanel" style="display:none;">
+          <div class="table-wrap" style="margin-bottom:16px;">
+            <div class="table-header">
+              <div>
+                <div class="table-title">Visit History</div>
+                <div class="table-count" id="visitPersonName">Select a person</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openAddVisitModal()">+ Add Visit</button>
+            </div>
+            <div id="visitsList" style="padding:16px;"></div>
+          </div>
+        </div>
+        <div id="visitPlaceholder" style="display:flex;align-items:center;justify-content:center;height:300px;">
+          <div class="empty-state">
+            <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M9 4v5M15 4v5"/></svg></div>
+            <div class="empty-title">Select a person</div>
+            <div class="empty-sub">Choose from the list to view visit history</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ REPORTS PAGE ═══════════════ -->
+  <div class="page" id="page-reports">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Reports <em>&amp; Analytics</em></div>
+        <div class="page-sub">Health data summaries and statistical insights</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid" style="margin-bottom:24px;">
+      <div class="kpi-card"><div class="kpi-icon gold">👥</div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="rpt-total">—</div></div>
+      <div class="kpi-card"><div class="kpi-icon green">✓</div><div class="kpi-label">Normal Risk</div><div class="kpi-value" id="rpt-normal">—</div></div>
+      <div class="kpi-card"><div class="kpi-icon" style="background:var(--danger-bg);">⚠</div><div class="kpi-label">High Risk</div><div class="kpi-value" id="rpt-highrisk">—</div></div>
+      <div class="kpi-card"><div class="kpi-icon blue">📋</div><div class="kpi-label">Total Visits</div><div class="kpi-value" id="rpt-visits">—</div></div>
+    </div>
+
+    <div class="report-grid">
+      <div class="report-card">
+        <div class="chart-label">Top Conditions</div>
+        <div class="chart-title-text">Most Common Diagnoses</div>
+        <div id="conditionsReport"></div>
+      </div>
+      <div class="report-card">
+        <div class="chart-label">Age Distribution</div>
+        <div class="chart-title-text">Personnel by Age Group</div>
+        <canvas id="ageChart" style="max-height:200px;"></canvas>
+      </div>
+      <div class="report-card wide">
+        <div class="chart-label">Department Health Overview</div>
+        <div class="chart-title-text">High Risk vs Normal by Department</div>
+        <canvas id="deptRiskChart" style="max-height:180px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SETTINGS PAGE ═══════════════ -->
+  <div class="page" id="page-settings">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">System <em>Settings</em></div>
+        <div class="page-sub">Manage departments, import data, and configure the system</div>
+      </div>
+    </div>
+
+    <!-- Departments -->
+    <div class="settings-section">
+      <div class="settings-title">Manage Departments</div>
+      <div class="settings-desc">Add or remove academic and administrative departments.</div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;">
+        <input type="text" class="form-input" id="newDeptName" placeholder="Department name (e.g. COED)" style="max-width:260px;">
+        <button class="btn btn-primary" onclick="addDepartment()">Add Department</button>
+      </div>
+      <div id="deptList"></div>
+    </div>
+
+    <!-- CSV Upload -->
+    <div class="settings-section">
+      <div class="settings-title">Import Personnel Data</div>
+      <div class="settings-desc">Upload a CSV file to replace all personnel records. Required columns: <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px;">name, age, gender, blood, department, phone, address, conditions</code></div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input type="file" id="csvFile" accept=".csv" onchange="requestUpload(this.files[0])" style="display:none;">
+        <button class="btn btn-ghost" onclick="document.getElementById('csvFile').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Choose CSV File
+        </button>
+        <span style="font-size:12px;color:var(--text-3);" id="csvFileName">No file chosen</span>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="settings-section">
+      <div class="settings-title">Export Data</div>
+      <div class="settings-desc">Download a full backup of personnel or visit records as CSV.</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" onclick="exportPersonnel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export Personnel CSV
+        </button>
+        <button class="btn btn-ghost" onclick="exportVisits()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export Visits CSV
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ AUDIT LOG PAGE ═══════════════ -->
+  <div class="page" id="page-audit">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Audit <em>Log</em></div>
+        <div class="page-sub">All admin actions recorded with timestamp and IP address</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="loadAuditLog()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Activity Log</div>
+          <div class="table-count" id="auditCountLabel">Loading…</div>
+        </div>
+      </div>
+      <div id="auditLogList" style="padding:8px 22px;"></div>
+    </div>
+  </div>
+
 </main>
 
-<!-- ── DETAIL MODAL ── -->
+<!-- ── PERSONNEL DETAIL MODAL ── -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal">
-    <button class="modal-close" onclick="closeModalDirect()">
-      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M1 1l12 12M13 1L1 13"/>
-      </svg>
-    </button>
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
     <div class="modal-avatar" id="modalAvatar">?</div>
     <div class="modal-name" id="modalName"></div>
     <div class="modal-dept" id="modalDept"></div>
     <div class="modal-grid">
-      <div class="modal-field">
-        <div class="modal-field-label">Gender</div>
-        <div class="modal-field-val" id="modalGender"></div>
-      </div>
-      <div class="modal-field">
-        <div class="modal-field-label">Blood Type</div>
-        <div class="modal-field-val" style="color:var(--gold)" id="modalBlood"></div>
-      </div>
+      <div class="modal-field"><div class="modal-field-label">Gender</div><div class="modal-field-val" id="modalGender"></div></div>
+      <div class="modal-field"><div class="modal-field-label">Blood Type</div><div class="modal-field-val" style="color:var(--accent)" id="modalBlood"></div></div>
+      <div class="modal-field"><div class="modal-field-label">Age</div><div class="modal-field-val" id="modalAge"></div></div>
+      <div class="modal-field"><div class="modal-field-label">Phone</div><div class="modal-field-val" id="modalPhone"></div></div>
     </div>
-    <div class="section-label">Recorded Conditions</div>
+    <div class="modal-field" style="margin-bottom:16px;"><div class="modal-field-label">Address</div><div class="modal-field-val" id="modalAddress" style="font-size:13px;font-weight:400;"></div></div>
+    <div class="modal-section-title">Recorded Conditions</div>
     <div class="pills-wrap" id="modalConditions"></div>
     <div id="modalMedsSection">
-      <div class="section-label" id="modalMedsTitle" style="display:none;">Treatment Suggestions</div>
+      <div class="modal-section-title" id="modalMedsTitle" style="display:none;">Treatment Suggestions</div>
       <div class="modal-meds-grid" id="modalMeds"></div>
     </div>
-  </div>
-</div>
-
-<!-- ── ADD PERSONNEL MODAL ── -->
-<div class="modal-overlay" id="addModalOverlay" onclick="if(event.target===this)closeAddModal()" style="z-index:210;">
-  <div class="modal" style="max-width:480px;">
-    <button class="modal-close" onclick="closeAddModal()">
-      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M1 1l12 12M13 1L1 13"/>
-      </svg>
-    </button>
-    <div style="margin-bottom:22px;">
-      <div class="modal-name" style="font-size:20px;margin-bottom:0;">Add New Personnel</div>
-      <div class="modal-dept">Fill in the details below</div>
-    </div>
-    <div class="form-row">
-      <div class="form-field" style="grid-column:1/-1;">
-        <label class="form-label">Full Name</label>
-        <input type="text" id="addName" class="form-input" placeholder="e.g. Maria Santos">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-field">
-        <label class="form-label">Gender</label>
-        <select id="addGender" class="form-input">
-          <option value="">Select gender</option>
-          <option>Male</option>
-          <option>Female</option>
-        </select>
-      </div>
-      <div class="form-field">
-        <label class="form-label">Blood Type</label>
-        <select id="addBlood" class="form-input">
-          <option value="">Select type</option>
-          <option>A+</option><option>A-</option>
-          <option>B+</option><option>B-</option>
-          <option>O+</option><option>O-</option>
-          <option>AB+</option><option>AB-</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-field">
-      <label class="form-label">Department</label>
-      <select id="addDept" class="form-input">
-        <option value="">Select department</option>
-        <option>CHS</option><option>COE</option><option>CTE</option>
-        <option>CBEA</option><option>CAS</option>
-      </select>
-    </div>
-    <div class="form-field">
-      <label class="form-label">Conditions</label>
-      <select id="addCondSelect" class="form-input" onchange="addCondTag(this.value);this.value='';">
-        <option value="">Select condition to add…</option>
-      </select>
-      <div class="conditions-tags" id="selectedConditions"></div>
-    </div>
-    <button class="btn-submit" onclick="submitAdd()">Add Personnel</button>
-  </div>
-</div>
-
-<!-- ── UPLOAD CONFIRM MODAL ── -->
-<div class="modal-overlay" id="uploadConfirmOverlay" style="z-index:220;">
-  <div class="modal" style="max-width:400px;">
-    <div class="confirm-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-        <line x1="12" y1="9" x2="12" y2="13"/>
-        <line x1="12" y1="17" x2="12.01" y2="17"/>
-      </svg>
-    </div>
-    <div class="confirm-title">Replace all records?</div>
-    <div class="confirm-body">
-      Uploading a CSV will <strong style="color:var(--red)">permanently delete</strong> all existing personnel records and replace them with the file's contents. This action cannot be undone.
-    </div>
-    <div class="confirm-actions">
-      <button class="btn-cancel" onclick="cancelUpload()">Cancel</button>
-      <button class="btn-danger" onclick="confirmUpload()">Yes, Replace All</button>
+    <div style="display:flex;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost btn-sm" onclick="editPersonnel(currentPersonnelId)" style="flex:1;" id="modalEditBtn">Edit Record</button>
+      <button class="btn btn-danger btn-sm" onclick="deletePersonnel(currentPersonnelId)" style="flex:1;" id="modalDeleteBtn">Delete</button>
     </div>
   </div>
 </div>
 
-<!-- ── DELETE CONFIRM MODAL ── -->
-<div class="modal-overlay" id="deleteConfirmOverlay" style="z-index:220;">
-  <div class="modal" style="max-width:380px;">
-    <div class="confirm-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-        <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
-      </svg>
+<!-- ── ADD/EDIT PERSONNEL MODAL ── -->
+<div class="modal-overlay" id="addPersonnelOverlay" onclick="closeAddModal(event)">
+  <div class="modal" style="width:600px;">
+    <button class="modal-close" onclick="document.getElementById('addPersonnelOverlay').classList.remove('open')">✕</button>
+    <div class="modal-name" id="addPersonnelTitle" style="margin-bottom:20px;font-size:20px;">Add Personnel</div>
+    <input type="hidden" id="editPersonnelId">
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="pName" placeholder="e.g. Ana Reyes"></div>
+      <div class="form-group"><label class="form-label">Age</label><input class="form-input" id="pAge" type="number" placeholder="e.g. 35" min="1" max="120"></div>
     </div>
-    <div class="confirm-title">Delete personnel?</div>
-    <div class="confirm-body" id="deleteConfirmMsg">This record will be permanently removed.</div>
-    <div class="confirm-actions">
-      <button class="btn-cancel" onclick="cancelDelete()">Cancel</button>
-      <button class="btn-danger" onclick="confirmDelete()">Delete</button>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Gender</label><select class="form-input form-select" id="pGender"><option value="">Select…</option><option>Male</option><option>Female</option></select></div>
+      <div class="form-group"><label class="form-label">Blood Type</label><select class="form-input form-select" id="pBlood"><option value="">Select…</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Department</label><select class="form-input form-select" id="pDept"><option value="">Select…</option></select></div>
+      <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="pPhone" placeholder="e.g. 09171234567"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Address</label><input class="form-input" id="pAddress" placeholder="e.g. Laoag City, Ilocos Norte"></div>
+    <div class="form-group">
+      <label class="form-label">Conditions (comma separated)</label>
+      <input class="form-input" id="pConditions" placeholder="e.g. Hypertension, Diabetes">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('addPersonnelOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePersonnel()" id="savePersonnelBtn">Add Personnel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD VISIT MODAL ── -->
+<div class="modal-overlay" id="addVisitOverlay" onclick="closeVisitModal(event)">
+  <div class="modal" style="width:480px;">
+    <button class="modal-close" onclick="document.getElementById('addVisitOverlay').classList.remove('open')">✕</button>
+    <div class="modal-name" style="margin-bottom:20px;font-size:20px;">Record Visit</div>
+    <div class="form-group"><label class="form-label">Visit Date</label><input class="form-input" id="vDate" type="date"></div>
+    <div class="form-group"><label class="form-label">Reason / Complaint</label><input class="form-input" id="vReason" placeholder="e.g. Routine check-up, Fever, Headache"></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="vNotes" placeholder="Additional observations, prescriptions, follow-up…"></textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('addVisitOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveVisit()">Save Visit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONFIRM MODAL ── -->
+<div class="modal-overlay" id="confirmOverlay" style="z-index:250;">
+  <div class="modal" style="max-width:400px;text-align:center;">
+    <div style="font-size:32px;margin-bottom:12px;" id="confirmIcon">⚠️</div>
+    <div class="modal-name" style="font-size:18px;margin-bottom:8px;" id="confirmTitle">Are you sure?</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:24px;line-height:1.6;" id="confirmBody"></div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="btn btn-ghost" onclick="document.getElementById('confirmOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-danger" id="confirmOkBtn">Confirm</button>
     </div>
   </div>
 </div>
 
 <!-- ── TOAST ── -->
-<div class="toast" id="toast">
-  <div class="toast-dot"></div>
-  <span id="toastMsg"></span>
-</div>
+<div class="toast" id="toast"><div class="toast-dot"></div><span id="toastMsg"></span></div>
 
 <script>
+  // ── STATE ──
   let allData = [], filteredData = [], activeCondition = 'All';
-  let bloodChart, genderChart, deptChart, riskChart;
+  let bloodChart, genderChart, deptChart, riskChart, ageChart, deptRiskChart;
   let csrfToken = '';
-  let pendingUploadFile = null;
-  let pendingDeleteId = null;
-  let selectedConditions = [];
+  let currentPersonnelId = null;
+  let currentVisitPersonId = null;
+  let allDepts = [];
 
-  const HIGH_RISK = ['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus'];
+  // ── INIT ──
+  async function init() {
+    await fetchCsrfToken();
+    await loadPersonnel();
+    generateConditionList();
+    loadDepartments();
+  }
 
-  const ALL_CONDITIONS = ['Hypertension','Diabetes','Asthma','Heart Disease','Allergies','Obesity','Tuberculosis','Anemia','Cancer','Arthritis','Covid-19','Mental Health','Liver Disease','Kidney Disease','Migraine','Ulcer','Gastritis','Hepatitis','Thyroid Disorder','Pneumonia','HIV/AIDS','Dengue','Stroke','Bronchitis','Epilepsy','Glaucoma','Cyst','Scoliosis','Gallstones','Varicose Veins','Sinusitis','Tonsillitis','Lupus','GERD','Psoriasis','Vertigo','Gout','Hernia'];
-
-  const MEDICINES = {
-    'Hypertension': [{name:'Amlodipine',desc:'Calcium channel blocker for blood pressure control.',warn:''},{name:'Losartan',desc:'ARB for hypertension and kidney protection.',warn:''},{name:'Hydrochlorothiazide',desc:'Diuretic for mild hypertension.',warn:''}],
-    'Diabetes': [{name:'Metformin',desc:'First-line oral medication for type 2 diabetes.',warn:''},{name:'Glimepiride',desc:'Sulfonylurea stimulating insulin secretion.',warn:''},{name:'Insulin',desc:'Required for type 1 or advanced type 2.',warn:'Requires monitoring.'}],
-    'Asthma': [{name:'Salbutamol Inhaler',desc:'Short-acting bronchodilator for acute attacks.',warn:''},{name:'Budesonide Inhaler',desc:'Inhaled corticosteroid for long-term control.',warn:''}],
-    'Heart Disease': [{name:'Aspirin',desc:'Antiplatelet therapy for clot prevention.',warn:''},{name:'Atorvastatin',desc:'Reduces LDL cholesterol and inflammation.',warn:''},{name:'Bisoprolol',desc:'Beta-blocker to reduce heart rate and workload.',warn:'Specialist required.'}],
-    'Allergies': [{name:'Cetirizine',desc:'Non-drowsy antihistamine for daily use.',warn:''},{name:'Loratadine',desc:'Long-acting antihistamine tablet.',warn:''}],
-    'Obesity': [{name:'Orlistat',desc:'Lipase inhibitor reducing dietary fat absorption.',warn:''},{name:'Diet & Exercise',desc:'Primary intervention for weight management.',warn:''}],
-    'Tuberculosis': [{name:'Rifampicin',desc:'Key antibiotic in TB regimen.',warn:'DOT required.'},{name:'Isoniazid',desc:'Bactericidal agent against TB.',warn:'Monitor liver function.'}],
-    'Anemia': [{name:'Ferrous Sulfate',desc:'Iron supplementation for iron-deficiency anemia.',warn:''},{name:'Folic Acid',desc:'Supports red blood cell production.',warn:''}],
-    'Cancer': [{name:'Chemotherapy',desc:'Cytotoxic drug therapy for cancer.',warn:'Specialist required.'},{name:'Palliative Care',desc:'Supportive care to improve quality of life.',warn:''}],
-    'Arthritis': [{name:'Naproxen',desc:'NSAID for joint pain and inflammation.',warn:''},{name:'Methotrexate',desc:'DMARD for rheumatoid arthritis.',warn:'Specialist required.'}],
-    'Mental Health': [{name:'Sertraline',desc:'SSRI antidepressant for anxiety and depression.',warn:''},{name:'Counseling',desc:'Cognitive behavioral therapy recommended.',warn:''}],
-    'Liver Disease': [{name:'Silymarin',desc:'Hepatoprotective agent from milk thistle.',warn:''},{name:'Ursodeoxycholic Acid',desc:'Bile acid for cholestatic liver disease.',warn:'Specialist required.'}],
-    'Kidney Disease': [{name:'Amlodipine',desc:'Controls BP to protect kidney function.',warn:''},{name:'Erythropoietin',desc:'For anemia in chronic kidney disease.',warn:'Specialist required.'}],
-    'Migraine': [{name:'Sumatriptan',desc:'Triptan for acute migraine attacks.',warn:''},{name:'Topiramate',desc:'Preventive therapy for frequent migraines.',warn:''}],
-    'Ulcer': [{name:'Omeprazole',desc:'Proton pump inhibitor reducing stomach acid.',warn:''},{name:'Amoxicillin',desc:'Antibiotic for H. pylori eradication.',warn:''}],
-    'Gastritis': [{name:'Pantoprazole',desc:'PPI for gastric acid reduction.',warn:''},{name:'Antacids',desc:'Quick relief from gastric discomfort.',warn:''}],
-    'Thyroid Disorder': [{name:'Levothyroxine',desc:'Synthetic T4 for hypothyroidism.',warn:''},{name:'Methimazole',desc:'Antithyroid drug for hyperthyroidism.',warn:''}],
-    'Bronchitis': [{name:'Salbutamol',desc:'Bronchodilator for airway relief.',warn:''},{name:'Amoxicillin',desc:'Antibiotic if bacterial cause suspected.',warn:''}],
-    'Migraine': [{name:'Sumatriptan',desc:'Triptan for acute migraine attacks.',warn:''},{name:'Topiramate',desc:'Preventive therapy for frequent migraines.',warn:''}],
-    'Gout': [{name:'Allopurinol',desc:'Reduces uric acid production.',warn:''},{name:'Colchicine',desc:'Anti-inflammatory for acute gout attacks.',warn:''}],
-    'GERD': [{name:'Omeprazole',desc:'Proton pump inhibitor for GERD.',warn:''},{name:'Domperidone',desc:'Prokinetic agent for reflux symptoms.',warn:''}],
-    'Sinusitis': [{name:'Amoxicillin',desc:'Antibiotic for bacterial sinusitis.',warn:''},{name:'Nasal Saline Rinse',desc:'Decongestant irrigation therapy.',warn:''}],
-    'Dengue': [{name:'Paracetamol',desc:'Fever and pain management.',warn:'Avoid aspirin/NSAIDs.'},{name:'IV Fluids',desc:'Hydration support in severe cases.',warn:''}],
-    'Stroke': [{name:'Aspirin',desc:'Antiplatelet therapy post-ischemic stroke.',warn:''},{name:'Clopidogrel',desc:'Alternative antiplatelet for stroke prevention.',warn:'Specialist required.'}],
-  };
-
-  /* ── CSRF & LOGOUT ── */
   async function fetchCsrfToken() {
     try {
       const res = await fetch('/csrf-token');
       if (res.status === 401) { window.location.href = '/login'; return; }
       csrfToken = (await res.json()).token;
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error('CSRF fetch failed', e); }
   }
 
-  async function handleLogout() {
-    if (!confirm('Sign out?')) return;
-    await fetch('/logout', { method:'POST', headers:{'X-CSRF-Token':csrfToken,'Content-Type':'application/json'} });
-    window.location.href = '/login';
+  // ── NAVIGATION ──
+  function showPage(name, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (name === 'audit') loadAuditLog();
+    if (name === 'reports') renderReports();
+    if (name === 'settings') loadDepartments();
+    if (name === 'visits') renderPersonPicker();
   }
 
-  /* ── TOAST ── */
-  function showToast(msg, success = true) {
-    const t = document.getElementById('toast');
-    document.getElementById('toastMsg').textContent = msg;
-    t.querySelector('.toast-dot').style.background = success ? 'var(--leaf)' : 'var(--red)';
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
+  // ── PERSONNEL ──
+  async function loadPersonnel() {
+    const res = await fetch('/personnel');
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    allData = await res.json();
+    filterData('All');
+    renderPersonPicker();
   }
 
-  /* ── UPLOAD ── */
-  function requestUpload(file) {
-    if (!file) return;
-    pendingUploadFile = file;
-    document.getElementById('uploadConfirmOverlay').classList.add('open');
-    document.getElementById('csvInput').value = '';
-  }
-  function cancelUpload() {
-    pendingUploadFile = null;
-    document.getElementById('uploadConfirmOverlay').classList.remove('open');
-  }
-  async function confirmUpload() {
-    document.getElementById('uploadConfirmOverlay').classList.remove('open');
-    if (!pendingUploadFile) return;
-    const fd = new FormData();
-    fd.append('file', pendingUploadFile);
-    pendingUploadFile = null;
-    try {
-      const res = await fetch('/upload', { method:'POST', headers:{'X-CSRF-Token':csrfToken}, body:fd });
-      const data = await res.json();
-      showToast(data.message || data.error || 'Upload complete');
-      const fresh = await fetch('/personnel');
-      allData = await fresh.json();
-      filterData('All');
-    } catch { showToast('Upload failed. Please try again.', false); }
-  }
-
-  /* ── DELETE ── */
-  function requestDelete(pid, name, e) {
-    e.stopPropagation();
-    pendingDeleteId = pid;
-    document.getElementById('deleteConfirmMsg').innerHTML = `<strong>${name}</strong> will be permanently removed from the database.`;
-    document.getElementById('deleteConfirmOverlay').classList.add('open');
-  }
-  function cancelDelete() {
-    pendingDeleteId = null;
-    document.getElementById('deleteConfirmOverlay').classList.remove('open');
-  }
-  async function confirmDelete() {
-    document.getElementById('deleteConfirmOverlay').classList.remove('open');
-    if (!pendingDeleteId) return;
-    try {
-      const res = await fetch(`/personnel/delete/${pendingDeleteId}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken,'Content-Type':'application/json'} });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(data.message || 'Deleted successfully');
-        allData = allData.filter(p => p.id !== pendingDeleteId);
-        filterData(activeCondition);
-      } else {
-        showToast(data.error || 'Delete failed', false);
-      }
-    } catch { showToast('Delete failed. Please try again.', false); }
-    pendingDeleteId = null;
-  }
-
-  /* ── ADD PERSONNEL ── */
-  function openAddModal() {
-    selectedConditions = [];
-    document.getElementById('addName').value = '';
-    document.getElementById('addGender').value = '';
-    document.getElementById('addBlood').value = '';
-    document.getElementById('addDept').value = '';
-    renderCondTags();
-    // populate condition select
-    const sel = document.getElementById('addCondSelect');
-    sel.innerHTML = '<option value="">Select condition to add…</option>';
-    ALL_CONDITIONS.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c; o.textContent = c;
-      sel.appendChild(o);
-    });
-    document.getElementById('addModalOverlay').classList.add('open');
-  }
-  function closeAddModal() {
-    document.getElementById('addModalOverlay').classList.remove('open');
-  }
-  function addCondTag(val) {
-    if (!val || selectedConditions.includes(val)) return;
-    selectedConditions.push(val);
-    renderCondTags();
-  }
-  function removeCondTag(val) {
-    selectedConditions = selectedConditions.filter(c => c !== val);
-    renderCondTags();
-  }
-  function renderCondTags() {
-    document.getElementById('selectedConditions').innerHTML = selectedConditions.map(c =>
-      `<div class="cond-tag">${c}<button onclick="removeCondTag('${c}')">×</button></div>`
-    ).join('');
-  }
-  async function submitAdd() {
-    const name = document.getElementById('addName').value.trim();
-    const gender = document.getElementById('addGender').value;
-    const blood = document.getElementById('addBlood').value;
-    const department = document.getElementById('addDept').value;
-    if (!name || !gender || !blood || !department) { showToast('Please fill in all required fields.', false); return; }
-    try {
-      const res = await fetch('/personnel/add', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'X-CSRF-Token':csrfToken },
-        body: JSON.stringify({ name, gender, blood, department, conditions: selectedConditions })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(data.message || 'Personnel added!');
-        closeAddModal();
-        const fresh = await fetch('/personnel');
-        allData = await fresh.json();
-        filterData(activeCondition);
-      } else { showToast(data.error || 'Failed to add personnel.', false); }
-    } catch { showToast('Request failed. Try again.', false); }
-  }
-
-  /* ── TABLE ── */
   function renderTable(data) {
     const tbody = document.getElementById('personnelTable');
-    document.getElementById('tableCountLabel').textContent = data.length
-      ? `${data.length} record${data.length===1?'':'s'} found`
-      : 'No results';
-
+    document.getElementById('personnelCountLabel').textContent =
+      data.length ? `${data.length} record${data.length === 1 ? '' : 's'}` : 'No results';
     if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
-        <div class="empty-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-          </svg>
-        </div>
-        <div class="empty-title">No matching records</div>
-        <div class="empty-sub">Adjust your search or filter</div>
-      </div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="empty-title">No records found</div></div></td></tr>`;
       return;
     }
-
     tbody.innerHTML = data.map(p => {
-      const risk = HIGH_RISK.some(r => p.conditions.includes(r));
-      const initials = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      const safeP = encodeURIComponent(JSON.stringify(p));
-      return `<tr onclick="openModal(decodeURIComponent('${safeP}'))">
-        <td>
-          <div class="name-cell">
-            <div class="row-avatar">${initials}</div>
-            <span class="row-name">${p.name}</span>
-          </div>
-        </td>
+      const risk = isHighRisk(p.conditions);
+      return `<tr onclick="openModal(${p.id})">
+        <td class="name-col">${p.name}</td>
+        <td>${p.age || '—'}</td>
         <td>${p.gender}</td>
-        <td><span class="blood-badge">${p.blood||'—'}</span></td>
+        <td><span class="blood-badge">${p.blood || '—'}</span></td>
         <td>${p.department}</td>
-        <td class="conditions-cell">${p.conditions.join(', ')||'—'}</td>
-        <td>${risk
-          ? '<span class="risk-tag high"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg> High Risk</span>'
-          : '<span class="risk-tag normal"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Normal</span>'}</td>
-        <td>
-          <button class="delete-btn" onclick="requestDelete(${p.id},'${p.name.replace(/'/g,"\\'")}',event)" title="Delete">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-              <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
-            </svg>
-          </button>
+        <td>${p.phone || '—'}</td>
+        <td class="conditions-cell">${p.conditions.join(', ') || '—'}</td>
+        <td>${risk ? '<span class="risk-tag high">⚠ High</span>' : '<span class="risk-tag normal">✓ Normal</span>'}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" style="margin-right:4px;" onclick="editPersonnel(${p.id})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${p.name.replace(/'/g,"\\'")}')">Del</button>
         </td>
       </tr>`;
     }).join('');
   }
 
-  /* ── CHARTS ── */
   function processData(data) {
     const total = data.length;
-    const bloodFreq = {}, genderFreq = {Male:0,Female:0}, deptFreq = {};
-    let highRisk = 0;
-
+    const bloodFreq = {}, genderFreq = { Male: 0, Female: 0 }, deptFreq = {};
+    let highRiskCount = 0;
     data.forEach(p => {
-      if (p.blood) bloodFreq[p.blood] = (bloodFreq[p.blood]||0)+1;
-      if (p.gender==='Male'||p.gender==='Female') genderFreq[p.gender]++;
-      if (p.department) deptFreq[p.department] = (deptFreq[p.department]||0)+1;
-      if (HIGH_RISK.some(r=>p.conditions.includes(r))) highRisk++;
+      if (p.blood) bloodFreq[p.blood] = (bloodFreq[p.blood] || 0) + 1;
+      if (p.gender === 'Male' || p.gender === 'Female') genderFreq[p.gender]++;
+      if (p.department) deptFreq[p.department] = (deptFreq[p.department] || 0) + 1;
+      if (isHighRisk(p.conditions)) highRiskCount++;
     });
-
-    const common = total && Object.keys(bloodFreq).length
-      ? Object.entries(bloodFreq).reduce((a,b)=>b[1]>a[1]?b:a)[0] : '—';
-
+    const mostCommonBlood = total && Object.keys(bloodFreq).length
+      ? Object.entries(bloodFreq).reduce((a,b) => b[1]>a[1]?b:a)[0] : '—';
     document.getElementById('totalRecords').textContent = total || '—';
-    document.getElementById('commonBloodType').textContent = common;
-    document.getElementById('malePercent').textContent = total ? (genderFreq.Male/total*100).toFixed(1)+'%' : '—';
-    document.getElementById('femalePercent').textContent = total ? (genderFreq.Female/total*100).toFixed(1)+'%' : '—';
+    document.getElementById('commonBloodType').textContent = mostCommonBlood;
+    document.getElementById('malePercent').textContent = total ? ((genderFreq.Male/total)*100).toFixed(1)+'%' : '—';
+    document.getElementById('femalePercent').textContent = total ? ((genderFreq.Female/total)*100).toFixed(1)+'%' : '—';
 
-    [bloodChart,genderChart,deptChart,riskChart].forEach(c => c && c.destroy());
+    if (bloodChart) bloodChart.destroy();
+    if (genderChart) genderChart.destroy();
+    if (deptChart) deptChart.destroy();
+    if (riskChart) riskChart.destroy();
 
-    const tick = 'rgba(14,26,19,0.40)';
-    const grid = 'rgba(14,26,19,0.05)';
-    const font = { family:'Sora', size:11 };
-    const tooltip = { backgroundColor:'#0e1a13', titleColor:'#fff', bodyColor:'rgba(255,255,255,0.7)', cornerRadius:8, padding:10 };
-
-    bloodChart = new Chart(document.getElementById('bloodTypeChart'), {
-      type:'bar',
-      data:{
-        labels:Object.keys(bloodFreq),
-        datasets:[{label:'Count',data:Object.values(bloodFreq),backgroundColor:'rgba(20,83,45,0.75)',borderColor:'rgba(20,83,45,1)',borderWidth:1,borderRadius:5,hoverBackgroundColor:'rgba(20,83,45,0.92)'}]
-      },
-      options:{plugins:{legend:{display:false},tooltip},scales:{x:{ticks:{color:tick,font},grid:{color:grid}},y:{ticks:{color:tick,font},grid:{color:grid}}}}
-    });
-
-    genderChart = new Chart(document.getElementById('genderChart'), {
-      type:'doughnut',
-      data:{
-        labels:['Male','Female'],
-        datasets:[{data:[genderFreq.Male,genderFreq.Female],backgroundColor:['rgba(37,99,235,0.80)','rgba(202,138,4,0.80)'],borderColor:['#fff','#fff'],borderWidth:3,hoverOffset:4}]
-      },
-      options:{plugins:{legend:{labels:{color:tick,font,boxWidth:10,padding:16}},tooltip},cutout:'68%'}
-    });
-
-    riskChart = new Chart(document.getElementById('riskChart'), {
-      type:'doughnut',
-      data:{
-        labels:['High Risk','Normal'],
-        datasets:[{data:[highRisk,total-highRisk],backgroundColor:['rgba(220,38,38,0.80)','rgba(22,163,74,0.80)'],borderColor:['#fff','#fff'],borderWidth:3,hoverOffset:4}]
-      },
-      options:{plugins:{legend:{labels:{color:tick,font,boxWidth:10,padding:16}},tooltip},cutout:'68%'}
-    });
-
-    const deptColors = {CHS:'rgba(20,83,45,0.8)',COE:'rgba(37,99,235,0.8)',CBEA:'rgba(202,138,4,0.8)',CAS:'rgba(22,163,74,0.8)',CTE:'rgba(217,119,6,0.8)'};
+    const cf = { family:'Figtree', size:11 }, tc = 'rgba(240,237,232,0.4)', gc = 'rgba(255,255,255,0.04)';
+    bloodChart = new Chart(document.getElementById('bloodTypeChart'), { type:'bar', data:{ labels:Object.keys(bloodFreq), datasets:[{ label:'Count', data:Object.values(bloodFreq), backgroundColor:'rgba(232,200,74,0.7)', borderColor:'rgba(232,200,74,1)', borderWidth:1, borderRadius:4 }] }, options:{ plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{ticks:{color:tc,font:cf},grid:{color:gc}} } } });
+    genderChart = new Chart(document.getElementById('genderChart'), { type:'doughnut', data:{ labels:['Male','Female'], datasets:[{ data:[genderFreq.Male,genderFreq.Female], backgroundColor:['rgba(91,164,212,0.8)','rgba(212,126,176,0.8)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:4 }] }, options:{ plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, cutout:'68%' } });
     const depts = Object.keys(deptFreq);
-    deptChart = new Chart(document.getElementById('deptChart'), {
-      type:'bar',
-      data:{
-        labels:depts,
-        datasets:[{label:'Personnel',data:Object.values(deptFreq),backgroundColor:depts.map(d=>deptColors[d]||'rgba(120,120,180,0.7)'),borderRadius:5}]
-      },
-      options:{plugins:{legend:{display:false},tooltip},scales:{x:{ticks:{color:tick,font},grid:{color:grid}},y:{ticks:{color:tick,font},grid:{color:grid}}}}
-    });
-
+    const deptColors = { CHS:'rgba(232,200,74,0.8)', COE:'rgba(91,164,212,0.8)', CBEA:'rgba(212,126,176,0.8)', CAS:'rgba(78,201,122,0.8)', CTE:'rgba(255,165,80,0.8)' };
+    deptChart = new Chart(document.getElementById('deptChart'), { type:'bar', data:{ labels:depts, datasets:[{ label:'Personnel', data:Object.values(deptFreq), backgroundColor:depts.map(d=>deptColors[d]||'rgba(120,120,180,0.7)'), borderRadius:5 }] }, options:{ plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{ticks:{color:tc,font:cf},grid:{color:gc}} } } });
+    riskChart = new Chart(document.getElementById('riskChart'), { type:'doughnut', data:{ labels:['High Risk','Normal'], datasets:[{ data:[highRiskCount, total-highRiskCount], backgroundColor:['rgba(224,85,85,0.8)','rgba(78,201,122,0.8)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:4 }] }, options:{ plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, cutout:'68%' } });
     renderTable(data);
   }
 
-  /* ── FILTER & SEARCH ── */
   function filterData(condition) {
     activeCondition = condition;
     document.getElementById('filterBadge').textContent = condition;
-    document.getElementById('activeFilterLabel').textContent = condition==='All'
-      ? `All personnel — ${allData.length} record${allData.length===1?'':'s'}`
-      : `Filtered by: ${condition}`;
-    document.getElementById('tableSearch').value = '';
-    document.querySelectorAll('.cond-btn').forEach(b => b.classList.toggle('active', b.dataset.cond===condition));
-    filteredData = condition==='All' ? allData : allData.filter(p=>p.conditions.includes(condition));
+    document.getElementById('activeFilterLabel').textContent =
+      condition === 'All' ? `All personnel — ${allData.length} records` : `Filtered by: ${condition}`;
+    if (document.getElementById('tableSearch')) document.getElementById('tableSearch').value = '';
+    document.querySelectorAll('.cond-btn').forEach(b => b.classList.toggle('active', b.dataset.cond === condition));
+    filteredData = condition === 'All' ? allData : allData.filter(p => p.conditions.includes(condition));
     processData(filteredData);
-
     const panel = document.getElementById('medPanel');
-    if (condition!=='All' && MEDICINES[condition]) {
+    if (condition !== 'All' && MEDICINES[condition]) {
       document.getElementById('medPanelCondition').textContent = condition;
       document.getElementById('medGrid').innerHTML = MEDICINES[condition].map(m =>
-        `<div class="med-card">
-          <div class="med-name">${m.name}</div>
-          <div class="med-desc">${m.desc}</div>
-          ${m.warn?`<div class="med-warn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>${m.warn}</div>`:''}`
-      ).join('');
+        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn?`<div class="med-warn">⚠ ${m.warn}</div>`:''}</div>`).join('');
       panel.classList.add('visible');
-    } else {
-      panel.classList.remove('visible');
-    }
+    } else { panel.classList.remove('visible'); }
   }
 
   function searchTable(q) {
-    q = q.toLowerCase();
-    const base = activeCondition==='All' ? allData : allData.filter(p=>p.conditions.includes(activeCondition));
-    renderTable(q ? base.filter(p=>p.name.toLowerCase().includes(q)||p.department.toLowerCase().includes(q)||p.conditions.some(c=>c.toLowerCase().includes(q))) : base);
+    const base = activeCondition === 'All' ? allData : allData.filter(p => p.conditions.includes(activeCondition));
+    renderTable(q ? base.filter(p => p.name.toLowerCase().includes(q.toLowerCase()) || p.department.toLowerCase().includes(q.toLowerCase())) : base);
   }
 
-  function searchCondition() {
-    const q = document.getElementById('conditionSearch').value.toLowerCase();
-    document.querySelectorAll('.cond-btn').forEach(b => {
-      b.style.display = b.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
+  function searchCondition(q) {
+    document.querySelectorAll('.cond-btn').forEach(b => { b.style.display = b.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none'; });
   }
 
   function generateConditionList() {
-    const container = document.getElementById('conditionList');
-    container.innerHTML = `<button class="cond-btn active" data-cond="All" onclick="filterData('All')">
-      <span>All Personnel</span><span class="cond-dot"></span>
-    </button>`;
-    ALL_CONDITIONS.forEach(cond => {
+    const c = document.getElementById('conditionList');
+    c.innerHTML = `<button class="cond-btn active" data-cond="All" onclick="filterData('All')"><span>All Personnel</span><span class="cond-dot"></span></button>`;
+    allConditionsList.forEach(cond => {
       const btn = document.createElement('button');
-      btn.className = 'cond-btn';
-      btn.dataset.cond = cond;
+      btn.className = 'cond-btn'; btn.dataset.cond = cond;
       btn.innerHTML = `<span>${cond}</span><span class="cond-dot"></span>`;
       btn.onclick = () => filterData(cond);
-      container.appendChild(btn);
+      c.appendChild(btn);
     });
   }
 
-  /* ── DETAIL MODAL ── */
-  function openModal(rawP) {
-    const p = typeof rawP === 'string' ? JSON.parse(rawP) : rawP;
-    const initials = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    document.getElementById('modalAvatar').textContent = initials;
+  // ── MODAL ──
+  function openModal(id) {
+    const p = allData.find(x => x.id === id);
+    if (!p) return;
+    currentPersonnelId = id;
+    document.getElementById('modalAvatar').textContent = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('modalName').textContent = p.name;
     document.getElementById('modalDept').textContent = p.department + ' Department';
     document.getElementById('modalGender').textContent = p.gender;
     document.getElementById('modalBlood').textContent = p.blood || '—';
+    document.getElementById('modalAge').textContent = p.age ? p.age + ' yrs' : '—';
+    document.getElementById('modalPhone').textContent = p.phone || '—';
+    document.getElementById('modalAddress').textContent = p.address || '—';
     document.getElementById('modalConditions').innerHTML = p.conditions.length
-      ? p.conditions.map(c=>`<span class="pill ${HIGH_RISK.includes(c)?'high':''}">${c}</span>`).join('')
+      ? p.conditions.map(c => `<span class="pill ${HIGH_RISK.includes(c)?'high':''}">${c}</span>`).join('')
       : '<span style="color:var(--text-3);font-size:13px;">No conditions recorded</span>';
-
-    const meds = p.conditions.filter(c=>MEDICINES[c]).map(c=>({condition:c,meds:MEDICINES[c]}));
-    const title = document.getElementById('modalMedsTitle');
-    const medsDiv = document.getElementById('modalMeds');
+    const meds = p.conditions.filter(c => MEDICINES[c]).map(c => ({ condition:c, meds:MEDICINES[c] }));
+    const title = document.getElementById('modalMedsTitle'), div = document.getElementById('modalMeds');
     if (meds.length) {
       title.style.display = 'block';
-      medsDiv.innerHTML = meds.flatMap(m=>m.meds.slice(0,2).map(med=>
-        `<div class="modal-med-card">
-          <div class="modal-med-cond">${m.condition}</div>
-          <div class="modal-med-name">${med.name}</div>
-          <div class="modal-med-desc">${med.desc}</div>
-        </div>`
+      div.innerHTML = meds.flatMap(m => m.meds.slice(0,2).map(med =>
+        `<div class="modal-med-card"><div class="modal-med-cond-label">${m.condition}</div><div class="modal-med-name">${med.name}</div><div class="modal-med-desc">${med.desc}</div></div>`
       )).join('');
-    } else {
-      title.style.display = 'none';
-      medsDiv.innerHTML = '';
-    }
+    } else { title.style.display = 'none'; div.innerHTML = ''; }
     document.getElementById('modalOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';
   }
-
   function closeModal(e) { if (e.target === document.getElementById('modalOverlay')) closeModalDirect(); }
-  function closeModalDirect() {
-    document.getElementById('modalOverlay').classList.remove('open');
-    document.body.style.overflow = '';
+  function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('open'); document.body.style.overflow = ''; }
+  function closeAddModal(e) { if (e.target === document.getElementById('addPersonnelOverlay')) document.getElementById('addPersonnelOverlay').classList.remove('open'); }
+  function closeVisitModal(e) { if (e.target === document.getElementById('addVisitOverlay')) document.getElementById('addVisitOverlay').classList.remove('open'); }
+
+  // ── ADD / EDIT PERSONNEL ──
+  function openAddPersonnelModal() {
+    document.getElementById('editPersonnelId').value = '';
+    document.getElementById('addPersonnelTitle').textContent = 'Add Personnel';
+    document.getElementById('savePersonnelBtn').textContent = 'Add Personnel';
+    ['pName','pAge','pPhone','pAddress','pConditions'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pGender').value = '';
+    document.getElementById('pBlood').value = '';
+    document.getElementById('pDept').value = '';
+    populateDeptSelect();
+    document.getElementById('addPersonnelOverlay').classList.add('open');
   }
 
-  document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModalDirect(); closeAddModal(); cancelDelete(); cancelUpload(); } });
+  function editPersonnel(id) {
+    const p = allData.find(x => x.id === id);
+    if (!p) return;
+    closeModalDirect();
+    document.getElementById('editPersonnelId').value = id;
+    document.getElementById('addPersonnelTitle').textContent = 'Edit Personnel';
+    document.getElementById('savePersonnelBtn').textContent = 'Save Changes';
+    document.getElementById('pName').value = p.name || '';
+    document.getElementById('pAge').value = p.age || '';
+    document.getElementById('pGender').value = p.gender || '';
+    document.getElementById('pBlood').value = p.blood || '';
+    document.getElementById('pPhone').value = p.phone || '';
+    document.getElementById('pAddress').value = p.address || '';
+    document.getElementById('pConditions').value = p.conditions.join(', ');
+    populateDeptSelect(p.department);
+    document.getElementById('addPersonnelOverlay').classList.add('open');
+  }
 
-  /* ── INIT ── */
-  fetchCsrfToken();
-  generateConditionList();
+  function populateDeptSelect(selected='') {
+    const sel = document.getElementById('pDept');
+    sel.innerHTML = '<option value="">Select…</option>' + allDepts.map(d => `<option value="${d.name}" ${d.name===selected?'selected':''}>${d.name}</option>`).join('');
+  }
 
-  fetch('/personnel')
-    .then(res => { if (res.status===401){window.location.href='/login';return null;} return res.json(); })
-    .then(data => { if (!data) return; allData = data; filterData('All'); })
-    .catch(err => console.error('Failed to load personnel:', err));
+  async function savePersonnel() {
+    const editId = document.getElementById('editPersonnelId').value;
+    const body = {
+      name: document.getElementById('pName').value.trim(),
+      age: parseInt(document.getElementById('pAge').value) || null,
+      gender: document.getElementById('pGender').value,
+      blood: document.getElementById('pBlood').value,
+      department: document.getElementById('pDept').value,
+      phone: document.getElementById('pPhone').value.trim(),
+      address: document.getElementById('pAddress').value.trim(),
+      conditions: document.getElementById('pConditions').value.split(',').map(s=>s.trim()).filter(Boolean)
+    };
+    if (!body.name) { showToast('Name is required', true); return; }
+    const url = editId ? `/personnel/update/${editId}` : '/personnel/add';
+    const method = editId ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) { document.getElementById('addPersonnelOverlay').classList.remove('open'); await loadPersonnel(); }
+  }
+
+  function confirmDelete(id, name) {
+    closeModalDirect();
+    document.getElementById('confirmIcon').textContent = '🗑️';
+    document.getElementById('confirmTitle').textContent = 'Delete Personnel?';
+    document.getElementById('confirmBody').innerHTML = `This will permanently delete <strong>${name}</strong> and all their visit records. This cannot be undone.`;
+    document.getElementById('confirmOkBtn').onclick = () => deletePersonnel(id);
+    document.getElementById('confirmOverlay').classList.add('open');
+  }
+
+  async function deletePersonnel(id) {
+    document.getElementById('confirmOverlay').classList.remove('open');
+    const res = await fetch(`/personnel/delete/${id}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken} });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) await loadPersonnel();
+  }
+
+  // ── VISITS ──
+  function renderPersonPicker(filter='') {
+    const container = document.getElementById('personPicker');
+    const list = filter ? allData.filter(p => p.name.toLowerCase().includes(filter.toLowerCase())) : allData;
+    container.innerHTML = list.map(p =>
+      `<button onclick="selectPerson(${p.id})" style="width:100%;text-align:left;padding:10px 12px;border-radius:8px;border:none;background:${currentVisitPersonId===p.id?'var(--accent-dim)':'transparent'};color:${currentVisitPersonId===p.id?'var(--accent)':'var(--text-2)'};font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;margin-bottom:4px;transition:all .12s;" onmouseover="if(${p.id}!==${currentVisitPersonId})this.style.background='var(--border)'" onmouseout="if(${p.id}!==${currentVisitPersonId})this.style.background='transparent'">
+        <div style="font-weight:500;color:${currentVisitPersonId===p.id?'var(--accent)':'var(--text)'};">${p.name}</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${p.department}</div>
+      </button>`
+    ).join('');
+  }
+
+  function filterPersonPicker(q) { renderPersonPicker(q); }
+
+  async function selectPerson(id) {
+    currentVisitPersonId = id;
+    const p = allData.find(x => x.id === id);
+    renderPersonPicker();
+    document.getElementById('visitPlaceholder').style.display = 'none';
+    document.getElementById('visitPanel').style.display = 'block';
+    document.getElementById('visitPersonName').textContent = p ? p.name : '';
+    await loadVisits(id);
+  }
+
+  async function loadVisits(id) {
+    const res = await fetch(`/personnel/${id}/visits`);
+    const visits = await res.json();
+    const container = document.getElementById('visitsList');
+    if (!visits.length) {
+      container.innerHTML = `<div class="empty-state" style="padding:30px;"><div class="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></div><div class="empty-title">No visits recorded</div><div class="empty-sub">Click "Add Visit" to record a clinic visit</div></div>`;
+      return;
+    }
+    container.innerHTML = visits.map(v =>
+      `<div class="visit-item">
+        <div style="flex:1;">
+          <div class="visit-date">${v.visit_date}</div>
+          <div class="visit-reason">${v.reason || 'General Visit'}</div>
+          ${v.notes ? `<div class="visit-notes">${v.notes}</div>` : ''}
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteVisit(${v.id})">Delete</button>
+      </div>`
+    ).join('');
+  }
+
+  function openAddVisitModal() {
+    document.getElementById('vDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('vReason').value = '';
+    document.getElementById('vNotes').value = '';
+    document.getElementById('addVisitOverlay').classList.add('open');
+  }
+
+  async function saveVisit() {
+    const body = { visit_date: document.getElementById('vDate').value, reason: document.getElementById('vReason').value.trim(), notes: document.getElementById('vNotes').value.trim() };
+    if (!body.visit_date) { showToast('Visit date is required', true); return; }
+    const res = await fetch(`/personnel/${currentVisitPersonId}/visits/add`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) { document.getElementById('addVisitOverlay').classList.remove('open'); await loadVisits(currentVisitPersonId); }
+  }
+
+  async function deleteVisit(vid) {
+    if (!confirm('Delete this visit record?')) return;
+    const res = await fetch(`/visits/delete/${vid}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken} });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) await loadVisits(currentVisitPersonId);
+  }
+
+  // ── REPORTS ──
+  async function renderReports() {
+    const total = allData.length;
+    const highRisk = allData.filter(p => isHighRisk(p.conditions)).length;
+    document.getElementById('rpt-total').textContent = total;
+    document.getElementById('rpt-normal').textContent = total - highRisk;
+    document.getElementById('rpt-highrisk').textContent = highRisk;
+
+    // Visit count
+    try {
+      let visitCount = 0;
+      await Promise.all(allData.map(async p => {
+        const r = await fetch(`/personnel/${p.id}/visits`);
+        const v = await r.json();
+        visitCount += v.length;
+      }));
+      document.getElementById('rpt-visits').textContent = visitCount;
+    } catch(e) { document.getElementById('rpt-visits').textContent = '—'; }
+
+    // Conditions bar chart
+    const condFreq = {};
+    allData.forEach(p => p.conditions.forEach(c => condFreq[c] = (condFreq[c]||0)+1));
+    const top = Object.entries(condFreq).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const maxVal = top[0]?.[1] || 1;
+    document.getElementById('conditionsReport').innerHTML = top.map(([c,n]) =>
+      `<div class="conditions-bar"><div class="cbar-label"><span>${c}</span><span>${n}</span></div><div class="cbar-track"><div class="cbar-fill" style="width:${(n/maxVal*100).toFixed(1)}%"></div></div></div>`
+    ).join('');
+
+    // Age chart
+    const ageGroups = {'<30':0,'30-39':0,'40-49':0,'50-59':0,'60+':0};
+    allData.forEach(p => {
+      if (!p.age) return;
+      if (p.age < 30) ageGroups['<30']++;
+      else if (p.age < 40) ageGroups['30-39']++;
+      else if (p.age < 50) ageGroups['40-49']++;
+      else if (p.age < 60) ageGroups['50-59']++;
+      else ageGroups['60+']++;
+    });
+    if (ageChart) ageChart.destroy();
+    const tc = 'rgba(240,237,232,0.4)', gc = 'rgba(255,255,255,0.04)', cf = {family:'Figtree',size:11};
+    ageChart = new Chart(document.getElementById('ageChart'), { type:'bar', data:{ labels:Object.keys(ageGroups), datasets:[{ label:'Count', data:Object.values(ageGroups), backgroundColor:'rgba(91,164,212,0.7)', borderRadius:4 }] }, options:{ plugins:{legend:{display:false},tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'}}, scales:{x:{ticks:{color:tc,font:cf},grid:{color:gc}},y:{ticks:{color:tc,font:cf},grid:{color:gc}}} } });
+
+    // Dept risk chart
+    const depts = [...new Set(allData.map(p=>p.department))].filter(Boolean);
+    const normalCounts = depts.map(d => allData.filter(p=>p.department===d && !isHighRisk(p.conditions)).length);
+    const highCounts = depts.map(d => allData.filter(p=>p.department===d && isHighRisk(p.conditions)).length);
+    if (deptRiskChart) deptRiskChart.destroy();
+    deptRiskChart = new Chart(document.getElementById('deptRiskChart'), { type:'bar', data:{ labels:depts, datasets:[{ label:'Normal', data:normalCounts, backgroundColor:'rgba(78,201,122,0.7)', borderRadius:4 },{ label:'High Risk', data:highCounts, backgroundColor:'rgba(224,85,85,0.7)', borderRadius:4 }] }, options:{ plugins:{legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}},tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'}}, scales:{x:{ticks:{color:tc,font:cf},grid:{color:gc}},y:{ticks:{color:tc,font:cf},grid:{color:gc}}} } });
+  }
+
+  // ── DEPARTMENTS ──
+  async function loadDepartments() {
+    const res = await fetch('/departments');
+    allDepts = await res.json();
+    const container = document.getElementById('deptList');
+    if (!container) return;
+    container.innerHTML = allDepts.length ? allDepts.map(d =>
+      `<div class="dept-item"><span class="dept-name">${d.name}</span><button class="btn btn-danger btn-sm" onclick="deleteDepartment(${d.id},'${d.name}')">Remove</button></div>`
+    ).join('') : '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No departments added yet.</div>';
+  }
+
+  async function addDepartment() {
+    const name = document.getElementById('newDeptName').value.trim();
+    if (!name) { showToast('Enter a department name', true); return; }
+    const res = await fetch('/departments/add', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify({name}) });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) { document.getElementById('newDeptName').value = ''; await loadDepartments(); }
+  }
+
+  async function deleteDepartment(id, name) {
+    if (!confirm(`Remove department "${name}"?`)) return;
+    const res = await fetch(`/departments/delete/${id}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken} });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) await loadDepartments();
+  }
+
+  // ── AUDIT LOG ──
+  async function loadAuditLog() {
+    const res = await fetch('/audit-log');
+    const logs = await res.json();
+    document.getElementById('auditCountLabel').textContent = `${logs.length} entries (last 200)`;
+    const iconMap = { LOGIN:'🟢', LOGIN_FAIL:'🔴', LOGOUT:'🔵', ADD_PERSONNEL:'✨', UPDATE_PERSONNEL:'✏️', DELETE_PERSONNEL:'🗑️', ADD_VISIT:'📅', DELETE_VISIT:'🗑️', ADD_DEPT:'🏢', DELETE_DEPT:'🗑️', EXPORT_CSV:'📤', EXPORT_VISITS_CSV:'📤', UPLOAD_CSV:'📥' };
+    const classMap = { LOGIN:'login', LOGIN_FAIL:'delete', LOGOUT:'logout', ADD_PERSONNEL:'add', UPDATE_PERSONNEL:'add', DELETE_PERSONNEL:'delete', ADD_VISIT:'add', DELETE_VISIT:'delete', EXPORT_CSV:'export', UPLOAD_CSV:'export' };
+    document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
+      `<div class="audit-item">
+        <div class="audit-icon ${classMap[l.action]||'other'}">${iconMap[l.action]||'📋'}</div>
+        <div style="flex:1;">
+          <div class="audit-action">${l.action.replace(/_/g,' ')}</div>
+          <div class="audit-detail">${l.detail || ''} ${l.ip ? `· IP: ${l.ip}` : ''}</div>
+        </div>
+        <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
+      </div>`
+    ).join('') : '<div class="empty-state" style="padding:40px;"><div class="empty-title">No activity yet</div></div>';
+  }
+
+  // ── EXPORT ──
+  function exportPersonnel() { window.location.href = '/export/personnel'; }
+  function exportVisits() { window.location.href = '/export/visits'; }
+
+  // ── CSV UPLOAD ──
+  let pendingUploadFile = null;
+  function requestUpload(file) {
+    if (!file) return;
+    document.getElementById('csvFileName').textContent = file.name;
+    pendingUploadFile = file;
+    document.getElementById('confirmIcon').textContent = '⚠️';
+    document.getElementById('confirmTitle').textContent = 'Replace all records?';
+    document.getElementById('confirmBody').innerHTML = `Uploading <strong>${file.name}</strong> will <strong style="color:var(--danger);">permanently delete</strong> all existing personnel records and replace them with the file contents. This cannot be undone.`;
+    document.getElementById('confirmOkBtn').onclick = confirmUpload;
+    document.getElementById('confirmOverlay').classList.add('open');
+  }
+  async function confirmUpload() {
+    document.getElementById('confirmOverlay').classList.remove('open');
+    if (!pendingUploadFile) return;
+    const formData = new FormData();
+    formData.append('file', pendingUploadFile);
+    pendingUploadFile = null;
+    const res = await fetch('/upload', { method:'POST', headers:{'X-CSRF-Token':csrfToken}, body:formData });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) await loadPersonnel();
+  }
+
+  // ── LOGOUT ──
+  async function handleLogout() {
+    if (!confirm('Sign out of MMSU Medical Dashboard?')) return;
+    await fetch('/logout', { method:'POST', headers:{'X-CSRF-Token':csrfToken,'Content-Type':'application/json'} });
+    window.location.href = '/login';
+  }
+
+  // ── TOAST ──
+  function showToast(msg, isError=false) {
+    const t = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    t.classList.toggle('error', isError);
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ── HELPERS ──
+  const HIGH_RISK = ['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus'];
+  function isHighRisk(conditions) { return conditions.some(c => HIGH_RISK.includes(c)); }
+
+  const allConditionsList = ['Hypertension','Diabetes','Asthma','Heart Disease','Allergies','Obesity','Tuberculosis','Anemia','Cancer','Arthritis','Covid-19','Mental Health','Liver Disease','Kidney Disease','Migraine','Ulcer','Gastritis','Hepatitis','Thyroid Disorder','Pneumonia','HIV/AIDS','Dengue','Stroke','Bronchitis','Epilepsy','Glaucoma','Cyst','Scoliosis','Gallstones','Sinusitis','Tonsillitis','Lupus','GERD','Psoriasis','Vertigo','Gout','Hernia'];
+
+  const MEDICINES = {
+    'Hypertension':[{name:'Amlodipine',desc:'Calcium channel blocker for blood pressure control.',warn:''},{name:'Losartan',desc:'ARB for hypertension and kidney protection.',warn:''},{name:'Hydrochlorothiazide',desc:'Diuretic for mild hypertension.',warn:''}],
+    'Diabetes':[{name:'Metformin',desc:'First-line oral medication for type 2 diabetes.',warn:''},{name:'Glimepiride',desc:'Sulfonylurea stimulating insulin secretion.',warn:''},{name:'Insulin',desc:'Required for type 1 or advanced type 2.',warn:'Requires monitoring.'}],
+    'Asthma':[{name:'Salbutamol Inhaler',desc:'Short-acting bronchodilator for acute attacks.',warn:''},{name:'Budesonide Inhaler',desc:'Inhaled corticosteroid for long-term control.',warn:''}],
+    'Heart Disease':[{name:'Aspirin',desc:'Antiplatelet therapy for clot prevention.',warn:''},{name:'Atorvastatin',desc:'Reduces LDL cholesterol and inflammation.',warn:''},{name:'Bisoprolol',desc:'Beta-blocker to reduce heart rate and workload.',warn:'Specialist required.'}],
+    'Allergies':[{name:'Cetirizine',desc:'Non-drowsy antihistamine for daily use.',warn:''},{name:'Loratadine',desc:'Long-acting antihistamine tablet.',warn:''}],
+    'Obesity':[{name:'Orlistat',desc:'Lipase inhibitor reducing dietary fat absorption.',warn:''},{name:'Diet & Exercise',desc:'Primary intervention for weight management.',warn:''}],
+    'Tuberculosis':[{name:'Rifampicin',desc:'Key antibiotic in TB regimen.',warn:'DOT required.'},{name:'Isoniazid',desc:'Bactericidal agent against TB.',warn:'Monitor liver function.'}],
+    'Anemia':[{name:'Ferrous Sulfate',desc:'Iron supplementation for iron-deficiency anemia.',warn:''},{name:'Folic Acid',desc:'Supports red blood cell production.',warn:''}],
+    'Cancer':[{name:'Chemotherapy',desc:'Cytotoxic drug therapy for cancer.',warn:'Specialist required.'},{name:'Palliative Care',desc:'Supportive care to improve quality of life.',warn:''}],
+    'Arthritis':[{name:'Naproxen',desc:'NSAID for joint pain and inflammation.',warn:''},{name:'Methotrexate',desc:'DMARD for rheumatoid arthritis.',warn:'Specialist required.'}],
+    'Mental Health':[{name:'Sertraline',desc:'SSRI antidepressant for anxiety and depression.',warn:''},{name:'Counseling',desc:'Cognitive behavioral therapy recommended.',warn:''}],
+    'Liver Disease':[{name:'Silymarin',desc:'Hepatoprotective agent from milk thistle.',warn:''},{name:'Ursodeoxycholic Acid',desc:'Bile acid for cholestatic liver disease.',warn:'Specialist required.'}],
+    'Kidney Disease':[{name:'Amlodipine',desc:'Controls BP to protect kidney function.',warn:''},{name:'Erythropoietin',desc:'For anemia in chronic kidney disease.',warn:'Specialist required.'}],
+    'Migraine':[{name:'Sumatriptan',desc:'Triptan for acute migraine attacks.',warn:''},{name:'Topiramate',desc:'Preventive therapy for frequent migraines.',warn:''}],
+    'Ulcer':[{name:'Omeprazole',desc:'Proton pump inhibitor reducing stomach acid.',warn:''},{name:'Amoxicillin',desc:'Antibiotic for H. pylori eradication.',warn:''}],
+    'Gastritis':[{name:'Pantoprazole',desc:'PPI for gastric acid reduction.',warn:''},{name:'Antacids',desc:'Quick relief from gastric discomfort.',warn:''}],
+    'Thyroid Disorder':[{name:'Levothyroxine',desc:'Synthetic T4 for hypothyroidism.',warn:''},{name:'Methimazole',desc:'Antithyroid drug for hyperthyroidism.',warn:''}],
+    'Bronchitis':[{name:'Salbutamol',desc:'Bronchodilator for airway relief.',warn:''},{name:'Amoxicillin',desc:'Antibiotic if bacterial cause suspected.',warn:''}],
+    'Stroke':[{name:'Aspirin',desc:'Antiplatelet therapy post-ischemic stroke.',warn:''},{name:'Clopidogrel',desc:'Alternative antiplatelet for stroke prevention.',warn:'Specialist required.'}],
+    'Gout':[{name:'Allopurinol',desc:'Reduces uric acid production.',warn:''},{name:'Colchicine',desc:'Anti-inflammatory for acute gout attacks.',warn:''}],
+    'GERD':[{name:'Omeprazole',desc:'Proton pump inhibitor for GERD.',warn:''},{name:'Domperidone',desc:'Prokinetic agent for reflux symptoms.',warn:''}]
+  };
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModalDirect(); document.getElementById('addPersonnelOverlay').classList.remove('open'); document.getElementById('addVisitOverlay').classList.remove('open'); document.getElementById('confirmOverlay').classList.remove('open'); } });
+
+  init();
 </script>
 </body>
 </html>
