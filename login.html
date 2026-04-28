@@ -3,275 +3,454 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MMSU Medical Dashboard - Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <title>MMSU Medical · Sign In</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --green: #144A24;
-      --green-dark: #0d3319;
-      --gold: #FFD700;
-      --gold-dark: #c9a900;
+      --ink:        #0e1a13;
+      --ink-2:      rgba(14,26,19,0.55);
+      --ink-3:      rgba(14,26,19,0.35);
+      --forest:     #14532d;
+      --forest-mid: #166534;
+      --leaf:       #22c55e;
+      --gold:       #ca8a04;
+      --gold-light: #fef9c3;
+      --cream:      #fafaf7;
+      --white:      #ffffff;
+      --border:     rgba(14,26,19,0.10);
+      --border-2:   rgba(14,26,19,0.06);
+      --red:        #dc2626;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'DM Sans', sans-serif;
-      background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+      font-family: 'Sora', sans-serif;
+      background: var(--cream);
       min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* LEFT PANEL */
+    .brand-panel {
+      background: var(--forest);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 56px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-panel::before {
+      content: '';
+      position: absolute;
+      top: -120px; right: -120px;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(34,197,94,0.12) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .brand-panel::after {
+      content: '';
+      position: absolute;
+      bottom: -80px; left: -80px;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(202,138,4,0.10) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .brand-logo {
       display: flex;
       align-items: center;
-      justify-content: center;
-      color: #fff;
+      gap: 14px;
     }
 
-    .login-container {
-      width: 100%;
-      max-width: 420px;
-      padding: 20px;
-    }
-
-    .login-card {
-      background: var(--green);
-      border: 1px solid rgba(255,215,0,0.2);
-      border-radius: 16px;
-      padding: 48px 40px;
-      text-align: center;
-    }
-
-    .logo-section {
-      margin-bottom: 32px;
-    }
-
-    .logo-circle {
-      width: 70px;
-      height: 70px;
+    .logo-mark {
+      width: 44px; height: 44px;
       background: var(--gold);
-      border-radius: 50%;
-      margin: 0 auto 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'DM Serif Display', serif;
-      font-size: 32px;
-      font-weight: bold;
-      color: var(--green);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
     }
 
-    .login-title {
-      font-family: 'DM Serif Display', serif;
-      font-size: 28px;
-      color: var(--gold);
-      margin-bottom: 8px;
-      line-height: 1;
+    .logo-mark svg { width: 22px; height: 22px; }
+
+    .logo-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      color: #fff;
+      line-height: 1.2;
     }
 
-    .login-subtitle {
-      font-size: 13px;
-      color: rgba(255,255,255,0.5);
-      margin-bottom: 32px;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-      text-align: left;
-    }
-
-    label {
+    .logo-name span {
       display: block;
+      font-family: 'Sora', sans-serif;
       font-size: 11px;
-      font-weight: 600;
-      color: rgba(255,215,0,0.7);
+      font-weight: 300;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .brand-center {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: 44px;
+      line-height: 1.12;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+
+    .brand-headline em {
+      font-style: italic;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .brand-desc {
+      font-size: 14px;
+      line-height: 1.7;
+      color: rgba(255,255,255,0.50);
+      max-width: 320px;
+    }
+
+    .brand-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.40);
+    }
+
+    /* RIGHT PANEL */
+    .login-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 56px;
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 380px;
+    }
+
+    .login-greeting {
+      font-family: 'Playfair Display', serif;
+      font-size: 32px;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .login-sub {
+      font-size: 13.5px;
+      color: var(--ink-2);
+      margin-bottom: 40px;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--ink-2);
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
       margin-bottom: 8px;
     }
 
-    input {
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px; height: 16px;
+      color: var(--ink-3);
+      pointer-events: none;
+    }
+
+    .field input {
       width: 100%;
-      padding: 12px 16px;
-      border: 1px solid rgba(255,215,0,0.2);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.08);
-      color: #fff;
+      padding: 13px 14px 13px 42px;
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
       font-size: 14px;
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Sora', sans-serif;
+      color: var(--ink);
       outline: none;
-      transition: all 0.2s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    input:focus {
-      border-color: rgba(255,215,0,0.5);
-      background: rgba(255,255,255,0.12);
+    .field input:focus {
+      border-color: var(--forest-mid);
+      box-shadow: 0 0 0 3px rgba(22,101,52,0.08);
     }
 
-    input::placeholder {
-      color: rgba(255,255,255,0.3);
-    }
+    .field input::placeholder { color: var(--ink-3); }
 
-    .login-btn {
-      width: 100%;
-      padding: 12px 16px;
-      background: var(--gold);
-      color: var(--green);
+    .show-pw {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      font-family: 'DM Sans', sans-serif;
       cursor: pointer;
-      transition: all 0.2s;
-      margin-top: 12px;
+      padding: 4px;
+      color: var(--ink-3);
+      display: flex; align-items: center;
     }
 
-    .login-btn:hover {
-      background: var(--gold-dark);
-      transform: translateY(-2px);
-    }
+    .show-pw:hover { color: var(--ink-2); }
 
-    .login-btn:active {
-      transform: translateY(0);
-    }
-
-    .login-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .error-message {
-      background: rgba(239,68,68,0.15);
-      color: #fca5a5;
+    .error-box {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: 10px;
       padding: 12px 14px;
-      border-radius: 8px;
       font-size: 13px;
-      margin-bottom: 20px;
+      color: var(--red);
+      margin-bottom: 18px;
       display: none;
-      border-left: 3px solid #ef4444;
+      align-items: center;
+      gap: 8px;
     }
 
-    .error-message.visible {
-      display: block;
+    .error-box.visible { display: flex; }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: var(--forest);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'Sora', sans-serif;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s, transform 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
 
-    .loading {
+    .btn-login:hover:not(:disabled) { background: var(--forest-mid); }
+    .btn-login:active:not(:disabled) { transform: scale(0.99); }
+    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .spinner {
       display: none;
-    }
-
-    .loading.visible {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(20,74,36,0.3);
-      border-top-color: var(--green);
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
-      margin-right: 8px;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .spinner.show { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .login-footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-3);
+      margin-top: 32px;
     }
 
-    .footer-text {
-      font-size: 11px;
-      color: rgba(255,255,255,0.3);
-      margin-top: 24px;
+    @media (max-width: 768px) {
+      body { grid-template-columns: 1fr; }
+      .brand-panel { display: none; }
+      .login-panel { padding: 40px 28px; }
     }
   </style>
 </head>
 <body>
 
-<div class="login-container">
-  <div class="login-card">
-    <div class="logo-section">
-      <div class="logo-circle">M</div>
-      <div class="login-title">MMSU Medical</div>
-      <div class="login-subtitle">Personnel Dashboard</div>
+<!-- LEFT: Branding -->
+<div class="brand-panel">
+  <div class="brand-logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M11 3v16M3 11h16" stroke="#0e1a13" stroke-width="2.8" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="logo-name">
+      MMSU Medical
+      <span>Health Records System</span>
+    </div>
+  </div>
+
+  <div class="brand-center">
+    <div class="brand-headline">
+      Personnel<br><em>Health</em><br>Records
+    </div>
+    <div class="brand-desc">
+      Secure, centralized medical data management for Mariano Marcos State University staff and faculty.
+    </div>
+  </div>
+
+  <div class="brand-stats">
+    <div class="stat-card">
+      <div class="stat-num">20+</div>
+      <div class="stat-label">Personnel Tracked</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">5</div>
+      <div class="stat-label">Departments</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">30+</div>
+      <div class="stat-label">Conditions Monitored</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">256-bit</div>
+      <div class="stat-label">Encrypted Sessions</div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT: Login Form -->
+<div class="login-panel">
+  <div class="login-box">
+    <div class="login-greeting">Welcome back</div>
+    <div class="login-sub">Sign in to access the medical dashboard</div>
+
+    <div class="error-box" id="errorBox">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="errorMsg">Invalid credentials</span>
     </div>
 
-    <div class="error-message" id="errorMessage"></div>
-
-    <form id="loginForm" onsubmit="handleLogin(event)">
-      <div class="form-group">
+    <form id="loginForm" onsubmit="handleLogin(event)" autocomplete="on">
+      <div class="field">
         <label for="username">Username</label>
-        <input 
-          type="text" 
-          id="username" 
-          placeholder="Enter username" 
-          required
-          autocomplete="username"
-        >
+        <div class="input-wrap">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="username">
+        </div>
       </div>
 
-      <div class="form-group">
+      <div class="field">
         <label for="password">Password</label>
-        <input 
-          type="password" 
-          id="password" 
-          placeholder="Enter password" 
-          required
-          autocomplete="current-password"
-        >
+        <div class="input-wrap">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
+          <button type="button" class="show-pw" onclick="togglePw()" id="pwToggle" aria-label="Show password">
+            <svg id="eyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <button type="submit" class="login-btn" id="loginBtn">
-        <span class="loading" id="loadingSpinner"></span>
-        Sign In
+      <button type="submit" class="btn-login" id="loginBtn">
+        <span class="spinner" id="spinner"></span>
+        <span id="btnText">Sign In</span>
       </button>
     </form>
 
-    <div class="footer-text">
-      MMSU Health Records System
+    <div class="login-footer">
+      MMSU Medical Dashboard &mdash; Authorized Access Only
     </div>
   </div>
 </div>
 
 <script>
-  async function handleLogin(event) {
-    event.preventDefault();
-    
+  window.addEventListener('load', () => document.getElementById('username').focus());
+
+  function togglePw() {
+    const pw = document.getElementById('password');
+    const icon = document.getElementById('eyeIcon');
+    if (pw.type === 'password') {
+      pw.type = 'text';
+      icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    } else {
+      pw.type = 'password';
+      icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    }
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    const loginBtn = document.getElementById('loginBtn');
-    const spinner = document.getElementById('loadingSpinner');
-    const errorMsg = document.getElementById('errorMessage');
+    const btn = document.getElementById('loginBtn');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btnText');
+    const errorBox = document.getElementById('errorBox');
 
-    loginBtn.disabled = true;
-    spinner.classList.add('visible');
-    errorMsg.classList.remove('visible');
+    btn.disabled = true;
+    spinner.classList.add('show');
+    btnText.textContent = 'Signing in…';
+    errorBox.classList.remove('visible');
 
     try {
-      const response = await fetch('/login', {
+      const res = await fetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-
-      const data = await response.json();
+      const data = await res.json();
 
       if (data.success) {
-        // Login successful, redirect to dashboard
+        btnText.textContent = 'Redirecting…';
         window.location.href = '/';
       } else {
-        // Login failed
-        errorMsg.textContent = data.error || 'Invalid username or password';
-        errorMsg.classList.add('visible');
-        loginBtn.disabled = false;
-        spinner.classList.remove('visible');
+        document.getElementById('errorMsg').textContent = data.error || 'Invalid username or password.';
+        errorBox.classList.add('visible');
+        btn.disabled = false;
+        spinner.classList.remove('show');
+        btnText.textContent = 'Sign In';
       }
-    } catch (error) {
-      errorMsg.textContent = 'An error occurred. Please try again.';
-      errorMsg.classList.add('visible');
-      loginBtn.disabled = false;
-      spinner.classList.remove('visible');
+    } catch {
+      document.getElementById('errorMsg').textContent = 'Connection error. Please try again.';
+      errorBox.classList.add('visible');
+      btn.disabled = false;
+      spinner.classList.remove('show');
+      btnText.textContent = 'Sign In';
     }
   }
-
-  // Focus on username field when page loads
-  window.addEventListener('load', () => {
-    document.getElementById('username').focus();
-  });
 </script>
-
 </body>
 </html>
