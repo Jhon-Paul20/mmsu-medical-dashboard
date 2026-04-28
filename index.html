@@ -822,6 +822,17 @@
     <div id="conditionList"></div>
   </nav>
 
+  <div class="sidebar-footer">
+    <div style="font-size:12px;color:var(--text-3);margin-bottom:10px;padding:0 2px;">
+      Logged in as <span style="color:var(--accent);font-weight:500;" id="loggedInUser">admin</span>
+    </div>
+    <button onclick="handleLogout()" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-2);font-size:12.5px;font-family:'Figtree',sans-serif;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='var(--danger-bg)';this.style.color='var(--danger)';this.style.borderColor='rgba(224,85,85,0.25)'" onmouseout="this.style.background='transparent';this.style.color='var(--text-2)';this.style.borderColor='var(--border)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="flex-shrink:0">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+      </svg>
+      Sign Out
+    </button>
+  </div>
 
 </aside>
 
@@ -977,6 +988,21 @@
   </div>
 </div>
 
+<!-- ── UPLOAD CONFIRM MODAL ── -->
+<div class="modal-overlay" id="uploadConfirmOverlay" style="z-index:250;">
+  <div class="modal" style="max-width:400px;text-align:center;">
+    <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+    <div class="modal-name" style="font-size:18px;margin-bottom:8px;">Replace all records?</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:24px;line-height:1.6;">
+      Uploading a CSV will <strong style="color:var(--danger);">permanently delete</strong> all existing personnel records and replace them with the file contents. This cannot be undone.
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button onclick="cancelUpload()" style="padding:9px 20px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text-2);font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;">Cancel</button>
+      <button onclick="confirmUpload()" style="padding:9px 20px;border-radius:8px;border:none;background:var(--danger);color:#fff;font-family:'Figtree',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Yes, Replace All</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── TOAST ── -->
 <div class="toast" id="toast">
   <div class="toast-dot"></div>
@@ -988,6 +1014,58 @@
   let filteredData = [];
   let activeCondition = 'All';
   let bloodChart, genderChart, deptChart, riskChart;
+  let csrfToken = '';
+
+  async function fetchCsrfToken() {
+    try {
+      const res = await fetch('/csrf-token');
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      const data = await res.json();
+      csrfToken = data.token;
+    } catch(e) { console.error('Failed to fetch CSRF token', e); }
+  }
+
+  async function handleLogout() {
+    if (!confirm('Sign out of MMSU Medical Dashboard?')) return;
+    await fetch('/logout', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken, 'Content-Type': 'application/json' }
+    });
+    window.location.href = '/login';
+  }
+  let pendingUploadFile = null;
+
+  function requestUpload(file) {
+    pendingUploadFile = file;
+    document.getElementById('uploadConfirmOverlay').classList.add('open');
+  }
+
+  function cancelUpload() {
+    pendingUploadFile = null;
+    document.getElementById('uploadConfirmOverlay').classList.remove('open');
+  }
+
+  async function confirmUpload() {
+    document.getElementById('uploadConfirmOverlay').classList.remove('open');
+    if (!pendingUploadFile) return;
+    const formData = new FormData();
+    formData.append('file', pendingUploadFile);
+    pendingUploadFile = null;
+    try {
+      const res = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+        body: formData
+      });
+      const data = await res.json();
+      showToast(data.message || data.error || 'Upload complete');
+      const fresh = await fetch('/personnel');
+      allData = await fresh.json();
+      filterData('All');
+    } catch (e) {
+      showToast('Upload failed. Please try again.');
+    }
+  }
 
   const HIGH_RISK = ['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus'];
 
@@ -1399,15 +1477,21 @@
     if (e.key === 'Escape') closeModalDirect();
   });
 
-  // Load personnel data from data.json
-  fetch('data.json')
-    .then(res => res.json())
+  // Initialise: fetch CSRF token and personnel data in parallel
+  fetchCsrfToken();
+
+  fetch('/personnel')
+    .then(res => {
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      return res.json();
+    })
     .then(data => {
+      if (!data) return;
       allData = data;
       filterData('All');
     })
     .catch(err => {
-      console.error('Failed to load data.json:', err);
+      console.error('Failed to load personnel:', err);
     });
 
   generateConditionList();
