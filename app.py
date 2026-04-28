@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
-app.secret_key = 'mmsu_medical_secret_key'
+app.secret_key = 'mmsu_medical_key'
 
 @app.route('/')
 def login():
@@ -11,15 +11,9 @@ def login():
 def do_login():
     username = request.form['username']
     password = request.form['password']
-    # Basic auth - replace with database check for production
     if username == 'admin' and password == 'password':
         session['logged_in'] = True
         return redirect(url_for('overview'))
-    return redirect(url_for('login'))
-
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
     return redirect(url_for('login'))
 
 @app.route('/overview')
@@ -27,35 +21,12 @@ def overview():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     
-    # Dynamic Data for the Dashboard
-    stats = {
-        'total_personnel': 20,
-        'male_percent': 50.0,
-        'female_percent': 50.0,
-        'common_blood': 'O+'
-    }
-    
+    stats = {'total_personnel': 20, 'male_percent': 50.0, 'female_percent': 50.0, 'common_blood': 'O+'}
     blood_types = {'O+': 4, 'A+': 4, 'B+': 3, 'AB+': 2, 'O-': 2, 'B-': 2, 'A-': 2, 'AB-': 1}
+    dept_counts = {'Nursing': 8, 'Pediatrics': 5, 'Radiology': 4, 'Admin': 3}
+    risk_data = {'High Risk': 15, 'Stable': 85}
     
-    # New breakdown data
-    department_counts = {
-        'Nursing': 8,
-        'Pediatrics': 5,
-        'Radiology': 4,
-        'Admin': 3
-    }
-    
-    # Risk Rate Data
-    risk_data = {
-        'High Risk': 15,
-        'Stable': 85
-    }
-    
-    return render_template('index.html', 
-                           stats=stats,
-                           blood_types=blood_types, 
-                           dept_counts=department_counts,
-                           risk_data=risk_data)
+    return render_template('index.html', stats=stats, blood_types=blood_types, dept_counts=dept_counts, risk_data=risk_data)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8080)
