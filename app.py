@@ -3,6 +3,7 @@ from functools import wraps
 from contextlib import contextmanager
 import csv
 import io
+import json
 import os
 import secrets
 from datetime import datetime
@@ -654,6 +655,42 @@ def export_personnel_pdf(pid):
         headers={'Content-Disposition': f'attachment; filename={safe_name}_medical_record.pdf'}
     )
 
+
+# ── CLAUDE AI PROXY ───────────────────────────────────────────────────────────
+
+@app.route('/ai/suggest', methods=['POST'])
+@login_required
+@csrf_required
+def ai_suggest():
+    """Proxy Claude API calls so the API key is never exposed to the browser."""
+    import urllib.request, urllib.error
+
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'ANTHROPIC_API_KEY is not set on the server.'}), 500
+
+    payload = request.json or {}
+    body = json.dumps({
+        'model': 'claude-sonnet-4-20250514',
+        'max_tokens': 1024,
+        'messages': payload.get('messages', []),
+    }).encode()
+
+    req = urllib.request.Request(
+        'https://api.anthropic.com/v1/messages',
+        data=body,
+        headers={
+            'Content-Type': 'application/json',
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+        },
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return Response(resp.read(), mimetype='application/json')
+    except urllib.error.HTTPError as e:
+        return Response(e.read(), status=e.code, mimetype='application/json')
 
 # ── ENTRYPOINT ────────────────────────────────────────────────────────────────
 
