@@ -656,6 +656,28 @@ def export_personnel_pdf(pid):
     )
 
 
+# ── GEMINI DEBUG ──────────────────────────────────────────────────────────────
+
+@app.route('/ai/models')
+@login_required
+def ai_models():
+    """List available Gemini models for debugging."""
+    import urllib.request, urllib.error
+    api_key = os.environ.get('GEMINI_API_KEY', '').strip()
+    if not api_key:
+        return jsonify({'error': 'GEMINI_API_KEY not set'}), 500
+    try:
+        url = f'https://generativelanguage.googleapis.com/v1beta/models?key={api_key}'
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read())
+            models = [
+                m['name'] for m in data.get('models', [])
+                if 'generateContent' in m.get('supportedGenerationMethods', [])
+            ]
+            return jsonify({'available_models': models})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ── GEMINI AI PROXY ───────────────────────────────────────────────────────────
 
 @app.route('/ai/suggest', methods=['POST'])
@@ -681,7 +703,7 @@ def ai_suggest():
         'generationConfig': {'temperature': 0.3, 'maxOutputTokens': 1024}
     }).encode('utf-8')
 
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}'
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}'
     req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
 
     try:
