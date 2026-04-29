@@ -88,52 +88,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def seed_db():
-    conn = get_db()
-    c = conn.cursor()
-
-    # Seed departments
-    c.execute('SELECT COUNT(*) FROM departments')
-    if c.fetchone()[0] == 0:
-        depts = [('CHS',), ('COE',), ('CTE',), ('CBEA',), ('CAS',)]
-        psycopg2.extras.execute_batch(c, 'INSERT INTO departments (name) VALUES (%s) ON CONFLICT DO NOTHING', depts)
-
-    # Seed personnel
-    c.execute('SELECT COUNT(*) FROM personnel')
-    if c.fetchone()[0] == 0:
-        records = [
-            ('Ana Reyes',         32, 'Female', 'O+',  'CHS',  '09171234567', 'Laoag City',        'Hypertension|Diabetes'),
-            ('Juan dela Cruz',    45, 'Male',   'A+',  'COE',  '09281234567', 'Batac City',        'Asthma'),
-            ('Maria Santos',      28, 'Female', 'B+',  'CTE',  '09391234567', 'Paoay, Ilocos Norte','Allergies|Migraine'),
-            ('Carlos Mendoza',    51, 'Male',   'AB+', 'CBEA', '09171239999', 'Sarrat, Ilocos Norte','Hypertension'),
-            ('Liza Fernandez',    38, 'Female', 'O-',  'CAS',  '09281239999', 'Vintar, Ilocos Norte','Anemia'),
-            ('Ramon Torres',      55, 'Male',   'A+',  'CHS',  '09391239999', 'Laoag City',        'Diabetes|Obesity'),
-            ('Gloria Villanueva', 60, 'Female', 'B-',  'COE',  '09171230000', 'Bacarra, Ilocos Norte','Arthritis'),
-            ('Eduardo Garcia',    47, 'Male',   'O+',  'CTE',  '09281230000', 'Batac City',        'Heart Disease'),
-            ('Nora Bautista',     42, 'Female', 'A-',  'CBEA', '09391230000', 'Laoag City',        'Thyroid Disorder|Hypertension'),
-            ('Miguel Ramos',      36, 'Male',   'AB-', 'CAS',  '09171231111', 'Piddig, Ilocos Norte','Gastritis'),
-            ('Josie Aquino',      29, 'Female', 'O+',  'CHS',  '09281231111', 'Laoag City',        'Asthma|Allergies'),
-            ('Andres Flores',     50, 'Male',   'B+',  'COE',  '09391231111', 'Batac City',        'Ulcer'),
-            ('Cristina Lopez',    33, 'Female', 'A+',  'CTE',  '09171232222', 'Laoag City',        'Mental Health'),
-            ('Roberto Cruz',      58, 'Male',   'O-',  'CBEA', '09281232222', 'Paoay, Ilocos Norte','Hypertension|Kidney Disease'),
-            ('Teresita Ocampo',   44, 'Female', 'B+',  'CAS',  '09391232222', 'Vintar, Ilocos Norte','Diabetes'),
-            ('Danilo Castillo',   39, 'Male',   'A+',  'CHS',  '09171233333', 'Batac City',        'Bronchitis'),
-            ('Maribel Reyes',     27, 'Female', 'AB+', 'COE',  '09281233333', 'Laoag City',        'Migraine|Anemia'),
-            ('Ernesto Salazar',   62, 'Male',   'O+',  'CTE',  '09391233333', 'Sarrat, Ilocos Norte','Liver Disease'),
-            ('Rowena Pascual',    31, 'Female', 'A-',  'CBEA', '09171234444', 'Laoag City',        'Asthma'),
-            ('Felix Navarro',     53, 'Male',   'B-',  'CAS',  '09281234444', 'Batac City',        'Heart Disease|Diabetes'),
-        ]
-        psycopg2.extras.execute_batch(
-            c,
-            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
-            records
-        )
-        conn.commit()
-        print(f'Seeded {len(records)} personnel records.')
-    conn.close()
-
 init_db()
-seed_db()
 
 # ── AUTH / CSRF ───────────────────────────────────────────────────────────────
 
