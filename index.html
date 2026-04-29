@@ -458,55 +458,110 @@
     <div class="topbar">
       <div>
         <div class="page-heading">Medicine <em>Lookup</em></div>
-        <div class="page-sub">Search a disease or condition to see suggested medicines</div>
+        <div class="page-sub">Search any condition for AI-powered treatment suggestions · Powered by Gemini</div>
       </div>
     </div>
 
-    <!-- Search / select input -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+    <!-- Search input -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
       <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
         <div style="flex:1;min-width:240px;">
           <label class="form-label">Type or select a condition</label>
           <div style="position:relative;">
-            <input class="form-input" id="medLookupInput" placeholder="e.g. Hypertension, Diabetes…" oninput="onMedLookupInput(this.value)" autocomplete="off" style="padding-right:36px;">
+            <input class="form-input" id="medLookupInput" placeholder="e.g. Hypertension, Diabetes, Asthma…" oninput="onMedLookupInput(this.value)" autocomplete="off" style="padding-right:36px;">
             <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-3);pointer-events:none;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
-            <!-- Dropdown suggestions -->
             <div id="medLookupDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4);"></div>
           </div>
         </div>
         <div>
           <label class="form-label">&nbsp;</label>
-          <select class="form-input form-select" id="medLookupSelect" onchange="lookupMedicine(this.value)" style="min-width:200px;">
+          <select class="form-input form-select" id="medLookupSelect" onchange="selectMedLookup(this.value)" style="min-width:200px;">
             <option value="">— or pick from list —</option>
           </select>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="clearMedLookup()" style="margin-bottom:1px;">Clear</button>
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <div>
+            <label class="form-label">&nbsp;</label>
+            <button class="btn btn-primary btn-sm" onclick="runAIMedLookup()" id="aiMedLookupBtn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              Ask Gemini
+            </button>
+          </div>
+          <div>
+            <label class="form-label">&nbsp;</label>
+            <button class="btn btn-ghost btn-sm" onclick="clearMedLookup()">Clear</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Results -->
-    <div id="medLookupResult" style="display:none;">
+    <!-- Static medicine results (from MEDICINES map) -->
+    <div id="medLookupResult" style="display:none;margin-bottom:20px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#e8c84a" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
-        <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;">Treatment Suggestions —</span>
+        <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;">Standard Medicines —</span>
         <span id="medLookupConditionLabel" style="font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);"></span>
       </div>
       <div class="med-grid" id="medLookupCards"></div>
     </div>
 
-    <div id="medLookupEmpty" style="display:none;">
-      <div class="empty-state">
-        <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="10"/></svg></div>
-        <div class="empty-title">No medicines listed</div>
-        <div class="empty-sub" id="medLookupEmptyLabel">This condition has no mapped medicines yet.</div>
+    <!-- AI Results section -->
+    <div id="aiMedLookupSection" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;">AI Treatment Analysis —</span>
+          <span id="aiMedLookupCondLabel" style="font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);"></span>
+        </div>
+        <span style="font-size:11px;color:var(--text-3);">Powered by Gemini · general reference only</span>
+      </div>
+
+      <!-- Loading -->
+      <div id="aiMedLookupLoading" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:center;">
+        <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+          Analyzing condition with Gemini…
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="aiMedLookupResults" style="display:none;">
+        <!-- Overview card -->
+        <div id="aiMedLookupOverview" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:14px;">
+          <div style="font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Condition Overview</div>
+          <div id="aiMedLookupOverviewText" style="font-size:13px;color:var(--text-2);line-height:1.65;"></div>
+        </div>
+        <!-- Medicine cards -->
+        <div id="aiMedLookupGrid" class="modal-meds-grid" style="margin-bottom:12px;"></div>
+        <!-- Interaction / note -->
+        <div id="aiMedLookupNote" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,.18);border-radius:var(--radius-sm);padding:11px 15px;margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:600;color:var(--danger);margin-bottom:3px;">⚠ Important Note</div>
+          <div id="aiMedLookupNoteText" style="font-size:11.5px;color:var(--text-2);line-height:1.5;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-3);line-height:1.5;">AI suggestions are for general reference only. Always defer to a licensed physician for final treatment decisions.</div>
+      </div>
+
+      <!-- Error -->
+      <div id="aiMedLookupError" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,.18);border-radius:var(--radius);padding:14px 16px;">
+        <div style="font-size:12.5px;color:var(--danger);" id="aiMedLookupErrorMsg">Something went wrong.</div>
       </div>
     </div>
 
+    <!-- Empty state -->
+    <div id="medLookupEmpty" style="display:none;">
+      <div class="empty-state">
+        <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <div class="empty-title">No standard medicines listed</div>
+        <div class="empty-sub">Click <strong style="color:var(--accent);">Ask Gemini</strong> for AI-powered suggestions.</div>
+      </div>
+    </div>
+
+    <!-- Placeholder -->
     <div id="medLookupPlaceholder">
       <div class="empty-state">
         <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
-        <div class="empty-title">Start typing a condition</div>
-        <div class="empty-sub">Suggested medicines will appear here automatically</div>
+        <div class="empty-title">Search a condition</div>
+        <div class="empty-sub">Type or pick a condition, then click <strong style="color:var(--accent);">Ask Gemini</strong> for AI-powered analysis</div>
       </div>
     </div>
   </div>
@@ -1263,7 +1318,7 @@
   function onMedLookupInput(val) {
     const dd = document.getElementById('medLookupDropdown');
     const q = val.trim().toLowerCase();
-    if (!q) { dd.style.display = 'none'; clearMedLookup(); return; }
+    if (!q) { dd.style.display = 'none'; return; }
     const matches = allConditionsList.filter(c => c.toLowerCase().includes(q));
     if (!matches.length) { dd.style.display = 'none'; return; }
     dd.style.display = 'block';
@@ -1274,6 +1329,7 @@
 
   function selectMedLookup(cond) {
     document.getElementById('medLookupInput').value = cond;
+    document.getElementById('medLookupSelect').value = cond;
     document.getElementById('medLookupDropdown').style.display = 'none';
     lookupMedicine(cond);
   }
@@ -1282,9 +1338,21 @@
     const result = document.getElementById('medLookupResult');
     const empty = document.getElementById('medLookupEmpty');
     const placeholder = document.getElementById('medLookupPlaceholder');
+    const aiSection = document.getElementById('aiMedLookupSection');
+
     placeholder.style.display = 'none';
-    if (!cond) { result.style.display = 'none'; empty.style.display = 'none'; placeholder.style.display = ''; return; }
+    aiSection.style.display = 'none';
+
+    if (!cond) {
+      result.style.display = 'none';
+      empty.style.display = 'none';
+      placeholder.style.display = '';
+      return;
+    }
+
+    document.getElementById('medLookupInput').value = cond;
     document.getElementById('medLookupSelect').value = cond;
+
     if (MEDICINES[cond] && MEDICINES[cond].length) {
       document.getElementById('medLookupConditionLabel').textContent = cond;
       document.getElementById('medLookupCards').innerHTML = MEDICINES[cond].map(m =>
@@ -1293,7 +1361,6 @@
       result.style.display = 'block';
       empty.style.display = 'none';
     } else {
-      document.getElementById('medLookupEmptyLabel').textContent = `"${cond}" has no mapped medicines yet.`;
       result.style.display = 'none';
       empty.style.display = 'block';
     }
@@ -1305,7 +1372,109 @@
     document.getElementById('medLookupDropdown').style.display = 'none';
     document.getElementById('medLookupResult').style.display = 'none';
     document.getElementById('medLookupEmpty').style.display = 'none';
+    document.getElementById('aiMedLookupSection').style.display = 'none';
     document.getElementById('medLookupPlaceholder').style.display = '';
+  }
+
+  async function runAIMedLookup() {
+    const cond = document.getElementById('medLookupInput').value.trim();
+    if (!cond) { showToast('Please enter a condition first', true); return; }
+
+    const aiSection = document.getElementById('aiMedLookupSection');
+    const loading   = document.getElementById('aiMedLookupLoading');
+    const results   = document.getElementById('aiMedLookupResults');
+    const error     = document.getElementById('aiMedLookupError');
+    const btn       = document.getElementById('aiMedLookupBtn');
+
+    aiSection.style.display = 'block';
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    error.style.display = 'none';
+    btn.disabled = true;
+    document.getElementById('aiMedLookupCondLabel').textContent = cond;
+    document.getElementById('medLookupPlaceholder').style.display = 'none';
+    document.getElementById('medLookupEmpty').style.display = 'none';
+
+    // Also show static medicines if available
+    lookupMedicine(cond);
+
+    const prompt = `You are a clinical pharmacology reference assistant for a university health clinic in the Philippines.
+
+Condition: ${cond}
+
+Task: Provide a concise clinical overview and treatment suggestions for this condition.
+
+Respond ONLY with a valid JSON object (no markdown, no extra text):
+{
+  "overview": "2-3 sentence clinical description of the condition and its management approach",
+  "suggestions": [
+    {
+      "medicine": "medicine name",
+      "dosage": "typical dosage and frequency",
+      "description": "1-2 sentence rationale and mechanism",
+      "warning": "key warning or empty string"
+    }
+  ],
+  "important_note": "any critical clinical note for this condition, or empty string"
+}
+
+Limit to 4 medicine suggestions. Focus on medicines commonly available in the Philippines.`;
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || `API error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const clean = raw.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+
+      document.getElementById('aiMedLookupOverviewText').textContent = parsed.overview || '';
+
+      document.getElementById('aiMedLookupGrid').innerHTML = parsed.suggestions.map(s =>
+        `<div class="modal-med-card">
+          <div class="modal-med-name">${s.medicine}</div>
+          ${s.dosage ? `<div style="font-size:10px;font-weight:600;color:var(--accent);margin:3px 0 4px;text-transform:uppercase;letter-spacing:.06em;">${s.dosage}</div>` : ''}
+          <div class="modal-med-desc">${s.description}</div>
+          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${s.warning}</div>` : ''}
+        </div>`
+      ).join('');
+
+      const noteBox = document.getElementById('aiMedLookupNote');
+      if (parsed.important_note) {
+        document.getElementById('aiMedLookupNoteText').textContent = parsed.important_note;
+        noteBox.style.display = 'block';
+      } else {
+        noteBox.style.display = 'none';
+      }
+
+      loading.style.display = 'none';
+      results.style.display = 'block';
+
+    } catch(e) {
+      loading.style.display = 'none';
+      document.getElementById('aiMedLookupErrorMsg').textContent =
+        e.message.includes('API_KEY_INVALID') || e.message.includes('400')
+          ? 'Invalid API key. Check the GEMINI_API_KEY variable.'
+          : `Error: ${e.message}`;
+      error.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   // Close dropdown when clicking outside
