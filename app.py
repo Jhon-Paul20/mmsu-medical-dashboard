@@ -656,74 +656,90 @@ def export_personnel_pdf(pid):
     )
 
 
-# ── GEMINI DEBUG ──────────────────────────────────────────────────────────────
+# ── HUGGING FACE DEBUG ────────────────────────────────────────────────────────
 
 @app.route('/ai/models')
 @login_required
 def ai_models():
-    """List available Gemini models for debugging."""
-    import urllib.request, urllib.error
-    api_key = os.environ.get('GEMINI_API_KEY', '').strip()
+    """Return the configured Hugging Face model for debugging."""
+    api_key = os.environ.get('HF_API_KEY', '').strip()
     if not api_key:
-        return jsonify({'error': 'GEMINI_API_KEY not set'}), 500
-    try:
-        url = f'https://generativelanguage.googleapis.com/v1beta/models?key={api_key}'
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            data = json.loads(resp.read())
-            models = [
-                m['name'] for m in data.get('models', [])
-                if 'generateContent' in m.get('supportedGenerationMethods', [])
-            ]
-            return jsonify({'available_models': models})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'HF_API_KEY not set'}), 500
+    return jsonify({'model': 'mistralai/Mixtral-8x7B-Instruct-v0.1', 'status': 'configured'})
 
-# ── GEMINI AI PROXY ───────────────────────────────────────────────────────────
+# ── HUGGING FACE AI PROXY ─────────────────────────────────────────────────────
 
 @app.route('/ai/suggest', methods=['POST'])
 @login_required
 @csrf_required
 def ai_suggest():
-    """Proxy Gemini API calls so the API key is never exposed to the browser."""
+    """Proxy Hugging Face Inference API calls so the API key is never exposed to the browser."""
     import urllib.request, urllib.error
 
-    api_key = os.environ.get('GEMINI_API_KEY', '').strip()
+    api_key = os.environ.get('HF_API_KEY', '').strip()
     if not api_key:
-        return jsonify({'error': 'GEMINI_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
+        return jsonify({'error': 'HF_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
 
     payload = request.json or {}
     messages = payload.get('messages', [])
     if not messages:
         return jsonify({'error': 'No messages provided.'}), 400
 
-    # Convert messages to Gemini format
     prompt_text = messages[0].get('content', '') if messages else ''
+
+    # Mixtral instruct format: [INST] ... [/INST]
+    formatted_prompt = f'[INST] {prompt_text} [/INST]'
+
     body = json.dumps({
-        'contents': [{'parts': [{'text': prompt_text}]}],
-        'generationConfig': {'temperature': 0.3, 'maxOutputTokens': 1024}
+        'inputs': formatted_prompt,
+        'parameters': {
+            'max_new_tokens': 1024,
+            'temperature': 0.3,
+            'return_full_text': False,
+            'do_sample': True,
+        }
     }).encode('utf-8')
 
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}'
-    req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
+    model = 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+    url = f'https://api-inference.huggingface.co/models/{model}'
+    req = urllib.request.Request(
+        url, data=body,
+        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
+        method='POST'
+    )
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             raw = json.loads(resp.read())
-            # Normalize to Anthropic-style response so frontend works unchanged
-            text = raw['candidates'][0]['content']['parts'][0]['text']
+            # HF returns a list: [{"generated_text": "..."}]
+            if isinstance(raw, list) and raw:
+                text = raw[0].get('generated_text', '')
+            elif isinstance(raw, dict):
+                # Sometimes returns {"error": "..."} or {"generated_text": "..."}
+                if 'error' in raw:
+                    return jsonify({'error': raw['error']}), 500
+                text = raw.get('generated_text', '')
+            else:
+                text = ''
+
+            if not text:
+                return jsonify({'error': 'Empty response from Hugging Face model.'}), 502
+
+            # Normalize to the same Anthropic-style shape the frontend already expects
             return jsonify({'content': [{'text': text}]})
+
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8', errors='replace')
-        print(f'[ai_suggest] Gemini API error {e.code}: {error_body}')
+        print(f'[ai_suggest] HF API error {e.code}: {error_body}')
         try:
             err_json = json.loads(error_body)
-            msg = err_json.get('error', {}).get('message', f'API error {e.code}')
+            msg = err_json.get('error', f'API error {e.code}')
         except Exception:
             msg = f'API error {e.code}'
         return jsonify({'error': msg}), e.code
     except urllib.error.URLError as e:
         print(f'[ai_suggest] Network error: {e.reason}')
-        return jsonify({'error': f'Could not reach Gemini API: {e.reason}'}), 502
+        return jsonify({'error': f'Could not reach Hugging Face API: {e.reason}'}), 502
     except Exception as e:
         print(f'[ai_suggest] Unexpected error: {e}')
         return jsonify({'error': str(e)}), 500
