@@ -656,41 +656,55 @@ def export_personnel_pdf(pid):
     )
 
 
-# ── CLAUDE AI PROXY ───────────────────────────────────────────────────────────
+# ── GEMINI AI PROXY ───────────────────────────────────────────────────────────
 
 @app.route('/ai/suggest', methods=['POST'])
 @login_required
 @csrf_required
 def ai_suggest():
-    """Proxy Claude API calls so the API key is never exposed to the browser."""
+    """Proxy Gemini API calls so the API key is never exposed to the browser."""
     import urllib.request, urllib.error
 
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    api_key = os.environ.get('GEMINI_API_KEY', '').strip()
     if not api_key:
-        return jsonify({'error': 'ANTHROPIC_API_KEY is not set on the server.'}), 500
+        return jsonify({'error': 'GEMINI_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
 
     payload = request.json or {}
-    body = json.dumps({
-        'model': 'claude-sonnet-4-20250514',
-        'max_tokens': 1024,
-        'messages': payload.get('messages', []),
-    }).encode()
+    messages = payload.get('messages', [])
+    if not messages:
+        return jsonify({'error': 'No messages provided.'}), 400
 
-    req = urllib.request.Request(
-        'https://api.anthropic.com/v1/messages',
-        data=body,
-        headers={
-            'Content-Type': 'application/json',
-            'x-api-key': api_key,
-            'anthropic-version': '2023-06-01',
-        },
-        method='POST',
-    )
+    # Convert messages to Gemini format
+    prompt_text = messages[0].get('content', '') if messages else ''
+    body = json.dumps({
+        'contents': [{'parts': [{'text': prompt_text}]}],
+        'generationConfig': {'temperature': 0.3, 'maxOutputTokens': 1024}
+    }).encode('utf-8')
+
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}'
+    req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
+
     try:
-        with urllib.request.urlopen(req) as resp:
-            return Response(resp.read(), mimetype='application/json')
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = json.loads(resp.read())
+            # Normalize to Anthropic-style response so frontend works unchanged
+            text = raw['candidates'][0]['content']['parts'][0]['text']
+            return jsonify({'content': [{'text': text}]})
     except urllib.error.HTTPError as e:
-        return Response(e.read(), status=e.code, mimetype='application/json')
+        error_body = e.read().decode('utf-8', errors='replace')
+        print(f'[ai_suggest] Gemini API error {e.code}: {error_body}')
+        try:
+            err_json = json.loads(error_body)
+            msg = err_json.get('error', {}).get('message', f'API error {e.code}')
+        except Exception:
+            msg = f'API error {e.code}'
+        return jsonify({'error': msg}), e.code
+    except urllib.error.URLError as e:
+        print(f'[ai_suggest] Network error: {e.reason}')
+        return jsonify({'error': f'Could not reach Gemini API: {e.reason}'}), 502
+    except Exception as e:
+        print(f'[ai_suggest] Unexpected error: {e}')
+        return jsonify({'error': str(e)}), 500
 
 # ── ENTRYPOINT ────────────────────────────────────────────────────────────────
 
