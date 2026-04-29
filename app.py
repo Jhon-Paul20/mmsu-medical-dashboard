@@ -681,7 +681,7 @@ def ai_suggest():
         'generationConfig': {'temperature': 0.3, 'maxOutputTokens': 1024}
     }).encode('utf-8')
 
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}'
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}'
     req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
 
     try:
