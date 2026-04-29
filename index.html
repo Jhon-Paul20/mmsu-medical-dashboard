@@ -71,6 +71,7 @@
     .status-pill{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text-2);}
     .status-dot{width:7px;height:7px;border-radius:50%;background:var(--safe);box-shadow:0 0 8px var(--safe);animation:pulse-dot 2s ease-in-out infinite;}
     @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.4;}}
+    @keyframes spin-ai{to{transform:rotate(360deg);}}
 
     /* ── BUTTONS ── */
     .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);border:none;font-size:13px;font-family:'Figtree',sans-serif;font-weight:500;cursor:pointer;transition:all .15s;}
@@ -642,10 +643,48 @@
     <div class="modal-field" style="margin-bottom:16px;"><div class="modal-field-label">Address</div><div class="modal-field-val" id="modalAddress" style="font-size:13px;font-weight:400;"></div></div>
     <div class="modal-section-title">Recorded Conditions</div>
     <div class="pills-wrap" id="modalConditions"></div>
-    <div id="modalMedsSection">
-      <div class="modal-section-title" id="modalMedsTitle" style="display:none;">Treatment Suggestions</div>
-      <div class="modal-meds-grid" id="modalMeds"></div>
+    <!-- ── AI TREATMENT SECTION ── -->
+    <div id="modalMedsSection" style="margin-top:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div class="modal-section-title" style="margin:0 0 2px;">AI Treatment Suggestions</div>
+          <div style="font-size:11px;color:var(--text-3);">Powered by Gemini · context-aware</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="getAISuggestions()" id="aiSuggestBtn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Get Suggestions
+        </button>
+      </div>
+
+      <!-- State: idle placeholder -->
+      <div id="aiPlaceholder" style="background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--radius);padding:20px;text-align:center;">
+        <div style="font-size:12px;color:var(--text-3);line-height:1.6;">Click <strong style="color:var(--accent);">Get Suggestions</strong> to generate AI-powered treatment recommendations based on this patient's age, gender, and conditions.</div>
+      </div>
+
+      <!-- State: loading -->
+      <div id="aiLoading" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;">
+        <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+          Analyzing patient profile with Gemini…
+        </div>
+      </div>
+
+      <!-- State: results -->
+      <div id="aiResults" style="display:none;">
+        <div id="aiMedsGrid" class="modal-meds-grid"></div>
+        <div id="aiInteractionBox" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius-sm);padding:10px 14px;margin-top:10px;">
+          <div style="font-size:11px;font-weight:600;color:var(--danger);margin-bottom:3px;">⚠ Interaction Note</div>
+          <div id="aiInteractionText" style="font-size:11.5px;color:var(--text-2);line-height:1.5;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:10px;line-height:1.5;">AI suggestions are for reference only. Always defer to a licensed physician for final treatment decisions.</div>
+      </div>
+
+      <!-- State: error -->
+      <div id="aiError" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius);padding:14px 16px;">
+        <div style="font-size:12.5px;color:var(--danger);" id="aiErrorMsg">Something went wrong. Check your API key.</div>
+      </div>
     </div>
+
     <div style="display:flex;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
       <button class="btn btn-ghost btn-sm" onclick="editPersonnel(currentPersonnelId)" style="flex:1;" id="modalEditBtn">Edit Record</button>
       <button class="btn btn-danger btn-sm" onclick="deletePersonnel(currentPersonnelId)" style="flex:1;" id="modalDeleteBtn">Delete</button>
@@ -880,14 +919,12 @@
     document.getElementById('modalConditions').innerHTML = p.conditions.length
       ? p.conditions.map(c => `<span class="pill ${HIGH_RISK.includes(c)?'high':''}">${c}</span>`).join('')
       : '<span style="color:var(--text-3);font-size:13px;">No conditions recorded</span>';
-    const meds = p.conditions.filter(c => MEDICINES[c]).map(c => ({ condition:c, meds:MEDICINES[c] }));
-    const title = document.getElementById('modalMedsTitle'), div = document.getElementById('modalMeds');
-    if (meds.length) {
-      title.style.display = 'block';
-      div.innerHTML = meds.flatMap(m => m.meds.slice(0,2).map(med =>
-        `<div class="modal-med-card"><div class="modal-med-cond-label">${m.condition}</div><div class="modal-med-name">${med.name}</div><div class="modal-med-desc">${med.desc}</div></div>`
-      )).join('');
-    } else { title.style.display = 'none'; div.innerHTML = ''; }
+    // Reset AI panel
+    document.getElementById('aiPlaceholder').style.display = 'block';
+    document.getElementById('aiLoading').style.display = 'none';
+    document.getElementById('aiResults').style.display = 'none';
+    document.getElementById('aiError').style.display = 'none';
+    document.getElementById('aiSuggestBtn').disabled = p.conditions.length === 0;
     document.getElementById('modalOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';
   }
@@ -1300,6 +1337,102 @@
         </div>`
       )
     ).join('');
+  }
+
+  // ── GEMINI AI TREATMENT SUGGESTIONS ──
+  const GEMINI_API_KEY = 'AIzaSyAP-kZ3fMoRIDjcFm81DBsIRGAQ6qQnZw0';
+
+  async function getAISuggestions() {
+    const p = allData.find(x => x.id === currentPersonnelId);
+    if (!p || !p.conditions.length) return;
+
+    // Show loading
+    document.getElementById('aiPlaceholder').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    document.getElementById('aiResults').style.display = 'none';
+    document.getElementById('aiError').style.display = 'none';
+    document.getElementById('aiSuggestBtn').disabled = true;
+
+    const prompt = `You are a clinical decision support assistant for a university health clinic in the Philippines.
+
+Patient profile:
+- Name: ${p.name}
+- Age: ${p.age || 'unknown'} years old
+- Gender: ${p.gender || 'unknown'}
+- Blood type: ${p.blood || 'unknown'}
+- Diagnosed conditions: ${p.conditions.join(', ')}
+
+Task: Provide treatment suggestions for this specific patient. Consider how their conditions interact with each other and their age/gender.
+
+Respond ONLY with a valid JSON object in this exact format (no markdown, no extra text):
+{
+  "suggestions": [
+    {
+      "condition": "condition name",
+      "medicine": "medicine name",
+      "description": "1-2 sentence clinical rationale specific to this patient",
+      "warning": "any warning or empty string"
+    }
+  ],
+  "interaction_note": "note about drug interactions across conditions, or empty string if none"
+}
+
+Limit to 2 suggestions per condition, max 6 total.`;
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || `API error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const clean = raw.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+
+      // Render results
+      const grid = document.getElementById('aiMedsGrid');
+      grid.innerHTML = parsed.suggestions.map(s =>
+        `<div class="modal-med-card">
+          <div class="modal-med-cond-label">${s.condition}</div>
+          <div class="modal-med-name">${s.medicine}</div>
+          <div class="modal-med-desc">${s.description}</div>
+          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${s.warning}</div>` : ''}
+        </div>`
+      ).join('');
+
+      const interactionBox = document.getElementById('aiInteractionBox');
+      if (parsed.interaction_note) {
+        document.getElementById('aiInteractionText').textContent = parsed.interaction_note;
+        interactionBox.style.display = 'block';
+      } else {
+        interactionBox.style.display = 'none';
+      }
+
+      document.getElementById('aiLoading').style.display = 'none';
+      document.getElementById('aiResults').style.display = 'block';
+
+    } catch(e) {
+      document.getElementById('aiLoading').style.display = 'none';
+      document.getElementById('aiErrorMsg').textContent = e.message.includes('API_KEY_INVALID') || e.message.includes('400')
+        ? 'Invalid API key. Paste your Gemini API key in the GEMINI_API_KEY variable.'
+        : `Error: ${e.message}`;
+      document.getElementById('aiError').style.display = 'block';
+    } finally {
+      document.getElementById('aiSuggestBtn').disabled = false;
+    }
   }
 
   init();
