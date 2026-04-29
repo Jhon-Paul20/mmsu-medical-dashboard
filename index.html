@@ -302,17 +302,11 @@
     </button>
 
     <div class="sidebar-divider"></div>
-    <button onclick="toggleConditionPanel()" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:12px 10px 5px;">
-      <span style="font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.12em;">Filter by Condition</span>
-      <svg id="condToggleIcon" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="rgba(236,234,229,0.3)" stroke-width="1.8" stroke-linecap="round" style="transition:transform .2s;flex-shrink:0;"><path d="M2 3.5l3 3 3-3"/></svg>
-    </button>
-    <div id="conditionPanel" style="display:none;overflow:hidden;">
-      <div class="cond-search-wrap">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
-        <input class="cond-search" type="text" placeholder="Search condition…" oninput="searchCondition(this.value)">
-      </div>
-      <div id="conditionList"></div>
+    <div class="cond-search-wrap">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
+      <input class="cond-search" type="text" placeholder="Filter by condition…" oninput="searchCondition(this.value)">
     </div>
+    <div id="conditionList"></div>
   </nav>
 
   <div class="sidebar-footer">
@@ -785,15 +779,6 @@
       if (res.status === 401) { window.location.href = '/login'; return; }
       csrfToken = (await res.json()).token;
     } catch(e) { console.error('CSRF fetch failed', e); }
-  }
-
-  // ── CONDITION PANEL TOGGLE ──
-  function toggleConditionPanel() {
-    const panel = document.getElementById('conditionPanel');
-    const icon  = document.getElementById('condToggleIcon');
-    const open  = panel.style.display === 'none';
-    panel.style.display = open ? 'block' : 'none';
-    icon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
   }
 
   // ── NAVIGATION ──
