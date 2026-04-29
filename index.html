@@ -458,7 +458,7 @@
     <div class="topbar">
       <div>
         <div class="page-heading">Medicine <em>Lookup</em></div>
-        <div class="page-sub">Search any condition for AI-powered treatment suggestions · Powered by Claude</div>
+        <div class="page-sub">Search any condition for AI-powered treatment suggestions · Powered by Gemini</div>
       </div>
     </div>
 
@@ -484,7 +484,7 @@
             <label class="form-label">&nbsp;</label>
             <button class="btn btn-primary btn-sm" onclick="runAIMedLookup()" id="aiMedLookupBtn">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-              Ask Claude
+              Ask Gemini
             </button>
           </div>
           <div>
@@ -701,7 +701,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div>
           <div class="modal-section-title" style="margin:0 0 2px;">AI Treatment Suggestions</div>
-          <div style="font-size:11px;color:var(--text-3);">Powered by Claude · context-aware</div>
+          <div style="font-size:11px;color:var(--text-3);">Powered by Gemini · context-aware</div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="getAISuggestions()" id="aiSuggestBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -718,7 +718,7 @@
       <div id="aiLoading" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;">
         <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          Analyzing patient profile with Claude…
+          Analyzing patient profile with Gemini…
         </div>
       </div>
 
@@ -1428,8 +1428,8 @@ Limit to 4 medicine suggestions. Focus on medicines commonly available in the Ph
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || `API error ${res.status}`);
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
       }
 
       const data = await res.json();
@@ -1461,10 +1461,9 @@ Limit to 4 medicine suggestions. Focus on medicines commonly available in the Ph
 
     } catch(e) {
       loading.style.display = 'none';
-      document.getElementById('aiMedLookupErrorMsg').textContent =
-        e.message.includes('API_KEY_INVALID') || e.message.includes('400')
-          ? 'Invalid API key. Check the GEMINI_API_KEY variable.'
-          : `Error: ${e.message}`;
+      let msg = e.message;
+      try { const j = JSON.parse(e.message); msg = j.error || msg; } catch(_) {}
+      document.getElementById('aiMedLookupErrorMsg').textContent = msg;
       error.style.display = 'block';
     } finally {
       btn.disabled = false;
@@ -1545,8 +1544,8 @@ Limit to 2 suggestions per condition, max 6 total.`;
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || `API error ${res.status}`);
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
       }
 
       const data = await res.json();
