@@ -1040,6 +1040,7 @@
 
   // ── REPORTS ──
   async function renderReports() {
+    const tc = 'rgba(240,237,232,0.4)', gc = 'rgba(255,255,255,0.04)', cf = { family:'Figtree', size:11 };
     const total = allData.length;
     const highRisk = allData.filter(p => isHighRisk(p.conditions)).length;
     document.getElementById('rpt-total').textContent = total;
