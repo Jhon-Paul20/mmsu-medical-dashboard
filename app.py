@@ -490,48 +490,39 @@ def export_personnel_pdf(pid):
     story = []
     page_w = A4[0] - 4*cm  # usable width
 
-    # Header: avatar | name+dept nested table | logo nested table
-    name_block = Table(
-        [[Paragraph(p['name'], title_style)],
-         [Paragraph(f'{p["department"]} Department', dept_style)]],
-        colWidths=[10*cm]
+    # Header row: [avatar] [name \n dept] [MMSU Medical \n subtitle]
+    name_dept_combined = style('NameDept', fontSize=11, textColor=GREY, fontName='Helvetica',
+                                leading=28, leftIndent=10)
+    name_para = Paragraph(
+        f'<font name="Helvetica-Bold" size="20" color="#111111">{p["name"]}</font><br/>'
+        f'<font name="Helvetica" size="11" color="#555555">{p["department"]} Department</font>',
+        name_dept_combined
     )
-    name_block.setStyle(TableStyle([
-        ('LEFTPADDING',   (0,0),(-1,-1), 10),
-        ('RIGHTPADDING',  (0,0),(-1,-1), 0),
-        ('TOPPADDING',    (0,0),(-1,-1), 1),
-        ('BOTTOMPADDING', (0,0),(-1,-1), 1),
-        ('VALIGN',        (0,0),(-1,-1), 'TOP'),
-    ]))
-    logo_block = Table(
-        [[Paragraph('<b>MMSU Medical</b>', style('Logo', fontSize=13, textColor=GREEN, fontName='Helvetica-Bold', alignment=TA_RIGHT))],
-         [Paragraph('Health Records System', style('LogoSub', fontSize=9, textColor=GREY, alignment=TA_RIGHT))]],
-        colWidths=[5*cm]
+
+    logo_combined = style('LogoCombined', fontSize=9, textColor=GREY, fontName='Helvetica',
+                           alignment=TA_RIGHT, leading=20)
+    logo_para = Paragraph(
+        f'<font name="Helvetica-Bold" size="13" color="#1a7a3c">MMSU Medical</font><br/>'
+        f'<font name="Helvetica" size="9" color="#555555">Health Records System</font>',
+        logo_combined
     )
-    logo_block.setStyle(TableStyle([
-        ('LEFTPADDING',   (0,0),(-1,-1), 0),
-        ('RIGHTPADDING',  (0,0),(-1,-1), 0),
-        ('TOPPADDING',    (0,0),(-1,-1), 1),
-        ('BOTTOMPADDING', (0,0),(-1,-1), 1),
-        ('ALIGN',         (0,0),(-1,-1), 'RIGHT'),
-    ]))
+
     header_data = [[
         Paragraph(f'<font color="#d4b84a"><b>{initials}</b></font>',
                   style('Av', fontSize=22, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=GOLD)),
-        name_block,
-        logo_block,
+        name_para,
+        logo_para,
     ]]
     header_table = Table(header_data, colWidths=[2*cm, 10*cm, 5*cm])
     header_table.setStyle(TableStyle([
         ('BACKGROUND',    (0,0),(0,0), GREEN),
         ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
         ('ALIGN',         (0,0),(0,0), 'CENTER'),
-        ('TOPPADDING',    (0,0),(0,0), 14),
-        ('BOTTOMPADDING', (0,0),(0,0), 14),
+        ('ALIGN',         (2,0),(2,0), 'RIGHT'),
+        ('TOPPADDING',    (0,0),(-1,-1), 14),
+        ('BOTTOMPADDING', (0,0),(-1,-1), 14),
         ('LEFTPADDING',   (0,0),(0,0), 0),
         ('RIGHTPADDING',  (0,0),(0,0), 0),
-        ('TOPPADDING',    (1,0),(2,0), 10),
-        ('BOTTOMPADDING', (1,0),(2,0), 10),
         ('LEFTPADDING',   (2,0),(2,0), 0),
         ('RIGHTPADDING',  (2,0),(2,0), 0),
     ]))
