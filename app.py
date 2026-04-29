@@ -490,26 +490,50 @@ def export_personnel_pdf(pid):
     story = []
     page_w = A4[0] - 4*cm  # usable width
 
-    # Header: avatar cell + name/dept + logo text
+    # Header: avatar | name+dept nested table | logo nested table
+    name_block = Table(
+        [[Paragraph(p['name'], title_style)],
+         [Paragraph(f'{p["department"]} Department', dept_style)]],
+        colWidths=[10*cm]
+    )
+    name_block.setStyle(TableStyle([
+        ('LEFTPADDING',   (0,0),(-1,-1), 10),
+        ('RIGHTPADDING',  (0,0),(-1,-1), 0),
+        ('TOPPADDING',    (0,0),(-1,-1), 1),
+        ('BOTTOMPADDING', (0,0),(-1,-1), 1),
+        ('VALIGN',        (0,0),(-1,-1), 'TOP'),
+    ]))
+    logo_block = Table(
+        [[Paragraph('<b>MMSU Medical</b>', style('Logo', fontSize=13, textColor=GREEN, fontName='Helvetica-Bold', alignment=TA_RIGHT))],
+         [Paragraph('Health Records System', style('LogoSub', fontSize=9, textColor=GREY, alignment=TA_RIGHT))]],
+        colWidths=[5*cm]
+    )
+    logo_block.setStyle(TableStyle([
+        ('LEFTPADDING',   (0,0),(-1,-1), 0),
+        ('RIGHTPADDING',  (0,0),(-1,-1), 0),
+        ('TOPPADDING',    (0,0),(-1,-1), 1),
+        ('BOTTOMPADDING', (0,0),(-1,-1), 1),
+        ('ALIGN',         (0,0),(-1,-1), 'RIGHT'),
+    ]))
     header_data = [[
-        Paragraph(f'<font color="#d4b84a"><b>{initials}</b></font>', style('Av', fontSize=22, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=GOLD)),
-        [Paragraph(p['name'], title_style), Paragraph(f'{p["department"]} Department', dept_style)],
-        [Paragraph('<b>MMSU Medical</b>', style('Logo', fontSize=13, textColor=GREEN, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
-         Paragraph('Health Records System', style('LogoSub', fontSize=9, textColor=GREY, alignment=TA_RIGHT))],
+        Paragraph(f'<font color="#d4b84a"><b>{initials}</b></font>',
+                  style('Av', fontSize=22, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=GOLD)),
+        name_block,
+        logo_block,
     ]]
     header_table = Table(header_data, colWidths=[2*cm, 10*cm, 5*cm])
     header_table.setStyle(TableStyle([
-        ('BACKGROUND',   (0,0),(0,0), GREEN),
-        ('ROWBACKGROUNDS',(0,0),(-1,-1), [colors.white]),
-        ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
-        ('ALIGN',        (0,0),(0,0),  'CENTER'),
-        ('ALIGN',        (2,0),(2,0),  'RIGHT'),
-        ('ROUNDEDCORNERS', [8]),
-        ('BOX',          (0,0),(0,0), 0, colors.white),
-        ('TOPPADDING',   (0,0),(0,0), 14),
-        ('BOTTOMPADDING',(0,0),(0,0), 14),
-        ('LEFTPADDING',  (0,0),(0,0), 0),
-        ('RIGHTPADDING', (0,0),(0,0), 0),
+        ('BACKGROUND',    (0,0),(0,0), GREEN),
+        ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
+        ('ALIGN',         (0,0),(0,0), 'CENTER'),
+        ('TOPPADDING',    (0,0),(0,0), 14),
+        ('BOTTOMPADDING', (0,0),(0,0), 14),
+        ('LEFTPADDING',   (0,0),(0,0), 0),
+        ('RIGHTPADDING',  (0,0),(0,0), 0),
+        ('TOPPADDING',    (1,0),(2,0), 10),
+        ('BOTTOMPADDING', (1,0),(2,0), 10),
+        ('LEFTPADDING',   (2,0),(2,0), 0),
+        ('RIGHTPADDING',  (2,0),(2,0), 0),
     ]))
     story.append(header_table)
     story.append(HRFlowable(width='100%', thickness=2, color=GREEN, spaceAfter=12, spaceBefore=10))
