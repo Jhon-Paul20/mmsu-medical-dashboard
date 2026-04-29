@@ -306,7 +306,7 @@
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
       <input class="cond-search" type="text" placeholder="Filter by condition…" oninput="searchCondition(this.value)">
     </div>
-    <div id="conditionList"></div>
+
   </nav>
 
   <div class="sidebar-footer">
@@ -886,20 +886,15 @@
   }
 
   function searchCondition(q) {
-    document.querySelectorAll('.cond-btn').forEach(b => { b.style.display = b.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none'; });
+    const term = q.trim().toLowerCase();
+    const base = currentFilter === 'All' ? allData : allData.filter(p => p.conditions.includes(currentFilter));
+    renderTable(term ? base.filter(p => p.conditions.some(c => c.toLowerCase().includes(term))) : base);
   }
 
   function generateConditionList() {
-    const c = document.getElementById('conditionList');
-    c.innerHTML = `<button class="cond-btn active" data-cond="All" onclick="filterData('All')"><span>All Personnel</span><span class="cond-dot"></span></button>`;
-    allConditionsList.forEach(cond => {
-      const btn = document.createElement('button');
-      btn.className = 'cond-btn'; btn.dataset.cond = cond;
-      btn.innerHTML = `<span>${cond}</span><span class="cond-dot"></span>`;
-      btn.onclick = () => filterData(cond);
-      c.appendChild(btn);
-    });
+    // list removed — use the search bar above to filter by condition
   }
+
 
   // ── MODAL ──
   function openModal(id) {
