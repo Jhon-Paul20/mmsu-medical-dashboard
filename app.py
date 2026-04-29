@@ -687,21 +687,15 @@ def ai_suggest():
 
     prompt_text = messages[0].get('content', '') if messages else ''
 
-    # Mixtral instruct format: [INST] ... [/INST]
-    formatted_prompt = f'[INST] {prompt_text} [/INST]'
-
+    # Use OpenAI-compatible chat completions endpoint
     body = json.dumps({
-        'inputs': formatted_prompt,
-        'parameters': {
-            'max_new_tokens': 1024,
-            'temperature': 0.3,
-            'return_full_text': False,
-            'do_sample': True,
-        }
+        'model': 'mistralai/Mistral-7B-Instruct-v0.3',
+        'messages': [{'role': 'user', 'content': prompt_text}],
+        'max_tokens': 1024,
+        'temperature': 0.3,
     }).encode('utf-8')
 
-    model = 'mistralai/Mixtral-8x7B-Instruct-v0.1'
-    url = f'https://api-inference.huggingface.co/models/{model}'
+    url = 'https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3/v1/chat/completions'
     req = urllib.request.Request(
         url, data=body,
         headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
@@ -711,16 +705,8 @@ def ai_suggest():
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             raw = json.loads(resp.read())
-            # HF returns a list: [{"generated_text": "..."}]
-            if isinstance(raw, list) and raw:
-                text = raw[0].get('generated_text', '')
-            elif isinstance(raw, dict):
-                # Sometimes returns {"error": "..."} or {"generated_text": "..."}
-                if 'error' in raw:
-                    return jsonify({'error': raw['error']}), 500
-                text = raw.get('generated_text', '')
-            else:
-                text = ''
+            # Chat completions format: choices[0].message.content
+            text = raw['choices'][0]['message']['content']
 
             if not text:
                 return jsonify({'error': 'Empty response from Hugging Face model.'}), 502
