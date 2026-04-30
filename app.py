@@ -719,10 +719,11 @@ def ai_suggest():
         print(f'[ai_suggest] HF API error {e.code}: {error_body}')
         try:
             err_json = json.loads(error_body)
-            msg = err_json.get('error', f'API error {e.code}')
+            msg = err_json.get('error', f'API error {e.code}') 
         except Exception:
             msg = f'API error {e.code}'
-        return jsonify({'error': msg}), e.code
+        # Return full error detail to frontend for debugging
+        return jsonify({'error': f'[{e.code}] {msg} | raw: {error_body[:300]}'}), 200
     except urllib.error.URLError as e:
         print(f'[ai_suggest] Network error: {e.reason}')
         return jsonify({'error': f'Could not reach Hugging Face API: {e.reason}'}), 502
