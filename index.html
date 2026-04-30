@@ -462,40 +462,26 @@
       </div>
     </div>
 
-    <!-- Search input -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
-      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-        <div style="flex:1;min-width:240px;">
-          <label class="form-label">Type or select a condition</label>
-          <div style="position:relative;">
-            <input class="form-input" id="medLookupInput" placeholder="e.g. Hypertension, Diabetes, Asthma…" oninput="onMedLookupInput(this.value)" autocomplete="off" style="padding-right:36px;">
-            <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-3);pointer-events:none;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
-            <div id="medLookupDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4);"></div>
-          </div>
+    <!-- Search bar -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:20px;">
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div style="flex:1;position:relative;">
+          <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-3);pointer-events:none;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
+          <input class="form-input" id="medLookupInput" placeholder="Type any condition — e.g. Lupus, Diabetes, Hypertension…"
+            oninput="onMedLookupInput(this.value)"
+            onkeydown="if(event.key==='Enter') runAIMedLookup()"
+            autocomplete="off" style="padding-left:36px;">
+          <div id="medLookupDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4);"></div>
         </div>
-        <div>
-          <label class="form-label">&nbsp;</label>
-          <select class="form-input form-select" id="medLookupSelect" onchange="selectMedLookup(this.value)" style="min-width:200px;">
-            <option value="">— or pick from list —</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;align-items:flex-end;">
-          <div>
-            <label class="form-label">&nbsp;</label>
-            <button class="btn btn-primary btn-sm" onclick="runAIMedLookup()" id="aiMedLookupBtn">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-              AI Assist
-            </button>
-          </div>
-          <div>
-            <label class="form-label">&nbsp;</label>
-            <button class="btn btn-ghost btn-sm" onclick="clearMedLookup()">Clear</button>
-          </div>
-        </div>
+        <button class="btn btn-primary" onclick="runAIMedLookup()" id="aiMedLookupBtn" style="white-space:nowrap;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          AI Assist
+        </button>
+        <button class="btn btn-ghost" onclick="clearMedLookup()">Clear</button>
       </div>
     </div>
 
-    <!-- Static medicine results (from MEDICINES map) -->
+    <!-- Static medicine results -->
     <div id="medLookupResult" style="display:none;margin-bottom:20px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#e8c84a" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
@@ -516,24 +502,34 @@
         <span style="font-size:11px;color:var(--text-3);">Clinical AI · general reference only</span>
       </div>
 
-      <!-- Loading -->
-      <div id="aiMedLookupLoading" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:center;">
-        <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          Analyzing condition…
+      <!-- Loading skeleton -->
+      <div id="aiMedLookupLoading" style="display:none;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px;">
+          <div style="height:10px;width:120px;background:var(--border2);border-radius:4px;margin-bottom:12px;"></div>
+          <div style="height:12px;width:90%;background:var(--border);border-radius:4px;margin-bottom:8px;"></div>
+          <div style="height:12px;width:75%;background:var(--border);border-radius:4px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+          ${[1,2,3,4].map(()=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;">
+            <div style="height:10px;width:60%;background:var(--border2);border-radius:4px;margin-bottom:10px;"></div>
+            <div style="height:10px;width:40%;background:var(--border);border-radius:4px;margin-bottom:14px;"></div>
+            <div style="height:10px;width:90%;background:var(--border);border-radius:4px;margin-bottom:6px;"></div>
+            <div style="height:10px;width:70%;background:var(--border);border-radius:4px;"></div>
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:16px;color:var(--text-3);font-size:12px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;flex-shrink:0;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+          Analyzing condition with AI…
         </div>
       </div>
 
       <!-- Results -->
       <div id="aiMedLookupResults" style="display:none;">
-        <!-- Overview card -->
         <div id="aiMedLookupOverview" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:14px;">
           <div style="font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Condition Overview</div>
           <div id="aiMedLookupOverviewText" style="font-size:13px;color:var(--text-2);line-height:1.65;"></div>
         </div>
-        <!-- Medicine cards -->
         <div id="aiMedLookupGrid" class="modal-meds-grid" style="margin-bottom:12px;"></div>
-        <!-- Interaction / note -->
         <div id="aiMedLookupNote" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,.18);border-radius:var(--radius-sm);padding:11px 15px;margin-bottom:12px;">
           <div style="font-size:11px;font-weight:600;color:var(--danger);margin-bottom:3px;">⚠ Important Note</div>
           <div id="aiMedLookupNoteText" style="font-size:11.5px;color:var(--text-2);line-height:1.5;"></div>
@@ -547,21 +543,12 @@
       </div>
     </div>
 
-    <!-- Empty state -->
-    <div id="medLookupEmpty" style="display:none;">
-      <div class="empty-state">
-        <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="10"/></svg></div>
-        <div class="empty-title">No standard medicines listed</div>
-        <div class="empty-sub">Click <strong style="color:var(--accent);">AI Assist</strong> for AI-powered suggestions.</div>
-      </div>
-    </div>
-
     <!-- Placeholder -->
     <div id="medLookupPlaceholder">
       <div class="empty-state">
         <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
         <div class="empty-title">Search a condition</div>
-        <div class="empty-sub">Type or pick a condition, then click <strong style="color:var(--accent);">AI Assist</strong> for AI-powered analysis</div>
+        <div class="empty-sub">Type any condition and press <strong style="color:var(--accent);">Enter</strong> or click <strong style="color:var(--accent);">AI Assist</strong></div>
       </div>
     </div>
   </div>
@@ -1317,76 +1304,57 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModalDirect(); document.getElementById('addPersonnelOverlay').classList.remove('open'); document.getElementById('addVisitOverlay').classList.remove('open'); document.getElementById('confirmOverlay').classList.remove('open'); } });
 
   // ── MEDICINE LOOKUP PAGE ──
-  function initMedLookupPage() {
-    const sel = document.getElementById('medLookupSelect');
-    sel.innerHTML = '<option value="">— or pick from list —</option>' +
-      allConditionsList.map(c => `<option value="${c}">${c}</option>`).join('');
-  }
+  function initMedLookupPage() {} // dropdown removed, nothing to init
 
   function onMedLookupInput(val) {
     const dd = document.getElementById('medLookupDropdown');
     const q = val.trim().toLowerCase();
-    if (!q) { dd.style.display = 'none'; return; }
-    const matches = allConditionsList.filter(c => c.toLowerCase().includes(q));
-    if (!matches.length) { dd.style.display = 'none'; return; }
-    dd.style.display = 'block';
-    dd.innerHTML = matches.map(c =>
-      `<button onclick="selectMedLookup('${c}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:transparent;color:var(--text-2);font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;transition:background .1s;" onmouseover="this.style.background='var(--border)';this.style.color='var(--text)';" onmouseout="this.style.background='transparent';this.style.color='var(--text-2)';">${c}</button>`
-    ).join('');
-  }
-
-  function selectMedLookup(cond) {
-    document.getElementById('medLookupInput').value = cond;
-    document.getElementById('medLookupSelect').value = cond;
-    document.getElementById('medLookupDropdown').style.display = 'none';
-    lookupMedicine(cond);
-  }
-
-  function lookupMedicine(cond) {
-    const result = document.getElementById('medLookupResult');
-    const empty = document.getElementById('medLookupEmpty');
-    const placeholder = document.getElementById('medLookupPlaceholder');
-    const aiSection = document.getElementById('aiMedLookupSection');
-
-    placeholder.style.display = 'none';
-    aiSection.style.display = 'none';
-
-    if (!cond) {
-      result.style.display = 'none';
-      empty.style.display = 'none';
-      placeholder.style.display = '';
+    if (!q) {
+      dd.style.display = 'none';
+      clearMedLookup();
       return;
     }
-
-    document.getElementById('medLookupInput').value = cond;
-    document.getElementById('medLookupSelect').value = cond;
-
+    // Autocomplete for known conditions
+    const matches = allConditionsList.filter(c => c.toLowerCase().includes(q));
+    if (matches.length) {
+      dd.style.display = 'block';
+      dd.innerHTML = matches.map(c =>
+        `<button onclick="selectMedLookup('${c}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:transparent;color:var(--text-2);font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;transition:background .1s;" onmouseover="this.style.background='var(--border)';this.style.color='var(--text)';" onmouseout="this.style.background='transparent';this.style.color='var(--text-2)';">${c}</button>`
+      ).join('');
+    } else {
+      dd.style.display = 'none';
+    }
+    // Show static meds if exact match, otherwise just hide placeholder
+    const cond = val.trim();
+    document.getElementById('medLookupPlaceholder').style.display = 'none';
     if (MEDICINES[cond] && MEDICINES[cond].length) {
       document.getElementById('medLookupConditionLabel').textContent = cond;
       document.getElementById('medLookupCards').innerHTML = MEDICINES[cond].map(m =>
         `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn ? `<div class="med-warn">⚠ ${m.warn}</div>` : ''}</div>`
       ).join('');
-      result.style.display = 'block';
-      empty.style.display = 'none';
+      document.getElementById('medLookupResult').style.display = 'block';
     } else {
-      result.style.display = 'none';
-      empty.style.display = 'block';
+      document.getElementById('medLookupResult').style.display = 'none';
     }
+  }
+
+  function selectMedLookup(cond) {
+    document.getElementById('medLookupInput').value = cond;
+    document.getElementById('medLookupDropdown').style.display = 'none';
+    onMedLookupInput(cond);
   }
 
   function clearMedLookup() {
     document.getElementById('medLookupInput').value = '';
-    document.getElementById('medLookupSelect').value = '';
     document.getElementById('medLookupDropdown').style.display = 'none';
     document.getElementById('medLookupResult').style.display = 'none';
-    document.getElementById('medLookupEmpty').style.display = 'none';
     document.getElementById('aiMedLookupSection').style.display = 'none';
     document.getElementById('medLookupPlaceholder').style.display = '';
   }
 
   async function runAIMedLookup() {
     const cond = document.getElementById('medLookupInput').value.trim();
-    if (!cond) { showToast('Please enter a condition first', true); return; }
+    if (!cond) { showToast('Please type a condition first', true); return; }
 
     const aiSection = document.getElementById('aiMedLookupSection');
     const loading   = document.getElementById('aiMedLookupLoading');
@@ -1394,17 +1362,25 @@
     const error     = document.getElementById('aiMedLookupError');
     const btn       = document.getElementById('aiMedLookupBtn');
 
+    // Show static meds if available (safe — doesn't touch aiSection)
+    if (MEDICINES[cond] && MEDICINES[cond].length) {
+      document.getElementById('medLookupConditionLabel').textContent = cond;
+      document.getElementById('medLookupCards').innerHTML = MEDICINES[cond].map(m =>
+        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn ? `<div class="med-warn">⚠ ${m.warn}</div>` : ''}</div>`
+      ).join('');
+      document.getElementById('medLookupResult').style.display = 'block';
+    } else {
+      document.getElementById('medLookupResult').style.display = 'none';
+    }
+
+    document.getElementById('medLookupPlaceholder').style.display = 'none';
+    document.getElementById('medLookupDropdown').style.display = 'none';
     aiSection.style.display = 'block';
     loading.style.display = 'block';
     results.style.display = 'none';
     error.style.display = 'none';
     btn.disabled = true;
     document.getElementById('aiMedLookupCondLabel').textContent = cond;
-    document.getElementById('medLookupPlaceholder').style.display = 'none';
-    document.getElementById('medLookupEmpty').style.display = 'none';
-
-    // Also show static medicines if available
-    lookupMedicine(cond);
 
     const prompt = `You are a clinical pharmacology reference assistant for a university health clinic in the Philippines.
 
