@@ -390,24 +390,38 @@ def upload():
     reader = csv.DictReader(io.StringIO(content))
     records = []
     for i, row in enumerate(reader, start=2):  # row 1 is the header
-        name = row.get('name', '').strip()
-        if not name:
-            return jsonify({'error': f'Row {i}: "name" column is required'}), 400
+        # Build a dict that validate_personnel understands
+        # CSV conditions column is a pipe-string; convert to list for validation
+        raw_conditions = row.get('conditions', '')
+        cond_list = [c.strip() for c in raw_conditions.split('|') if c.strip()] if raw_conditions else []
+        d = {
+            'name':       row.get('name', '').strip(),
+            'age':        row.get('age') or None,
+            'gender':     row.get('gender', ''),
+            'blood':      row.get('blood', ''),
+            'department': row.get('department', ''),
+            'phone':      row.get('phone', ''),
+            'address':    row.get('address', ''),
+            'conditions': cond_list,
+        }
+        err = validate_personnel(d)
+        if err:
+            return jsonify({'error': f'Row {i}: {err}'}), 400
         records.append((
-            name,
-            row.get('age') or None,
-            row.get('gender', ''),
-            row.get('blood', ''),
-            row.get('department', ''),
-            row.get('phone', ''),
-            row.get('address', ''),
-            row.get('conditions', ''),
+            d['name'],
+            d['age'],
+            d['gender'],
+            d['blood'],
+            d['department'],
+            d['phone'],
+            d['address'],
+            raw_conditions,  # store original pipe-string in DB
         ))
 
     if not records:
         return jsonify({'error': 'CSV file contains no data rows'}), 400
 
-    # Delete only after validation passes — safer rollback boundary
+    # All rows validated — safe to wipe and re-insert
     with get_db() as conn:
         c = conn.cursor()
         c.execute('DELETE FROM personnel')
@@ -458,7 +472,11 @@ def add_visit(pid):
 @csrf_required
 def delete_visit(vid):
     with get_db() as conn:
-        conn.cursor().execute('DELETE FROM visits WHERE id = %s', (vid,))
+        c = conn.cursor()
+        c.execute('SELECT id FROM visits WHERE id = %s', (vid,))
+        if not c.fetchone():
+            return jsonify({'error': 'Visit not found'}), 404
+        c.execute('DELETE FROM visits WHERE id = %s', (vid,))
     audit('DELETE_VISIT', f'visit_id={vid}')
     return jsonify({'message': 'Visit deleted!'})
 
@@ -728,11 +746,29 @@ def export_personnel_pdf(pid):
                 ('RIGHTPADDING', (0,0),(-1,-1), 10),
             ]))
             cond_cells.append(cell)
-        # Lay pills in a row table
-        pills_table = Table([cond_cells], colWidths=[len(c)*6+24 for c in p['conditions']], hAlign='LEFT')
-        pills_table.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),4),
-                                         ('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
-        story.append(pills_table)
+        # Wrap pills into rows so they never exceed the page width
+        MAX_ROW_W = page_w
+        rows, row_cells, row_widths, row_w = [], [], [], 0
+        for cell, cond in zip(cond_cells, p['conditions']):
+            cell_w = len(cond) * 6 + 24
+            if row_cells and row_w + cell_w > MAX_ROW_W:
+                rows.append((row_cells, row_widths))
+                row_cells, row_widths, row_w = [], [], 0
+            row_cells.append(cell)
+            row_widths.append(cell_w)
+            row_w += cell_w + 4  # +4 for right padding gap
+        if row_cells:
+            rows.append((row_cells, row_widths))
+
+        for r_cells, r_widths in rows:
+            pills_table = Table([r_cells], colWidths=r_widths, hAlign='LEFT')
+            pills_table.setStyle(TableStyle([
+                ('LEFTPADDING',   (0,0),(-1,-1), 0),
+                ('RIGHTPADDING',  (0,0),(-1,-1), 4),
+                ('TOPPADDING',    (0,0),(-1,-1), 0),
+                ('BOTTOMPADDING', (0,0),(-1,-1), 4),
+            ]))
+            story.append(pills_table)
     else:
         story.append(Paragraph('No conditions recorded.', style('NoCond', fontSize=11, textColor=GREY, fontName='Helvetica')))
 
