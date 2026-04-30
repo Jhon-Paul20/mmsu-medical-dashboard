@@ -689,7 +689,7 @@ def ai_suggest():
 
     # Use OpenAI-compatible chat completions endpoint
     body = json.dumps({
-        'model': 'Qwen/Qwen2.5-7B-Instruct',
+        'model': 'meta-llama/Llama-3.1-8B-Instruct',
         'messages': [{'role': 'user', 'content': prompt_text}],
         'max_tokens': 1024,
         'temperature': 0.3,
