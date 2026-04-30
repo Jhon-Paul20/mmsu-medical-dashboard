@@ -676,9 +676,9 @@ def ai_suggest():
     """Proxy Hugging Face Inference API calls so the API key is never exposed to the browser."""
     import urllib.request, urllib.error
 
-    api_key = os.environ.get('GROQ_API_KEY', '').strip()
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
     if not api_key:
-        return jsonify({'error': 'GROQ_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
+        return jsonify({'error': 'ANTHROPIC_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
 
     payload = request.json or {}
     messages = payload.get('messages', [])
@@ -687,26 +687,29 @@ def ai_suggest():
 
     prompt_text = messages[0].get('content', '') if messages else ''
 
-    # Use Groq API - fast, free, no IP restrictions
+    # Use Anthropic Claude API
     body = json.dumps({
-        'model': 'llama-3.1-8b-instant',
-        'messages': [{'role': 'user', 'content': prompt_text}],
+        'model': 'claude-haiku-4-5-20251001',
         'max_tokens': 1024,
-        'temperature': 0.3,
+        'messages': [{'role': 'user', 'content': prompt_text}],
     }).encode('utf-8')
 
-    url = 'https://api.groq.com/openai/v1/chat/completions'
+    url = 'https://api.anthropic.com/v1/messages'
     req = urllib.request.Request(
         url, data=body,
-        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
+        headers={
+            'Content-Type': 'application/json',
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01'
+        },
         method='POST'
     )
 
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             raw = json.loads(resp.read())
-            # Chat completions format: choices[0].message.content
-            text = raw['choices'][0]['message']['content']
+            # Anthropic API format: content[0].text
+            text = raw['content'][0]['text']
             print(f'[ai_suggest] RAW MODEL OUTPUT: {text[:500]}')
 
             if not text:
@@ -720,11 +723,11 @@ def ai_suggest():
         print(f'[ai_suggest] HF API error {e.code}: {error_body}')
         try:
             err_json = json.loads(error_body)
-            msg = err_json.get('error', f'API error {e.code}') 
+            err_obj = err_json.get('error', {})
+            msg = err_obj.get('message', str(err_obj)) if isinstance(err_obj, dict) else str(err_obj)
         except Exception:
-            msg = f'API error {e.code}'
-        # Return full error detail to frontend for debugging
-        return jsonify({'error': f'[{e.code}] {msg} | raw: {error_body[:300]}'}), 200
+            msg = error_body[:300]
+        return jsonify({'error': f'API error {e.code}: {msg}'}), 200
     except urllib.error.URLError as e:
         print(f'[ai_suggest] Network error: {e.reason}')
         return jsonify({'error': f'Could not reach Hugging Face API: {e.reason}'}), 502
