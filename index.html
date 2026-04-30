@@ -458,7 +458,7 @@
     <div class="topbar">
       <div>
         <div class="page-heading">Medicine <em>Lookup</em></div>
-        <div class="page-sub">Search any condition for AI-powered treatment suggestions · Powered by Gemini</div>
+        <div class="page-sub">Search any condition for AI-powered treatment suggestions</div>
       </div>
     </div>
 
@@ -484,7 +484,7 @@
             <label class="form-label">&nbsp;</label>
             <button class="btn btn-primary btn-sm" onclick="runAIMedLookup()" id="aiMedLookupBtn">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-              Ask Gemini
+              AI Assist
             </button>
           </div>
           <div>
@@ -513,14 +513,14 @@
           <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;">AI Treatment Analysis —</span>
           <span id="aiMedLookupCondLabel" style="font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);"></span>
         </div>
-        <span style="font-size:11px;color:var(--text-3);">Powered by Gemini · general reference only</span>
+        <span style="font-size:11px;color:var(--text-3);">Clinical AI · general reference only</span>
       </div>
 
       <!-- Loading -->
       <div id="aiMedLookupLoading" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:center;">
         <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          Analyzing condition with Gemini…
+          Analyzing condition…
         </div>
       </div>
 
@@ -552,7 +552,7 @@
       <div class="empty-state">
         <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="10"/></svg></div>
         <div class="empty-title">No standard medicines listed</div>
-        <div class="empty-sub">Click <strong style="color:var(--accent);">Ask Gemini</strong> for AI-powered suggestions.</div>
+        <div class="empty-sub">Click <strong style="color:var(--accent);">AI Assist</strong> for AI-powered suggestions.</div>
       </div>
     </div>
 
@@ -561,7 +561,7 @@
       <div class="empty-state">
         <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
         <div class="empty-title">Search a condition</div>
-        <div class="empty-sub">Type or pick a condition, then click <strong style="color:var(--accent);">Ask Gemini</strong> for AI-powered analysis</div>
+        <div class="empty-sub">Type or pick a condition, then click <strong style="color:var(--accent);">AI Assist</strong> for AI-powered analysis</div>
       </div>
     </div>
   </div>
@@ -701,7 +701,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div>
           <div class="modal-section-title" style="margin:0 0 2px;">AI Treatment Suggestions</div>
-          <div style="font-size:11px;color:var(--text-3);">Powered by Gemini · context-aware</div>
+          <div style="font-size:11px;color:var(--text-3);">Clinical AI · context-aware</div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="getAISuggestions()" id="aiSuggestBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -718,7 +718,7 @@
       <div id="aiLoading" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;">
         <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          Analyzing patient profile with Gemini…
+          Analyzing patient profile…
         </div>
       </div>
 
