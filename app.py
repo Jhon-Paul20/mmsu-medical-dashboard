@@ -707,6 +707,7 @@ def ai_suggest():
             raw = json.loads(resp.read())
             # Chat completions format: choices[0].message.content
             text = raw['choices'][0]['message']['content']
+            print(f'[ai_suggest] RAW MODEL OUTPUT: {text[:500]}')
 
             if not text:
                 return jsonify({'error': 'Empty response from Hugging Face model.'}), 502
