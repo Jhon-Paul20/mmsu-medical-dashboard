@@ -689,7 +689,7 @@ def ai_suggest():
 
     # Use OpenAI-compatible chat completions endpoint
     body = json.dumps({
-        'model': 'meta-llama/Llama-3.1-8B-Instruct',
+        'model': 'meta-llama/Llama-3.1-8B-Instruct:hf-inference',
         'messages': [{'role': 'user', 'content': prompt_text}],
         'max_tokens': 1024,
         'temperature': 0.3,
