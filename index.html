@@ -834,10 +834,18 @@
 
   async function fetchCsrfToken() {
     try {
-      const res = await fetch('/csrf-token');
-      if (res.status === 401) { window.location.href = '/login'; return; }
+      const res = await fetch('/csrf-token', { redirect: 'manual' });
+      // A redirect means the session expired and Flask is sending us to /login
+      if (res.type === 'opaqueredirect' || res.redirected || res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       csrfToken = (await res.json()).token;
-    } catch(e) { console.error('CSRF fetch failed', e); }
+    } catch(e) {
+      console.error('CSRF fetch failed', e);
+      window.location.href = '/login';
+    }
   }
 
   // ── NAVIGATION ──
