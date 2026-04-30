@@ -247,10 +247,23 @@
     .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
     .report-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;}
     .report-card.wide{grid-column:1/-1;}
-    .conditions-bar{margin-bottom:10px;}
-    .cbar-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:5px;}
-    .cbar-track{height:6px;background:var(--surface2);border-radius:10px;overflow:hidden;}
-    .cbar-fill{height:100%;border-radius:10px;background:var(--accent);transition:width .6s ease;}
+    .disease-list{display:flex;flex-direction:column;gap:8px;}
+    .disease-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;transition:border-color .15s;}
+    .disease-row:hover{border-color:var(--border2);}
+    .disease-rank{font-size:11px;font-weight:700;color:var(--text-3);width:18px;flex-shrink:0;text-align:center;}
+    .disease-rank.top{color:var(--accent);}
+    .disease-info{flex:1;min-width:0;}
+    .disease-name{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+    .disease-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.04em;text-transform:uppercase;flex-shrink:0;}
+    .disease-pill.high{background:var(--danger-bg);color:var(--danger);}
+    .disease-pill.normal{background:var(--safe-bg);color:var(--safe);}
+    .disease-sub{font-size:11px;color:var(--text-3);}
+    .disease-bar-wrap{width:90px;flex-shrink:0;}
+    .disease-track{height:5px;background:var(--border);border-radius:10px;overflow:hidden;margin-bottom:3px;}
+    .disease-fill{height:100%;border-radius:10px;transition:width .6s ease;}
+    .disease-fill.high{background:var(--danger);}
+    .disease-fill.normal{background:var(--accent);}
+    .disease-count{font-size:10px;font-weight:700;color:var(--text-2);text-align:right;}
   </style>
 </head>
 <body>
@@ -571,9 +584,9 @@
 
     <div class="report-grid">
       <div class="report-card">
-        <div class="chart-label">Top Conditions</div>
-        <div class="chart-title-text">Most Common Diagnoses</div>
-        <div id="conditionsReport"></div>
+        <div class="chart-label">Prevalence</div>
+        <div class="chart-title-text">Most Common Diseases</div>
+        <div id="conditionsReport" class="disease-list"></div>
       </div>
       <div class="report-card">
         <div class="chart-label">Age Distribution</div>
@@ -1145,14 +1158,32 @@
       } catch(e) { document.getElementById('rpt-visits').textContent = '—'; }
     })();
 
-    // Conditions bar chart
+    // Most Common Diseases
+    const HIGH_RISK_CONDS = ['Hypertension','Diabetes','Asthma','Heart Disease','Tuberculosis','Cancer','HIV/AIDS','Epilepsy'];
     const condFreq = {};
     allData.forEach(p => p.conditions.forEach(c => condFreq[c] = (condFreq[c]||0)+1));
     const top = Object.entries(condFreq).sort((a,b)=>b[1]-a[1]).slice(0,8);
     const maxVal = top[0]?.[1] || 1;
-    document.getElementById('conditionsReport').innerHTML = top.map(([c,n]) =>
-      `<div class="conditions-bar"><div class="cbar-label"><span>${c}</span><span>${n}</span></div><div class="cbar-track"><div class="cbar-fill" style="width:${(n/maxVal*100).toFixed(1)}%"></div></div></div>`
-    ).join('');
+    document.getElementById('conditionsReport').innerHTML = top.length ? top.map(([c,n], i) => {
+      const isHigh = HIGH_RISK_CONDS.includes(c);
+      const pct = (n / total * 100).toFixed(1);
+      const barW = (n / maxVal * 100).toFixed(1);
+      const rankClass = i < 3 ? 'top' : '';
+      return `<div class="disease-row">
+        <div class="disease-rank ${rankClass}">${i+1}</div>
+        <div class="disease-info">
+          <div class="disease-name">
+            ${c}
+            <span class="disease-pill ${isHigh ? 'high' : 'normal'}">${isHigh ? 'High Risk' : 'Common'}</span>
+          </div>
+          <div class="disease-sub">${n} of ${total} personnel affected · ${pct}%</div>
+        </div>
+        <div class="disease-bar-wrap">
+          <div class="disease-track"><div class="disease-fill ${isHigh ? 'high' : 'normal'}" style="width:${barW}%"></div></div>
+          <div class="disease-count">${n} people</div>
+        </div>
+      </div>`;
+    }).join('') : '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No condition data available.</div>';
 
     // Age chart
     const ageGroups = {'<30':0,'30-39':0,'40-49':0,'50-59':0,'60+':0};
