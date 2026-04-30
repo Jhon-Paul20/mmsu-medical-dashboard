@@ -676,9 +676,9 @@ def ai_suggest():
     """Proxy Hugging Face Inference API calls so the API key is never exposed to the browser."""
     import urllib.request, urllib.error
 
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+    api_key = os.environ.get('GROQ_API_KEY', '').strip()
     if not api_key:
-        return jsonify({'error': 'ANTHROPIC_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
+        return jsonify({'error': 'GROQ_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
 
     payload = request.json or {}
     messages = payload.get('messages', [])
@@ -687,21 +687,18 @@ def ai_suggest():
 
     prompt_text = messages[0].get('content', '') if messages else ''
 
-    # Use Anthropic Claude API
+    # Use Groq API
     body = json.dumps({
-        'model': 'claude-haiku-4-5-20251001',
-        'max_tokens': 1024,
+        'model': 'llama-3.1-8b-instant',
         'messages': [{'role': 'user', 'content': prompt_text}],
+        'max_tokens': 1024,
+        'temperature': 0.3,
     }).encode('utf-8')
 
-    url = 'https://api.anthropic.com/v1/messages'
+    url = 'https://api.groq.com/openai/v1/chat/completions'
     req = urllib.request.Request(
         url, data=body,
-        headers={
-            'Content-Type': 'application/json',
-            'x-api-key': api_key,
-            'anthropic-version': '2023-06-01'
-        },
+        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
         method='POST'
     )
 
@@ -709,7 +706,7 @@ def ai_suggest():
         with urllib.request.urlopen(req, timeout=60) as resp:
             raw = json.loads(resp.read())
             # Anthropic API format: content[0].text
-            text = raw['content'][0]['text']
+            text = raw['choices'][0]['message']['content']
             print(f'[ai_suggest] RAW MODEL OUTPUT: {text[:500]}')
 
             if not text:
