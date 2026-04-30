@@ -689,13 +689,13 @@ def ai_suggest():
 
     # Use OpenAI-compatible chat completions endpoint
     body = json.dumps({
-        'model': 'HuggingFaceH4/zephyr-7b-beta',
+        'model': 'meta-llama/Llama-3.1-8B-Instruct',
         'messages': [{'role': 'user', 'content': prompt_text}],
         'max_tokens': 1024,
         'temperature': 0.3,
     }).encode('utf-8')
 
-    url = 'https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta/v1/chat/completions'
+    url = 'https://router.huggingface.co/v1/chat/completions'
     req = urllib.request.Request(
         url, data=body,
         headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
