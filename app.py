@@ -224,9 +224,9 @@ def validate_personnel(d: dict) -> str | None:
         except (TypeError, ValueError):
             return 'Age must be a number.'
     if d.get('gender', '') not in VALID_GENDERS:
-        return f'Invalid gender value.'
+        return 'Invalid gender value.'
     if d.get('blood', '') not in VALID_BLOOD_TYPES:
-        return f'Invalid blood type.'
+        return 'Invalid blood type.'
     conditions = d.get('conditions', [])
     if not isinstance(conditions, list):
         return 'Conditions must be a list.'
@@ -839,7 +839,7 @@ def ai_suggest():
             response_format={'type': 'json_object'},
         )
         text = chat_completion.choices[0].message.content
-        print(f'[ai_suggest] RAW MODEL OUTPUT: {text[:500]}')
+        app.logger.debug('[ai_suggest] RAW MODEL OUTPUT: %s', text[:500])
 
         if not text:
             return jsonify({'error': 'Empty response from Groq model.'}), 502
