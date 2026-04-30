@@ -84,7 +84,7 @@
     .btn-sm{padding:5px 11px;font-size:11.5px;}
 
     /* ── KPI CARDS ── */
-    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+    .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
     .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;}
     .kpi-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow);}
     .kpi-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:14px;}
@@ -96,10 +96,13 @@
     .kpi-value{font-family:'Instrument Serif',serif;font-size:32px;color:var(--text);line-height:1;}
     .kpi-sub{font-size:11px;color:var(--text-3);margin-top:6px;}
 
-    /* ── CHARTS ── */
-    .charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;}
+    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
     .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
-    .chart-card.wide{grid-column:1/3;}
+    .chart-card.wide{grid-column:1/-1;}
+    .chart-card.tall canvas{max-height:240px;}
+    .chart-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;gap:6px;}
+    .chart-empty-icon{font-size:22px;opacity:.3;}
+    .chart-empty-text{font-size:12px;color:var(--text-3);}
     .chart-label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.11em;margin-bottom:3px;}
     .chart-title-text{font-family:'Instrument Serif',serif;font-size:15px;color:var(--text);margin-bottom:16px;}
     canvas{max-height:190px;}
@@ -238,8 +241,8 @@
     .hamburger span{display:block;width:16px;height:2px;background:var(--text-2);border-radius:2px;}
     .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;opacity:0;transition:opacity .2s;}
     .sidebar-backdrop.open{opacity:1;}
-    @media(max-width:900px){.hamburger{display:flex;}.sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:200;}.sidebar.open{transform:translateX(0);}.sidebar-backdrop{display:block;}.main{margin-left:0;padding:20px 16px;padding-top:64px;}.kpi-grid{grid-template-columns:1fr 1fr;}.charts-grid{grid-template-columns:1fr;}.chart-card.wide{grid-column:1;}.report-grid{grid-template-columns:1fr;}.report-card.wide{grid-column:1;}}
-    @media(max-width:560px){.kpi-grid{grid-template-columns:1fr;}.modal{padding:20px 16px;}.modal-grid{grid-template-columns:1fr;}}
+    @media(max-width:900px){.hamburger{display:flex;}.sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:200;}.sidebar.open{transform:translateX(0);}.sidebar-backdrop{display:block;}.main{margin-left:0;padding:20px 16px;padding-top:64px;}.kpi-grid{grid-template-columns:repeat(3,1fr);}.charts-grid{grid-template-columns:1fr;}.chart-card.wide{grid-column:1;}.report-grid{grid-template-columns:1fr;}.report-card.wide{grid-column:1;}}
+    @media(max-width:560px){.kpi-grid{grid-template-columns:1fr 1fr;}.modal{padding:20px 16px;}.modal-grid{grid-template-columns:1fr;}}
 
     /* ── ADVANCED FILTERS ── */
     .filters-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 20px;background:var(--surface2);border-bottom:1px solid var(--border);}
@@ -401,6 +404,7 @@
       <div class="kpi-card fade-in"><div class="kpi-icon blue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0 0 16 0c0-2.5-2-7-8-14z"/></svg></div><div class="kpi-label">Common Blood Type</div><div class="kpi-value" id="commonBloodType">—</div><div class="kpi-sub">Most frequent type</div></div>
       <div class="kpi-card fade-in"><div class="kpi-icon blue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><circle cx="10" cy="14" r="5"/><path d="M19 5l-5 5M14 5h5v5"/></svg></div><div class="kpi-label">Male</div><div class="kpi-value" id="malePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
       <div class="kpi-card fade-in"><div class="kpi-icon pink"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 18h6"/></svg></div><div class="kpi-label">Female</div><div class="kpi-value" id="femalePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon" style="background:var(--danger-bg);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-label">High Risk</div><div class="kpi-value" id="highRiskCount">—</div><div class="kpi-sub" id="highRiskPct">Of total personnel</div></div>
     </div>
 
     <div class="med-panel" id="medPanel">
@@ -415,8 +419,17 @@
     <div class="charts-grid">
       <div class="chart-card wide"><div class="chart-label">Distribution</div><div class="chart-title-text">Blood Type Frequency</div><canvas id="bloodTypeChart"></canvas></div>
       <div class="chart-card"><div class="chart-label">Demographics</div><div class="chart-title-text">Gender Split</div><canvas id="genderChart"></canvas></div>
-      <div class="chart-card wide"><div class="chart-label">Breakdown</div><div class="chart-title-text">Personnel by Department</div><canvas id="deptChart"></canvas></div>
       <div class="chart-card"><div class="chart-label">Risk</div><div class="chart-title-text">High Risk Rate</div><canvas id="riskChart"></canvas></div>
+      <div class="chart-card wide tall"><div class="chart-label">Breakdown</div><div class="chart-title-text">Personnel by Department</div><canvas id="deptChart"></canvas></div>
+      <div class="chart-card wide tall">
+        <div class="chart-label">Prevalence</div>
+        <div class="chart-title-text">Top Health Conditions</div>
+        <canvas id="conditionsOverviewChart"></canvas>
+        <div style="display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);"><span style="width:10px;height:10px;border-radius:3px;background:rgba(224,85,85,0.8);display:inline-block;"></span>High Risk Condition</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);"><span style="width:10px;height:10px;border-radius:3px;background:rgba(91,164,212,0.75);display:inline-block;"></span>Standard Condition</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -983,35 +996,144 @@
     }).join('');
   }
 
+  let conditionsOverviewChart = null;
+
+  function renderChartEmpty(canvasId, message) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    canvas.style.display = 'none';
+    let empty = parent.querySelector('.chart-empty');
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.className = 'chart-empty';
+      empty.innerHTML = `<div class="chart-empty-icon">📊</div><div class="chart-empty-text">${message}</div>`;
+      parent.appendChild(empty);
+    }
+    empty.style.display = 'flex';
+  }
+
+  function clearChartEmpty(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    canvas.style.display = '';
+    const empty = canvas.parentElement.querySelector('.chart-empty');
+    if (empty) empty.style.display = 'none';
+  }
+
   function processData(data) {
+    // KPI cards use filtered data; charts always reflect full dataset
+    const chartData = allData.length ? allData : data;
     const total = data.length;
-    const bloodFreq = {}, genderFreq = { Male: 0, Female: 0 }, deptFreq = {};
+    const allTotal = chartData.length;
+
+    const bloodFreq = {}, genderFreq = { Male: 0, Female: 0 }, deptFreq = {}, condFreq = {};
     let highRiskCount = 0;
-    data.forEach(p => {
+
+    chartData.forEach(p => {
       if (p.blood) bloodFreq[p.blood] = (bloodFreq[p.blood] || 0) + 1;
       if (p.gender === 'Male' || p.gender === 'Female') genderFreq[p.gender]++;
       if (p.department) deptFreq[p.department] = (deptFreq[p.department] || 0) + 1;
       if (isHighRisk(p.conditions)) highRiskCount++;
+      p.conditions.forEach(c => condFreq[c] = (condFreq[c] || 0) + 1);
     });
-    const mostCommonBlood = total && Object.keys(bloodFreq).length
+
+    const mostCommonBlood = allTotal && Object.keys(bloodFreq).length
       ? Object.entries(bloodFreq).reduce((a,b) => b[1]>a[1]?b:a)[0] : '—';
+
+    // KPI cards
     document.getElementById('totalRecords').textContent = total || '—';
     document.getElementById('commonBloodType').textContent = mostCommonBlood;
-    document.getElementById('malePercent').textContent = total ? ((genderFreq.Male/total)*100).toFixed(1)+'%' : '—';
-    document.getElementById('femalePercent').textContent = total ? ((genderFreq.Female/total)*100).toFixed(1)+'%' : '—';
+    document.getElementById('malePercent').textContent = allTotal ? ((genderFreq.Male/allTotal)*100).toFixed(1)+'%' : '—';
+    document.getElementById('femalePercent').textContent = allTotal ? ((genderFreq.Female/allTotal)*100).toFixed(1)+'%' : '—';
+    document.getElementById('highRiskCount').textContent = highRiskCount || '0';
+    document.getElementById('highRiskPct').textContent = allTotal ? `${((highRiskCount/allTotal)*100).toFixed(1)}% of total` : 'Of total personnel';
 
     if (bloodChart) bloodChart.destroy();
     if (genderChart) genderChart.destroy();
     if (deptChart) deptChart.destroy();
     if (riskChart) riskChart.destroy();
+    if (conditionsOverviewChart) conditionsOverviewChart.destroy();
 
     const cf = { family:'Figtree', size:11 }, tc = 'rgba(240,237,232,0.4)', gc = 'rgba(255,255,255,0.04)';
-    bloodChart = new Chart(document.getElementById('bloodTypeChart'), { type:'bar', data:{ labels:Object.keys(bloodFreq), datasets:[{ label:'Count', data:Object.values(bloodFreq), backgroundColor:'rgba(232,200,74,0.7)', borderColor:'rgba(232,200,74,1)', borderWidth:1, borderRadius:4 }] }, options:{ plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{ticks:{color:tc,font:cf},grid:{color:gc}} } } });
-    genderChart = new Chart(document.getElementById('genderChart'), { type:'doughnut', data:{ labels:['Male','Female'], datasets:[{ data:[genderFreq.Male,genderFreq.Female], backgroundColor:['rgba(91,164,212,0.8)','rgba(212,126,176,0.8)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:4 }] }, options:{ plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, cutout:'68%' } });
-    const depts = Object.keys(deptFreq);
-    const deptColors = { CHS:'rgba(232,200,74,0.8)', COE:'rgba(91,164,212,0.8)', CBEA:'rgba(212,126,176,0.8)', CAS:'rgba(78,201,122,0.8)', CTE:'rgba(255,165,80,0.8)' };
-    deptChart = new Chart(document.getElementById('deptChart'), { type:'bar', data:{ labels:depts, datasets:[{ label:'Personnel', data:Object.values(deptFreq), backgroundColor:depts.map(d=>deptColors[d]||'rgba(120,120,180,0.7)'), borderRadius:5 }] }, options:{ plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{ticks:{color:tc,font:cf},grid:{color:gc}} } } });
-    riskChart = new Chart(document.getElementById('riskChart'), { type:'doughnut', data:{ labels:['High Risk','Normal'], datasets:[{ data:[highRiskCount, total-highRiskCount], backgroundColor:['rgba(224,85,85,0.8)','rgba(78,201,122,0.8)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:4 }] }, options:{ plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'} }, cutout:'68%' } });
+    const tooltipDefaults = { backgroundColor:'#162019', titleColor:'#f0ede8', bodyColor:'rgba(240,237,232,0.7)' };
+
+    // Blood type chart
+    if (!Object.keys(bloodFreq).length) {
+      renderChartEmpty('bloodTypeChart', 'No blood type data yet');
+    } else {
+      clearChartEmpty('bloodTypeChart');
+      const btLabels = Object.keys(bloodFreq).sort();
+      bloodChart = new Chart(document.getElementById('bloodTypeChart'), {
+        type:'bar',
+        data:{ labels:btLabels, datasets:[{ label:'Count', data:btLabels.map(l=>bloodFreq[l]), backgroundColor:'rgba(232,200,74,0.75)', borderColor:'rgba(232,200,74,1)', borderWidth:1, borderRadius:5 }] },
+        options:{ animation:{duration:600}, plugins:{ legend:{display:false}, tooltip:{...tooltipDefaults} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{beginAtZero:true,ticks:{stepSize:1,color:tc,font:cf},grid:{color:gc}} } }
+      });
+    }
+
+    // Gender chart
+    if (!genderFreq.Male && !genderFreq.Female) {
+      renderChartEmpty('genderChart', 'No gender data yet');
+    } else {
+      clearChartEmpty('genderChart');
+      genderChart = new Chart(document.getElementById('genderChart'), {
+        type:'doughnut',
+        data:{ labels:['Male','Female'], datasets:[{ data:[genderFreq.Male,genderFreq.Female], backgroundColor:['rgba(91,164,212,0.85)','rgba(212,126,176,0.85)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:6 }] },
+        options:{ animation:{duration:600}, plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{...tooltipDefaults} }, cutout:'68%' }
+      });
+    }
+
+    // Dept chart
+    const depts = Object.keys(deptFreq).sort((a,b) => deptFreq[b]-deptFreq[a]);
+    if (!depts.length) {
+      renderChartEmpty('deptChart', 'No department data yet');
+    } else {
+      clearChartEmpty('deptChart');
+      const palette = ['rgba(232,200,74,0.8)','rgba(91,164,212,0.8)','rgba(212,126,176,0.8)','rgba(78,201,122,0.8)','rgba(255,165,80,0.8)','rgba(150,120,210,0.8)','rgba(100,200,180,0.8)','rgba(220,140,100,0.8)'];
+      deptChart = new Chart(document.getElementById('deptChart'), {
+        type:'bar',
+        data:{ labels:depts, datasets:[{ label:'Personnel', data:depts.map(d=>deptFreq[d]), backgroundColor:depts.map((_,i)=>palette[i%palette.length]), borderRadius:5 }] },
+        options:{ animation:{duration:600}, plugins:{ legend:{display:false}, tooltip:{...tooltipDefaults} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{beginAtZero:true,ticks:{stepSize:1,color:tc,font:cf},grid:{color:gc}} } }
+      });
+    }
+
+    // Risk chart
+    if (!allTotal) {
+      renderChartEmpty('riskChart', 'No data yet');
+    } else {
+      clearChartEmpty('riskChart');
+      riskChart = new Chart(document.getElementById('riskChart'), {
+        type:'doughnut',
+        data:{ labels:['High Risk','Normal'], datasets:[{ data:[highRiskCount, allTotal-highRiskCount], backgroundColor:['rgba(224,85,85,0.85)','rgba(78,201,122,0.85)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:6 }] },
+        options:{ animation:{duration:600}, plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{...tooltipDefaults} }, cutout:'68%' }
+      });
+    }
+
+    // Top Conditions chart (always uses full dataset)
+    const topConds = Object.entries(condFreq).sort((a,b)=>b[1]-a[1]).slice(0, 12);
+    if (!topConds.length) {
+      renderChartEmpty('conditionsOverviewChart', 'No condition data recorded yet');
+    } else {
+      clearChartEmpty('conditionsOverviewChart');
+      const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
+      const condColors = topConds.map(([c]) => HIGH_RISK_SET.has(c) ? 'rgba(224,85,85,0.8)' : 'rgba(91,164,212,0.75)');
+      conditionsOverviewChart = new Chart(document.getElementById('conditionsOverviewChart'), {
+        type:'bar',
+        data:{ labels:topConds.map(([c])=>c), datasets:[{ label:'Personnel', data:topConds.map(([,n])=>n), backgroundColor:condColors, borderRadius:5 }] },
+        options:{
+          animation:{duration:700},
+          plugins:{
+            legend:{display:false},
+            tooltip:{
+              ...tooltipDefaults,
+              callbacks:{ label: ctx => ` ${ctx.parsed.y} personnel` }
+            }
+          },
+          scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{beginAtZero:true,ticks:{stepSize:1,color:tc,font:cf},grid:{color:gc}} }
+        }
+      });
+    }
+
     renderTable(data);
   }
 
