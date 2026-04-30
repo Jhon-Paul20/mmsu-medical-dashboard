@@ -291,11 +291,30 @@
     .cond-search{width:100%;padding:7px 10px 7px 30px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:11.5px;font-family:'Figtree',sans-serif;outline:none;transition:border-color .15s;}
     .cond-search::placeholder{color:var(--text-3);}
     .cond-search:focus{border-color:rgba(212,184,74,.25);}
-    .cond-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 11px;border-radius:6px;border:none;background:transparent;color:var(--text-2);font-size:12px;font-family:'Figtree',sans-serif;cursor:pointer;transition:all .12s;text-align:left;}
+    .cond-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 11px;border-radius:6px;border:none;background:transparent;color:var(--text-2);font-size:12px;font-family:'Figtree',sans-serif;cursor:pointer;transition:all .12s;text-align:left;gap:6px;}
     .cond-btn:hover{background:rgba(255,255,255,.04);color:var(--text);}
     .cond-btn.active{background:var(--accent-dim);color:var(--accent);font-weight:500;}
     .cond-dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.4;flex-shrink:0;}
     .cond-btn.active .cond-dot{opacity:1;}
+    .cond-check{width:13px;height:13px;border-radius:3px;border:1.5px solid var(--border2);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s;}
+    .cond-btn.active .cond-check{background:var(--accent);border-color:var(--accent);}
+    .cond-check-tick{display:none;width:8px;height:8px;}
+    .cond-btn.active .cond-check-tick{display:block;}
+
+    /* ── MULTI-CONDITION FILTER BAR ── */
+    .multi-cond-bar{padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;}
+    .multi-cond-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;min-height:0;}
+    .multi-cond-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 7px 2px 8px;background:var(--accent-dim);border:1px solid rgba(212,184,74,.25);border-radius:20px;font-size:10.5px;color:var(--accent);font-weight:500;}
+    .multi-cond-tag button{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;line-height:1;font-size:11px;opacity:.7;transition:opacity .1s;}
+    .multi-cond-tag button:hover{opacity:1;}
+    .multi-cond-tag.danger{background:var(--danger-bg);border-color:rgba(217,85,85,.2);color:var(--danger);}
+    .multi-cond-tag.danger button{color:var(--danger);}
+    .cond-logic-row{display:flex;align-items:center;justify-content:space-between;}
+    .cond-logic-toggle{display:flex;border:1px solid var(--border2);border-radius:5px;overflow:hidden;}
+    .cond-logic-btn{padding:3px 8px;font-size:10px;font-weight:700;font-family:'Figtree',sans-serif;border:none;background:transparent;color:var(--text-3);cursor:pointer;letter-spacing:.04em;transition:all .12s;}
+    .cond-logic-btn.active{background:var(--accent-dim);color:var(--accent);}
+    .cond-clear-all{font-size:10px;color:var(--text-3);background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;transition:all .12s;}
+    .cond-clear-all:hover{color:var(--danger);}
 
     /* ── REPORTS ── */
     .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
@@ -362,9 +381,26 @@
     </button>
 
     <div class="sidebar-divider"></div>
+    <div style="padding:6px 10px 2px;display:flex;align-items:center;justify-content:space-between;">
+      <div class="nav-label" style="padding:0;margin:0;">Conditions</div>
+      <button class="cond-clear-all" id="condClearAll" onclick="clearConditionFilters()" style="display:none;">Clear all</button>
+    </div>
     <div class="cond-search-wrap">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
-      <input class="cond-search" type="text" placeholder="Filter by condition…" oninput="searchCondition(this.value)">
+      <input class="cond-search" type="text" placeholder="Search conditions…" oninput="searchConditionSidebar(this.value)" id="condSidebarSearch">
+    </div>
+    <div id="condBtnList" style="padding:0 4px;flex:1;overflow-y:auto;max-height:220px;"></div>
+
+    <!-- Active condition tags + AND/OR toggle -->
+    <div class="multi-cond-bar" id="multiCondBar" style="display:none;">
+      <div class="multi-cond-tags" id="multiCondTags"></div>
+      <div class="cond-logic-row">
+        <div class="cond-logic-toggle">
+          <button class="cond-logic-btn active" id="logicBtnOR"  onclick="setCondLogic('OR')">OR</button>
+          <button class="cond-logic-btn"        id="logicBtnAND" onclick="setCondLogic('AND')">AND</button>
+        </div>
+        <span style="font-size:10px;color:var(--text-3);" id="condLogicHint">match any</span>
+      </div>
     </div>
 
   </nav>
@@ -917,6 +953,8 @@
 <script>
   // ── STATE ──
   let allData = [], filteredData = [], activeCondition = 'All';
+  let activeConditions = new Set(); // multi-condition selection
+  let conditionLogic = 'OR';        // 'OR' = match any, 'AND' = match all
   let bloodChart, genderChart, deptChart, riskChart, ageChart, deptRiskChart;
   let csrfToken = '';
   let currentPersonnelId = null;
@@ -1137,37 +1175,167 @@
     renderTable(data);
   }
 
-  function filterData(condition) {
-    activeCondition = condition;
-    document.getElementById('filterBadge').textContent = condition;
-    document.getElementById('activeFilterLabel').textContent =
-      condition === 'All' ? `All personnel — ${allData.length} records` : `Filtered by: ${condition}`;
-    if (document.getElementById('tableSearch')) document.getElementById('tableSearch').value = '';
-    document.querySelectorAll('.cond-btn').forEach(b => b.classList.toggle('active', b.dataset.cond === condition));
-    filteredData = condition === 'All' ? allData : allData.filter(p => p.conditions.includes(condition));
-    processData(filteredData);
+  // ── MULTI-CONDITION FILTER SYSTEM ──
+
+  function buildConditionSidebar(filterQuery = '') {
+    // Collect all conditions from data, sorted by frequency
+    const freq = {};
+    allData.forEach(p => p.conditions.forEach(c => freq[c] = (freq[c] || 0) + 1));
+    let conditions = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([c]) => c);
+    if (filterQuery) {
+      const q = filterQuery.toLowerCase();
+      conditions = conditions.filter(c => c.toLowerCase().includes(q));
+    }
+    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
+    const container = document.getElementById('condBtnList');
+    if (!container) return;
+    if (!conditions.length) {
+      container.innerHTML = `<div style="padding:8px 12px;font-size:11.5px;color:var(--text-3);">No conditions found</div>`;
+      return;
+    }
+    container.innerHTML = conditions.map(c => {
+      const isActive = activeConditions.has(c);
+      const isHigh = HIGH_RISK_SET.has(c);
+      const count = freq[c];
+      return `<button class="cond-btn ${isActive ? 'active' : ''}" data-cond="${c}" onclick="toggleCondition('${c}')">
+        <div class="cond-check">
+          <svg class="cond-check-tick" viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#06090a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <span style="flex:1;${isHigh ? 'color:var(--danger);' : ''}">${c}</span>
+        <span style="font-size:10px;color:var(--text-3);flex-shrink:0;">${count}</span>
+      </button>`;
+    }).join('');
+  }
+
+  function toggleCondition(cond) {
+    if (activeConditions.has(cond)) {
+      activeConditions.delete(cond);
+    } else {
+      activeConditions.add(cond);
+    }
+    applyConditionFilter();
+    buildConditionSidebar(document.getElementById('condSidebarSearch')?.value || '');
+    updateConditionTagBar();
+  }
+
+  function updateConditionTagBar() {
+    const bar = document.getElementById('multiCondBar');
+    const tagsEl = document.getElementById('multiCondTags');
+    const clearBtn = document.getElementById('condClearAll');
+    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
+
+    if (!activeConditions.size) {
+      if (bar) bar.style.display = 'none';
+      if (clearBtn) clearBtn.style.display = 'none';
+      return;
+    }
+    if (bar) bar.style.display = 'block';
+    if (clearBtn) clearBtn.style.display = '';
+
+    tagsEl.innerHTML = [...activeConditions].map(c => {
+      const cls = HIGH_RISK_SET.has(c) ? 'danger' : '';
+      return `<span class="multi-cond-tag ${cls}">${c}<button onclick="toggleCondition('${c}')" title="Remove">×</button></span>`;
+    }).join('');
+  }
+
+  function setCondLogic(logic) {
+    conditionLogic = logic;
+    document.getElementById('logicBtnOR').classList.toggle('active', logic === 'OR');
+    document.getElementById('logicBtnAND').classList.toggle('active', logic === 'AND');
+    document.getElementById('condLogicHint').textContent = logic === 'OR' ? 'match any' : 'match all';
+    applyConditionFilter();
+  }
+
+  function applyConditionFilter() {
+    if (!activeConditions.size) {
+      activeCondition = 'All';
+      filteredData = allData;
+    } else {
+      activeCondition = [...activeConditions].join(', ');
+      filteredData = allData.filter(p => {
+        if (conditionLogic === 'AND') return [...activeConditions].every(c => p.conditions.includes(c));
+        return [...activeConditions].some(c => p.conditions.includes(c));
+      });
+    }
+
+    // Update badge
+    const badge = document.getElementById('filterBadge');
+    if (badge) {
+      if (!activeConditions.size) {
+        badge.textContent = 'All';
+      } else if (activeConditions.size === 1) {
+        badge.textContent = [...activeConditions][0];
+      } else {
+        badge.textContent = `${activeConditions.size} conditions`;
+      }
+    }
+
+    // Update subheading
+    const label = document.getElementById('activeFilterLabel');
+    if (label) {
+      if (!activeConditions.size) {
+        label.textContent = `All personnel — ${allData.length} records`;
+      } else {
+        const logic = conditionLogic === 'OR' ? 'any of' : 'all of';
+        label.textContent = `Showing ${logic}: ${[...activeConditions].join(', ')}`;
+      }
+    }
+
+    // Update medicine panel — show if single condition selected
     const panel = document.getElementById('medPanel');
-    if (condition !== 'All' && MEDICINES[condition]) {
-      document.getElementById('medPanelCondition').textContent = condition;
-      document.getElementById('medGrid').innerHTML = MEDICINES[condition].map(m =>
-        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn?`<div class="med-warn">⚠ ${m.warn}</div>`:''}</div>`).join('');
-      panel.classList.add('visible');
-    } else { panel.classList.remove('visible'); }
+    if (activeConditions.size === 1) {
+      const cond = [...activeConditions][0];
+      if (MEDICINES[cond]) {
+        document.getElementById('medPanelCondition').textContent = cond;
+        document.getElementById('medGrid').innerHTML = MEDICINES[cond].map(m =>
+          `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn?`<div class="med-warn">⚠ ${m.warn}</div>`:''}</div>`).join('');
+        panel.classList.add('visible');
+      } else { panel.classList.remove('visible'); }
+    } else {
+      panel.classList.remove('visible');
+    }
+
+    pagedData = filteredData;
+    currentPage = 1;
+    processData(filteredData);
+    applyAllFilters();
+  }
+
+  function clearConditionFilters() {
+    activeConditions.clear();
+    document.getElementById('condSidebarSearch').value = '';
+    applyConditionFilter();
+    buildConditionSidebar();
+    updateConditionTagBar();
+  }
+
+  function searchConditionSidebar(q) {
+    buildConditionSidebar(q);
+  }
+
+  // Legacy compat — kept so existing calls don't break
+  function filterData(condition) {
+    if (condition === 'All') {
+      clearConditionFilters();
+    } else {
+      activeConditions.clear();
+      activeConditions.add(condition);
+      applyConditionFilter();
+      buildConditionSidebar();
+      updateConditionTagBar();
+    }
   }
 
   function searchTable(q) {
-    const base = activeCondition === 'All' ? allData : allData.filter(p => p.conditions.includes(activeCondition));
-    renderTable(q ? base.filter(p => p.name.toLowerCase().includes(q.toLowerCase()) || p.department.toLowerCase().includes(q.toLowerCase())) : base);
+    applyAllFilters();
   }
 
   function searchCondition(q) {
-    const term = q.trim().toLowerCase();
-    const base = currentFilter === 'All' ? allData : allData.filter(p => p.conditions.includes(currentFilter));
-    renderTable(term ? base.filter(p => p.conditions.some(c => c.toLowerCase().includes(term))) : base);
+    searchConditionSidebar(q);
   }
 
   function generateConditionList() {
-    // list removed — use the search bar above to filter by condition
+    buildConditionSidebar();
   }
 
 
@@ -1861,7 +2029,8 @@ Limit to 2 suggestions per condition, max 6 total.`;
     const gender = document.getElementById('filterGender')?.value || '';
     const blood = document.getElementById('filterBlood')?.value || '';
     const risk = document.getElementById('filterRisk')?.value || '';
-    const base = activeCondition === 'All' ? allData : allData.filter(p => p.conditions.includes(activeCondition));
+    // Base is the condition-filtered set (or all if no conditions selected)
+    const base = activeConditions.size ? filteredData : allData;
     const result = base.filter(p => {
       if (q && !p.name.toLowerCase().includes(q) && !(p.department||'').toLowerCase().includes(q)) return false;
       if (dept && p.department !== dept) return false;
@@ -1984,30 +2153,10 @@ Limit to 2 suggestions per condition, max 6 total.`;
     allData = await res.json();
     populateDeptFilter();
     pagedData = allData;
+    filteredData = allData;
+    buildConditionSidebar();
     filterData('All');
     renderPersonPicker();
-  };
-
-  // ── HOOK INTO filterData TO USE PAGINATED TABLE ──
-  const _origFilterData = filterData;
-  window.filterData = function(condition) {
-    activeCondition = condition;
-    document.getElementById('filterBadge').textContent = condition;
-    document.getElementById('activeFilterLabel').textContent =
-      condition === 'All' ? `All personnel — ${allData.length} records` : `Filtered by: ${condition}`;
-    if (document.getElementById('tableSearch')) document.getElementById('tableSearch').value = '';
-    document.querySelectorAll('.cond-btn').forEach(b => b.classList.toggle('active', b.dataset.cond === condition));
-    filteredData = condition === 'All' ? allData : allData.filter(p => p.conditions.includes(condition));
-    const panel = document.getElementById('medPanel');
-    if (condition !== 'All' && MEDICINES[condition]) {
-      document.getElementById('medPanelCondition').textContent = condition;
-      document.getElementById('medGrid').innerHTML = MEDICINES[condition].map(m =>
-        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn?`<div class="med-warn">⚠ ${m.warn}</div>`:''}</div>`).join('');
-      panel.classList.add('visible');
-    } else { panel.classList.remove('visible'); }
-    pagedData = filteredData;
-    currentPage = 1;
-    processData(filteredData);
   };
 
   // ── HOOK INTO processData TO THEN RENDER PAGINATED TABLE ──
