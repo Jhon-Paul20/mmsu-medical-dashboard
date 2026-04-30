@@ -656,25 +656,28 @@ def export_personnel_pdf(pid):
     )
 
 
-# ── HUGGING FACE DEBUG ────────────────────────────────────────────────────────
+# ── GROQ AI DEBUG ─────────────────────────────────────────────────────────────
 
 @app.route('/ai/models')
 @login_required
 def ai_models():
-    """Return the configured Hugging Face model for debugging."""
-    api_key = os.environ.get('HF_API_KEY', '').strip()
+    """Return the configured Groq model for debugging."""
+    api_key = os.environ.get('GROQ_API_KEY', '').strip()
     if not api_key:
-        return jsonify({'error': 'HF_API_KEY not set'}), 500
-    return jsonify({'model': 'mistralai/Mixtral-8x7B-Instruct-v0.1', 'status': 'configured'})
+        return jsonify({'error': 'GROQ_API_KEY not set'}), 500
+    return jsonify({'model': 'llama-3.1-8b-instant', 'provider': 'Groq', 'status': 'configured'})
 
-# ── HUGGING FACE AI PROXY ─────────────────────────────────────────────────────
+# ── GROQ AI PROXY ─────────────────────────────────────────────────────────────
 
 @app.route('/ai/suggest', methods=['POST'])
 @login_required
 @csrf_required
 def ai_suggest():
-    """Proxy Hugging Face Inference API calls so the API key is never exposed to the browser."""
-    import urllib.request, urllib.error
+    """Proxy Groq API calls so the API key is never exposed to the browser."""
+    try:
+        from groq import Groq
+    except ImportError:
+        return jsonify({'error': 'groq package not installed. Add groq to requirements.txt and redeploy.'}), 500
 
     api_key = os.environ.get('GROQ_API_KEY', '').strip()
     if not api_key:
@@ -685,55 +688,31 @@ def ai_suggest():
     if not messages:
         return jsonify({'error': 'No messages provided.'}), 400
 
-    prompt_text = messages[0].get('content', '') if messages else ''
-
-    # Use Groq API
-    body = json.dumps({
-        'model': 'llama-3.1-8b-instant',
-        'messages': [
-            {'role': 'system', 'content': 'You are a clinical assistant. You MUST respond with valid JSON only. No explanation, no markdown, no extra text — just the raw JSON object.'},
-            {'role': 'user', 'content': prompt_text}
-        ],
-        'max_tokens': 1024,
-        'temperature': 0.3,
-        'response_format': {'type': 'json_object'},
-    }).encode('utf-8')
-
-    url = 'https://api.groq.com/openai/v1/chat/completions'
-    req = urllib.request.Request(
-        url, data=body,
-        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
-        method='POST'
-    )
+    prompt_text = messages[0].get('content', '')
 
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            raw = json.loads(resp.read())
-            # Anthropic API format: content[0].text
-            text = raw['choices'][0]['message']['content']
-            print(f'[ai_suggest] RAW MODEL OUTPUT: {text[:500]}')
+        client = Groq(api_key=api_key)
+        chat_completion = client.chat.completions.create(
+            model='llama-3.1-8b-instant',
+            messages=[
+                {'role': 'system', 'content': 'You are a clinical assistant. You MUST respond with valid JSON only. No explanation, no markdown, no extra text — just the raw JSON object.'},
+                {'role': 'user', 'content': prompt_text},
+            ],
+            max_tokens=1024,
+            temperature=0.3,
+            response_format={'type': 'json_object'},
+        )
+        text = chat_completion.choices[0].message.content
+        print(f'[ai_suggest] RAW MODEL OUTPUT: {text[:500]}')
 
-            if not text:
-                return jsonify({'error': 'Empty response from Hugging Face model.'}), 502
+        if not text:
+            return jsonify({'error': 'Empty response from Groq model.'}), 502
 
-            # Normalize to the same Anthropic-style shape the frontend already expects
-            return jsonify({'content': [{'text': text}]})
+        # Return in the same shape the frontend already expects
+        return jsonify({'content': [{'text': text}]})
 
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8', errors='replace')
-        print(f'[ai_suggest] HF API error {e.code}: {error_body}')
-        try:
-            err_json = json.loads(error_body)
-            err_obj = err_json.get('error', {})
-            msg = err_obj.get('message', str(err_obj)) if isinstance(err_obj, dict) else str(err_obj)
-        except Exception:
-            msg = error_body[:300]
-        return jsonify({'error': f'API error {e.code}: {msg}'}), 200
-    except urllib.error.URLError as e:
-        print(f'[ai_suggest] Network error: {e.reason}')
-        return jsonify({'error': f'Could not reach Hugging Face API: {e.reason}'}), 502
     except Exception as e:
-        print(f'[ai_suggest] Unexpected error: {e}')
+        print(f'[ai_suggest] Groq API error: {e}')
         return jsonify({'error': str(e)}), 500
 
 # ── ENTRYPOINT ────────────────────────────────────────────────────────────────
