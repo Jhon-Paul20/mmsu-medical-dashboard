@@ -223,6 +223,57 @@
     ::-webkit-scrollbar-track{background:transparent;}
     ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
 
+    /* ── LIGHT MODE ── */
+    body.light-mode{--bg:#f4f6f3;--surface:#ffffff;--surface2:#f0f2ef;--border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.13);--accent:#b5880a;--accent2:#9a7008;--accent-dim:rgba(181,136,10,0.10);--text:#141a16;--text-2:rgba(20,26,22,0.60);--text-3:rgba(20,26,22,0.38);--danger:#c0392b;--danger-bg:rgba(192,57,43,0.08);--safe:#1e8449;--safe-bg:rgba(30,132,73,0.08);--blue:#2471a3;--blue-bg:rgba(36,113,163,0.08);--shadow:0 1px 3px rgba(0,0,0,0.10),0 4px 16px rgba(0,0,0,0.07);}
+    body.light-mode .sidebar{background:#fff;}
+    body.light-mode .table-search,body.light-mode .cond-search,body.light-mode .form-input{background:#f4f6f3;}
+    body.light-mode canvas{filter:none;}
+
+    /* ── THEME TOGGLE ── */
+    .theme-toggle{width:32px;height:32px;border-radius:50%;border:1px solid var(--border2);background:var(--surface2);color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s;flex-shrink:0;}
+    .theme-toggle:hover{background:var(--border);color:var(--text);}
+
+    /* ── MOBILE / HAMBURGER ── */
+    .hamburger{display:none;width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:4px;position:fixed;top:16px;left:16px;z-index:300;}
+    .hamburger span{display:block;width:16px;height:2px;background:var(--text-2);border-radius:2px;}
+    .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;opacity:0;transition:opacity .2s;}
+    .sidebar-backdrop.open{opacity:1;}
+    @media(max-width:900px){.hamburger{display:flex;}.sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:200;}.sidebar.open{transform:translateX(0);}.sidebar-backdrop{display:block;}.main{margin-left:0;padding:20px 16px;padding-top:64px;}.kpi-grid{grid-template-columns:1fr 1fr;}.charts-grid{grid-template-columns:1fr;}.chart-card.wide{grid-column:1;}.report-grid{grid-template-columns:1fr;}.report-card.wide{grid-column:1;}}
+    @media(max-width:560px){.kpi-grid{grid-template-columns:1fr;}.modal{padding:20px 16px;}.modal-grid{grid-template-columns:1fr;}}
+
+    /* ── ADVANCED FILTERS ── */
+    .filters-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 20px;background:var(--surface2);border-bottom:1px solid var(--border);}
+    .filter-select{padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text-2);font-size:11.5px;font-family:'Figtree',sans-serif;outline:none;cursor:pointer;transition:border-color .15s;}
+    .filter-select:focus{border-color:rgba(212,184,74,.3);color:var(--text);}
+    .filter-clear{font-size:11px;color:var(--text-3);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:5px;transition:all .15s;}
+    .filter-clear:hover{color:var(--accent);background:var(--accent-dim);}
+
+    /* ── SKELETON LOADER ── */
+    .skel{background:var(--border);border-radius:4px;animation:shimmer 1.4s ease-in-out infinite;}
+    @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.9}}
+
+    /* ── PAGINATION ── */
+    .pagination{display:flex;align-items:center;gap:6px;padding:14px 20px;border-top:1px solid var(--border);justify-content:flex-end;}
+    .pag-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text-2);font-size:12px;font-family:'Figtree',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+    .pag-btn:hover:not(:disabled){background:var(--surface2);color:var(--text);}
+    .pag-btn.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(212,184,74,.3);font-weight:600;}
+    .pag-btn:disabled{opacity:.3;cursor:not-allowed;}
+    .pag-info{font-size:11.5px;color:var(--text-3);margin:0 4px;}
+
+    /* ── TOPBAR DATE ── */
+    .topbar-date{font-size:11px;color:var(--text-3);margin-top:3px;letter-spacing:.01em;}
+
+    /* ── MODAL VISIT HISTORY ── */
+    .modal-visit-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:6px;}
+    .modal-visit-date{font-size:9.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;}
+    .modal-visit-reason{font-size:12.5px;font-weight:600;color:var(--text);}
+    .modal-visit-notes{font-size:11px;color:var(--text-2);margin-top:2px;line-height:1.5;}
+
+    /* ── CONDITION PILLS IN TABLE ── */
+    .cond-pill{display:inline-block;padding:2px 7px;border-radius:12px;font-size:10.5px;font-weight:500;margin:1px 2px 1px 0;background:var(--surface2);border:1px solid var(--border);color:var(--text-2);}
+    .cond-pill.danger{background:var(--danger-bg);border-color:rgba(217,85,85,.2);color:var(--danger);}
+    .cond-pill.warn{background:rgba(255,165,80,.08);border-color:rgba(255,165,80,.25);color:#d4791a;}
+
     /* ── ANIM ── */
     .fade-in{opacity:0;animation:fadeUp .4s ease forwards;}
     @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
@@ -255,8 +306,14 @@
 </head>
 <body>
 
+<!-- ── MOBILE HAMBURGER ── -->
+<button class="hamburger" onclick="toggleSidebar()" id="hamburgerBtn" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
 <!-- ── SIDEBAR ── -->
-<aside class="sidebar">
+<aside class="sidebar" id="mainSidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
       <img src="MMSU_LOGO.png" alt="MMSU Logo">
@@ -310,8 +367,11 @@
   </nav>
 
   <div class="sidebar-footer">
-    <div style="font-size:11px;color:var(--text-3);margin-bottom:10px;padding:0 2px;line-height:1.5;">
-      Signed in as<br><span style="color:var(--text);font-weight:600;" id="loggedInUser">admin</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--text-3);padding:0 2px;line-height:1.5;">
+        Signed in as<br><span style="color:var(--text);font-weight:600;" id="loggedInUser">admin</span>
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeToggleBtn" title="Toggle theme">🌙</button>
     </div>
     <button onclick="handleLogout()" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
@@ -329,6 +389,7 @@
       <div>
         <div class="page-heading">Personnel <em>Health Records</em></div>
         <div class="page-sub" id="activeFilterLabel">All personnel — records loaded</div>
+        <div class="topbar-date" id="topbarDate"></div>
       </div>
       <div class="topbar-right">
         <div class="status-pill"><div class="status-dot"></div>System Active</div>
@@ -336,10 +397,10 @@
     </div>
 
     <div class="kpi-grid">
-      <div class="kpi-card fade-in"><div class="kpi-icon gold">👥</div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="totalRecords">—</div><div class="kpi-sub">Active records</div></div>
-      <div class="kpi-card fade-in"><div class="kpi-icon blue">🩸</div><div class="kpi-label">Common Blood Type</div><div class="kpi-value" id="commonBloodType">—</div><div class="kpi-sub">Most frequent type</div></div>
-      <div class="kpi-card fade-in"><div class="kpi-icon blue">♂</div><div class="kpi-label">Male</div><div class="kpi-value" id="malePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
-      <div class="kpi-card fade-in"><div class="kpi-icon pink">♀</div><div class="kpi-label">Female</div><div class="kpi-value" id="femalePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon gold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M19 11c1.66 0 3 1.34 3 3v1" opacity=".5"/><circle cx="19" cy="7" r="2.5" opacity=".5"/></svg></div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="totalRecords">—</div><div class="kpi-sub">Active records</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon blue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0 0 16 0c0-2.5-2-7-8-14z"/></svg></div><div class="kpi-label">Common Blood Type</div><div class="kpi-value" id="commonBloodType">—</div><div class="kpi-sub">Most frequent type</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon blue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><circle cx="10" cy="14" r="5"/><path d="M19 5l-5 5M14 5h5v5"/></svg></div><div class="kpi-label">Male</div><div class="kpi-value" id="malePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
+      <div class="kpi-card fade-in"><div class="kpi-icon pink"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 18h6"/></svg></div><div class="kpi-label">Female</div><div class="kpi-value" id="femalePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
     </div>
 
     <div class="med-panel" id="medPanel">
@@ -386,8 +447,30 @@
         </div>
         <div class="table-actions">
           <span class="active-filter" id="filterBadge">All</span>
-          <input type="text" class="table-search" placeholder="Search name or dept…" oninput="searchTable(this.value)" id="tableSearch">
+          <input type="text" class="table-search" placeholder="Search name or dept…" oninput="applyAllFilters()" id="tableSearch">
         </div>
+      </div>
+      <!-- Advanced filters bar -->
+      <div class="filters-bar">
+        <select class="filter-select" id="filterDept" onchange="applyAllFilters()">
+          <option value="">All Departments</option>
+        </select>
+        <select class="filter-select" id="filterGender" onchange="applyAllFilters()">
+          <option value="">All Genders</option>
+          <option>Male</option>
+          <option>Female</option>
+        </select>
+        <select class="filter-select" id="filterBlood" onchange="applyAllFilters()">
+          <option value="">All Blood Types</option>
+          <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+          <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+        </select>
+        <select class="filter-select" id="filterRisk" onchange="applyAllFilters()">
+          <option value="">All Risk Levels</option>
+          <option value="high">High Risk</option>
+          <option value="normal">Normal</option>
+        </select>
+        <button class="filter-clear" onclick="clearAdvancedFilters()">✕ Clear filters</button>
       </div>
       <table>
         <thead>
@@ -397,6 +480,7 @@
         </thead>
         <tbody id="personnelTable"></tbody>
       </table>
+      <div class="pagination" id="paginationBar"></div>
     </div>
   </div>
 
@@ -563,7 +647,7 @@
     </div>
 
     <div class="kpi-grid" style="margin-bottom:24px;">
-      <div class="kpi-card"><div class="kpi-icon gold">👥</div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="rpt-total">—</div></div>
+      <div class="kpi-card"><div class="kpi-icon gold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M19 11c1.66 0 3 1.34 3 3v1" opacity=".5"/><circle cx="19" cy="7" r="2.5" opacity=".5"/></svg></div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="rpt-total">—</div></div>
       <div class="kpi-card"><div class="kpi-icon green">✓</div><div class="kpi-label">Normal Risk</div><div class="kpi-value" id="rpt-normal">—</div></div>
       <div class="kpi-card"><div class="kpi-icon" style="background:var(--danger-bg);">⚠</div><div class="kpi-label">High Risk</div><div class="kpi-value" id="rpt-highrisk">—</div></div>
       <div class="kpi-card"><div class="kpi-icon blue">📋</div><div class="kpi-label">Total Visits</div><div class="kpi-value" id="rpt-visits">—</div></div>
@@ -683,6 +767,21 @@
     <div class="modal-field" style="margin-bottom:16px;"><div class="modal-field-label">Address</div><div class="modal-field-val" id="modalAddress" style="font-size:13px;font-weight:400;"></div></div>
     <div class="modal-section-title">Recorded Conditions</div>
     <div class="pills-wrap" id="modalConditions"></div>
+    <!-- ── RECENT VISITS SECTION ── -->
+    <div id="modalVisitsSection" style="margin-top:18px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+        <div class="modal-section-title" style="margin:0;">Recent Clinic Visits</div>
+        <span id="modalVisitsCount" style="font-size:11px;color:var(--text-3);"></span>
+      </div>
+      <div id="modalVisitsList">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;">
+          <div class="skel" style="height:9px;width:60%;margin-bottom:8px;"></div>
+          <div class="skel" style="height:11px;width:80%;margin-bottom:5px;"></div>
+          <div class="skel" style="height:9px;width:50%;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── AI TREATMENT SECTION ── -->
     <div id="modalMedsSection" style="margin-top:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -1575,6 +1674,267 @@ Limit to 2 suggestions per condition, max 6 total.`;
     window.location.href = `/personnel/${currentPersonnelId}/pdf`;
   }
   init();
+
+  // ══════════════════════════════════════════
+  // UPGRADES: Theme, Sidebar, Date, Filters, Pagination, Visits in Modal, Skeleton, Pills
+  // ══════════════════════════════════════════
+
+  // ── THEME TOGGLE ──
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-mode');
+    document.getElementById('themeToggleBtn').textContent = isLight ? '☀️' : '🌙';
+    localStorage.setItem('mmsu_theme', isLight ? 'light' : 'dark');
+  }
+  (function applyStoredTheme() {
+    const theme = localStorage.getItem('mmsu_theme');
+    if (theme === 'light') {
+      document.body.classList.add('light-mode');
+      const btn = document.getElementById('themeToggleBtn');
+      if (btn) btn.textContent = '☀️';
+    }
+  })();
+
+  // ── MOBILE SIDEBAR ──
+  function toggleSidebar() {
+    const s = document.getElementById('mainSidebar');
+    const b = document.getElementById('sidebarBackdrop');
+    s.classList.toggle('open');
+    b.classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('mainSidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('open');
+  }
+  // Close sidebar on nav item click (mobile)
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => { if (window.innerWidth <= 900) closeSidebar(); });
+  });
+
+  // ── DATE DISPLAY ──
+  (function setDate() {
+    const el = document.getElementById('topbarDate');
+    if (!el) return;
+    const d = new Date();
+    const opts = { weekday:'long', year:'numeric', month:'long', day:'numeric' };
+    el.textContent = d.toLocaleDateString('en-PH', opts);
+  })();
+
+  // ── PAGINATION STATE ──
+  let currentPage = 1;
+  const PAGE_SIZE = 25;
+  let pagedData = [];
+
+  // ── ADVANCED FILTERS ──
+  function populateDeptFilter() {
+    const sel = document.getElementById('filterDept');
+    if (!sel) return;
+    const depts = [...new Set(allData.map(p => p.department).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All Departments</option>' +
+      depts.map(d => `<option value="${d}">${d}</option>`).join('');
+  }
+
+  function applyAllFilters() {
+    const q = (document.getElementById('tableSearch')?.value || '').toLowerCase();
+    const dept = document.getElementById('filterDept')?.value || '';
+    const gender = document.getElementById('filterGender')?.value || '';
+    const blood = document.getElementById('filterBlood')?.value || '';
+    const risk = document.getElementById('filterRisk')?.value || '';
+    const base = activeCondition === 'All' ? allData : allData.filter(p => p.conditions.includes(activeCondition));
+    const result = base.filter(p => {
+      if (q && !p.name.toLowerCase().includes(q) && !(p.department||'').toLowerCase().includes(q)) return false;
+      if (dept && p.department !== dept) return false;
+      if (gender && p.gender !== gender) return false;
+      if (blood && p.blood !== blood) return false;
+      if (risk === 'high' && !isHighRisk(p.conditions)) return false;
+      if (risk === 'normal' && isHighRisk(p.conditions)) return false;
+      return true;
+    });
+    pagedData = result;
+    currentPage = 1;
+    renderPaginatedTable();
+  }
+
+  function clearAdvancedFilters() {
+    ['filterDept','filterGender','filterBlood','filterRisk'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const ts = document.getElementById('tableSearch');
+    if (ts) ts.value = '';
+    applyAllFilters();
+  }
+
+  // ── PAGINATED TABLE RENDER ──
+  function renderPaginatedTable() {
+    const total = pagedData.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    currentPage = Math.min(currentPage, totalPages);
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageSlice = pagedData.slice(start, start + PAGE_SIZE);
+    renderTable(pageSlice);
+    document.getElementById('personnelCountLabel').textContent =
+      total ? `${total} record${total === 1 ? '' : 's'}` : 'No results';
+    renderPagination(total, totalPages);
+  }
+
+  function renderPagination(total, totalPages) {
+    const bar = document.getElementById('paginationBar');
+    if (!bar) return;
+    if (totalPages <= 1) { bar.innerHTML = ''; return; }
+    const start = (currentPage - 1) * PAGE_SIZE + 1;
+    const end = Math.min(currentPage * PAGE_SIZE, total);
+    let html = `<span class="pag-info">${start}–${end} of ${total}</span>`;
+    html += `<button class="pag-btn" onclick="goPage(1)" ${currentPage===1?'disabled':''}>«</button>`;
+    html += `<button class="pag-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+    for (let i = Math.max(1,currentPage-2); i <= Math.min(totalPages, currentPage+2); i++) {
+      html += `<button class="pag-btn${i===currentPage?' active':''}" onclick="goPage(${i})">${i}</button>`;
+    }
+    html += `<button class="pag-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+    html += `<button class="pag-btn" onclick="goPage(${totalPages})" ${currentPage===totalPages?'disabled':''}>»</button>`;
+    bar.innerHTML = html;
+  }
+
+  function goPage(n) { currentPage = n; renderPaginatedTable(); }
+
+  // ── OVERRIDE renderTable TO USE COLORED CONDITION PILLS ──
+  const _origRenderTable = renderTable;
+  window.renderTable = function(data) {
+    const tbody = document.getElementById('personnelTable');
+    document.getElementById('personnelCountLabel').textContent =
+      data.length ? `${data.length} record${data.length === 1 ? '' : 's'}` : 'No results';
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="empty-title">No records found</div></div></td></tr>`;
+      return;
+    }
+    const MODERATE = ['Hypertension','Diabetes','Obesity','Migraine','Arthritis','Gout','Anemia','Asthma','Mental Health','Allergies','Thyroid Disorder'];
+    tbody.innerHTML = data.map(p => {
+      const risk = isHighRisk(p.conditions);
+      const pillsHtml = p.conditions.length
+        ? p.conditions.map(c => {
+            let cls = 'cond-pill';
+            if (HIGH_RISK.includes(c)) cls += ' danger';
+            else if (MODERATE.includes(c)) cls += ' warn';
+            return `<span class="${cls}">${c}</span>`;
+          }).join('')
+        : '—';
+      return `<tr onclick="openModal(${p.id})">
+        <td class="name-col">${p.name}</td>
+        <td>${p.age || '—'}</td>
+        <td>${p.gender}</td>
+        <td><span class="blood-badge">${p.blood || '—'}</span></td>
+        <td>${p.department}</td>
+        <td>${p.phone || '—'}</td>
+        <td class="conditions-cell">${pillsHtml}</td>
+        <td>${risk ? '<span class="risk-tag high">⚠ High</span>' : '<span class="risk-tag normal">✓ Normal</span>'}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" style="margin-right:4px;" onclick="editPersonnel(${p.id})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${p.name.replace(/'/g,"\'")}')">Del</button>
+        </td>
+      </tr>`;
+    }).join('');
+  };
+
+  // ── SKELETON TABLE LOADER ──
+  function showTableSkeleton() {
+    const tbody = document.getElementById('personnelTable');
+    if (!tbody) return;
+    tbody.innerHTML = Array(6).fill('').map(() =>
+      `<tr class="skeleton-row">
+        <td><div class="skel" style="height:12px;width:120px;"></div></td>
+        <td><div class="skel" style="height:12px;width:28px;"></div></td>
+        <td><div class="skel" style="height:12px;width:44px;"></div></td>
+        <td><div class="skel" style="height:12px;width:36px;"></div></td>
+        <td><div class="skel" style="height:12px;width:80px;"></div></td>
+        <td><div class="skel" style="height:12px;width:90px;"></div></td>
+        <td><div class="skel" style="height:12px;width:130px;"></div></td>
+        <td><div class="skel" style="height:12px;width:54px;"></div></td>
+        <td><div class="skel" style="height:12px;width:70px;"></div></td>
+      </tr>`
+    ).join('');
+  }
+
+  // ── HOOK INTO loadPersonnel TO SHOW SKELETON + POPULATE FILTERS ──
+  const _origLoadPersonnel = loadPersonnel;
+  window.loadPersonnel = async function() {
+    showTableSkeleton();
+    const res = await fetch('/personnel');
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    allData = await res.json();
+    populateDeptFilter();
+    pagedData = allData;
+    filterData('All');
+    renderPersonPicker();
+  };
+
+  // ── HOOK INTO filterData TO USE PAGINATED TABLE ──
+  const _origFilterData = filterData;
+  window.filterData = function(condition) {
+    activeCondition = condition;
+    document.getElementById('filterBadge').textContent = condition;
+    document.getElementById('activeFilterLabel').textContent =
+      condition === 'All' ? `All personnel — ${allData.length} records` : `Filtered by: ${condition}`;
+    if (document.getElementById('tableSearch')) document.getElementById('tableSearch').value = '';
+    document.querySelectorAll('.cond-btn').forEach(b => b.classList.toggle('active', b.dataset.cond === condition));
+    filteredData = condition === 'All' ? allData : allData.filter(p => p.conditions.includes(condition));
+    const panel = document.getElementById('medPanel');
+    if (condition !== 'All' && MEDICINES[condition]) {
+      document.getElementById('medPanelCondition').textContent = condition;
+      document.getElementById('medGrid').innerHTML = MEDICINES[condition].map(m =>
+        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn?`<div class="med-warn">⚠ ${m.warn}</div>`:''}</div>`).join('');
+      panel.classList.add('visible');
+    } else { panel.classList.remove('visible'); }
+    pagedData = filteredData;
+    currentPage = 1;
+    processData(filteredData);
+  };
+
+  // ── HOOK INTO processData TO THEN RENDER PAGINATED TABLE ──
+  const _origProcessData = processData;
+  window.processData = function(data) {
+    _origProcessData(data);
+    pagedData = data;
+    renderPaginatedTable();
+  };
+
+  // ── VISIT HISTORY IN MODAL ──
+  const _origOpenModal = openModal;
+  window.openModal = function(id) {
+    _origOpenModal(id);
+    loadModalVisits(id);
+  };
+
+  async function loadModalVisits(id) {
+    const container = document.getElementById('modalVisitsList');
+    const countEl = document.getElementById('modalVisitsCount');
+    if (!container) return;
+    // Show skeleton
+    container.innerHTML = `<div class="modal-visit-item"><div class="skel" style="height:9px;width:60%;margin-bottom:8px;"></div><div class="skel" style="height:11px;width:80%;margin-bottom:5px;"></div><div class="skel" style="height:9px;width:40%;"></div></div>`;
+    try {
+      const res = await fetch(`/personnel/${id}/visits`);
+      if (!res.ok) throw new Error();
+      const visits = await res.json();
+      if (countEl) countEl.textContent = visits.length ? `${visits.length} visit${visits.length===1?'':'s'}` : '';
+      if (!visits.length) {
+        container.innerHTML = `<div style="font-size:12px;color:var(--text-3);padding:10px 0;">No clinic visits recorded yet.</div>`;
+        return;
+      }
+      // Show up to 3 most recent
+      const recent = visits.slice(0, 3);
+      container.innerHTML = recent.map(v =>
+        `<div class="modal-visit-item">
+          <div class="modal-visit-date">${v.visit_date}</div>
+          <div class="modal-visit-reason">${v.reason || 'General Visit'}</div>
+          ${v.notes ? `<div class="modal-visit-notes">${v.notes}</div>` : ''}
+        </div>`
+      ).join('') + (visits.length > 3 ? `<div style="font-size:11px;color:var(--text-3);padding:6px 2px;">+ ${visits.length - 3} more visit${visits.length-3===1?'':'s'} — see Patient Visits page</div>` : '');
+    } catch(e) {
+      container.innerHTML = `<div style="font-size:12px;color:var(--text-3);padding:8px 0;">Could not load visits.</div>`;
+    }
+  }
+
+  // ── searchTable override → use applyAllFilters ──
+  window.searchTable = function(q) { applyAllFilters(); };
+
 </script>
 </body>
 </html>
