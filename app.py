@@ -6,7 +6,11 @@ import io
 import json
 import os
 import secrets
-from datetime import datetime
+import sys
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
+from threading import Lock
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -27,7 +31,16 @@ import psycopg2.extras
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=BASE_DIR)
 
-app.secret_key = os.environ.get('SECRET_KEY', 'mmsu_medical_dashboard_secret_2024_CHANGE_IN_PRODUCTION')
+app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(
+            'SECRET_KEY environment variable must be set in production. '
+            'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+    # Dev/local only — never reaches production
+    app.secret_key = 'mmsu_medical_dashboard_DEV_ONLY_not_for_production'
+    print('[WARNING] SECRET_KEY not set — using insecure dev default. Set SECRET_KEY env var.', file=sys.stderr)
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -44,10 +57,29 @@ def _get_db_url():
     # Heroku/Railway uses the legacy postgres:// scheme; psycopg2 needs postgresql://
     return url.replace('postgres://', 'postgresql://', 1)
 
+# Connection pool — reuses connections instead of opening a new one per request
+from psycopg2 import pool as pg_pool
+
+_pool: pg_pool.ThreadedConnectionPool | None = None
+_pool_lock = Lock()
+
+def get_pool() -> pg_pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = pg_pool.ThreadedConnectionPool(
+                    minconn=2,
+                    maxconn=10,
+                    dsn=_get_db_url(),
+                )
+    return _pool
+
 @contextmanager
 def get_db():
-    """Context manager that opens a connection and always closes it."""
-    conn = psycopg2.connect(_get_db_url())
+    """Context manager that borrows a connection from the pool and always returns it."""
+    pool = get_pool()
+    conn = pool.getconn()
     try:
         yield conn
         conn.commit()
@@ -55,7 +87,7 @@ def get_db():
         conn.rollback()
         raise
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 def init_db():
     with get_db() as conn:
@@ -150,15 +182,76 @@ def csv_response(rows, headers, filename):
     )
 
 def audit(action, detail=''):
-    """Write an entry to the audit log. Silently swallows errors."""
+    """Write an entry to the audit log. Logs failures to stderr instead of silently dropping them."""
     try:
         with get_db() as conn:
             conn.cursor().execute(
                 'INSERT INTO audit_log (username, action, detail, ip) VALUES (%s, %s, %s, %s)',
                 (session.get('user', 'system'), action, detail, request.remote_addr),
             )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'[audit] Failed to write audit log ({action}): {e}', file=sys.stderr)
+
+# ── INPUT VALIDATION ─────────────────────────────────────────────────────────
+
+FIELD_LIMITS = {
+    'name':       256,
+    'gender':      16,
+    'blood':       8,
+    'department':  128,
+    'phone':       32,
+    'address':     512,
+    'conditions':  1024,  # the joined pipe-string
+}
+VALID_GENDERS     = {'Male', 'Female', ''}
+VALID_BLOOD_TYPES = {'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''}
+
+def validate_personnel(d: dict) -> str | None:
+    """Return an error string if the payload is invalid, else None."""
+    name = d.get('name', '').strip()
+    if not name:
+        return 'Name is required.'
+    for field, limit in FIELD_LIMITS.items():
+        val = d.get(field, '')
+        if isinstance(val, str) and len(val) > limit:
+            return f'Field "{field}" exceeds maximum length of {limit} characters.'
+    age = d.get('age')
+    if age is not None:
+        try:
+            age_int = int(age)
+            if not (0 < age_int < 150):
+                return 'Age must be between 1 and 149.'
+        except (TypeError, ValueError):
+            return 'Age must be a number.'
+    if d.get('gender', '') not in VALID_GENDERS:
+        return f'Invalid gender value.'
+    if d.get('blood', '') not in VALID_BLOOD_TYPES:
+        return f'Invalid blood type.'
+    conditions = d.get('conditions', [])
+    if not isinstance(conditions, list):
+        return 'Conditions must be a list.'
+    if len(conditions) > 30:
+        return 'Too many conditions (max 30).'
+    return None
+
+# ── RATE LIMITER ──────────────────────────────────────────────────────────────
+
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_rate_lock = Lock()
+LOGIN_MAX_ATTEMPTS = 10   # per window
+LOGIN_WINDOW_SECS  = 300  # 5 minutes
+
+def is_rate_limited(ip: str) -> bool:
+    """True if this IP has exceeded the login attempt limit."""
+    now = time.time()
+    with _rate_lock:
+        attempts = _login_attempts[ip]
+        # Drop attempts outside the window
+        _login_attempts[ip] = [t for t in attempts if now - t < LOGIN_WINDOW_SECS]
+        if len(_login_attempts[ip]) >= LOGIN_MAX_ATTEMPTS:
+            return True
+        _login_attempts[ip].append(now)
+        return False
 
 # ── AUTH / CSRF DECORATORS ────────────────────────────────────────────────────
 
@@ -194,6 +287,9 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        ip = request.remote_addr
+        if is_rate_limited(ip):
+            return jsonify({'success': False, 'error': 'Too many login attempts. Please wait 5 minutes.'}), 429
         data = request.json or {}
         if data.get('username') == ADMIN_USERNAME and data.get('password') == ADMIN_PASSWORD:
             session['user'] = data['username']
@@ -230,6 +326,9 @@ def get_personnel():
 @csrf_required
 def add_personnel():
     d = request.json or {}
+    err = validate_personnel(d)
+    if err:
+        return jsonify({'error': err}), 400
     with get_db() as conn:
         conn.cursor().execute(
             'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
@@ -243,6 +342,9 @@ def add_personnel():
 @csrf_required
 def update_personnel(pid):
     d = request.json or {}
+    err = validate_personnel(d)
+    if err:
+        return jsonify({'error': err}), 400
     with get_db() as conn:
         c = conn.cursor()
         c.execute('SELECT id FROM personnel WHERE id = %s', (pid,))
@@ -280,16 +382,32 @@ def upload():
     if not file:
         return jsonify({'error': 'No file uploaded'}), 400
 
-    reader = csv.DictReader(io.StringIO(file.read().decode('utf-8')))
-    records = [
-        (
-            row.get('name', ''), row.get('age') or None, row.get('gender', ''),
-            row.get('blood', ''), row.get('department', ''),
-            row.get('phone', ''), row.get('address', ''), row.get('conditions', ''),
-        )
-        for row in reader
-    ]
+    try:
+        content = file.read().decode('utf-8')
+    except UnicodeDecodeError:
+        return jsonify({'error': 'File must be UTF-8 encoded'}), 400
 
+    reader = csv.DictReader(io.StringIO(content))
+    records = []
+    for i, row in enumerate(reader, start=2):  # row 1 is the header
+        name = row.get('name', '').strip()
+        if not name:
+            return jsonify({'error': f'Row {i}: "name" column is required'}), 400
+        records.append((
+            name,
+            row.get('age') or None,
+            row.get('gender', ''),
+            row.get('blood', ''),
+            row.get('department', ''),
+            row.get('phone', ''),
+            row.get('address', ''),
+            row.get('conditions', ''),
+        ))
+
+    if not records:
+        return jsonify({'error': 'CSV file contains no data rows'}), 400
+
+    # Delete only after validation passes — safer rollback boundary
     with get_db() as conn:
         c = conn.cursor()
         c.execute('DELETE FROM personnel')
@@ -658,6 +776,25 @@ def export_personnel_pdf(pid):
 
 # ── GROQ AI DEBUG ─────────────────────────────────────────────────────────────
 
+# Singleton Groq client — initialised once, reused on every request
+_groq_client = None
+_groq_lock   = Lock()
+
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        with _groq_lock:
+            if _groq_client is None:
+                try:
+                    from groq import Groq
+                except ImportError:
+                    return None
+                api_key = os.environ.get('GROQ_API_KEY', '').strip()
+                if not api_key:
+                    return None
+                _groq_client = Groq(api_key=api_key)
+    return _groq_client
+
 @app.route('/ai/models')
 @login_required
 def ai_models():
@@ -674,16 +811,16 @@ def ai_models():
 @csrf_required
 def ai_suggest():
     """Proxy Groq API calls so the API key is never exposed to the browser."""
-    try:
-        from groq import Groq
-    except ImportError:
-        return jsonify({'error': 'groq package not installed. Add groq to requirements.txt and redeploy.'}), 500
-
-    api_key = os.environ.get('GROQ_API_KEY', '').strip()
-    if not api_key:
+    client = get_groq_client()
+    if client is None:
+        # Distinguish between missing package and missing key
+        try:
+            import groq  # noqa: F401
+        except ImportError:
+            return jsonify({'error': 'groq package not installed. Add groq to requirements.txt and redeploy.'}), 500
         return jsonify({'error': 'GROQ_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
 
-    payload = request.json or {}
+    payload  = request.json or {}
     messages = payload.get('messages', [])
     if not messages:
         return jsonify({'error': 'No messages provided.'}), 400
@@ -691,12 +828,11 @@ def ai_suggest():
     prompt_text = messages[0].get('content', '')
 
     try:
-        client = Groq(api_key=api_key)
         chat_completion = client.chat.completions.create(
             model='llama-3.1-8b-instant',
             messages=[
                 {'role': 'system', 'content': 'You are a clinical assistant. You MUST respond with valid JSON only. No explanation, no markdown, no extra text — just the raw JSON object.'},
-                {'role': 'user', 'content': prompt_text},
+                {'role': 'user',   'content': prompt_text},
             ],
             max_tokens=1024,
             temperature=0.3,
@@ -708,11 +844,10 @@ def ai_suggest():
         if not text:
             return jsonify({'error': 'Empty response from Groq model.'}), 502
 
-        # Return in the same shape the frontend already expects
         return jsonify({'content': [{'text': text}]})
 
     except Exception as e:
-        print(f'[ai_suggest] Groq API error: {e}')
+        print(f'[ai_suggest] Groq API error: {e}', file=sys.stderr)
         return jsonify({'error': str(e)}), 500
 
 # ── ENTRYPOINT ────────────────────────────────────────────────────────────────
