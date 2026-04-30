@@ -690,9 +690,13 @@ def ai_suggest():
     # Use Groq API
     body = json.dumps({
         'model': 'llama-3.1-8b-instant',
-        'messages': [{'role': 'user', 'content': prompt_text}],
+        'messages': [
+            {'role': 'system', 'content': 'You are a clinical assistant. You MUST respond with valid JSON only. No explanation, no markdown, no extra text — just the raw JSON object.'},
+            {'role': 'user', 'content': prompt_text}
+        ],
         'max_tokens': 1024,
         'temperature': 0.3,
+        'response_format': {'type': 'json_object'},
     }).encode('utf-8')
 
     url = 'https://api.groq.com/openai/v1/chat/completions'
