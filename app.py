@@ -1,4 +1,5 @@
 from flask import Flask, Response, request, jsonify, render_template, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from contextlib import contextmanager
 import csv
@@ -46,7 +47,9 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
+_raw_password  = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
+ADMIN_PASSWORD_HASH = generate_password_hash(_raw_password)
+del _raw_password  # don't keep plaintext in memory
 
 # ── DATABASE ──────────────────────────────────────────────────────────────────
 
@@ -291,7 +294,7 @@ def login():
         if is_rate_limited(ip):
             return jsonify({'success': False, 'error': 'Too many login attempts. Please wait 5 minutes.'}), 429
         data = request.json or {}
-        if data.get('username') == ADMIN_USERNAME and data.get('password') == ADMIN_PASSWORD:
+        if data.get('username') == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, data.get('password', '')):
             session['user'] = data['username']
             audit('LOGIN', f'Admin logged in from {request.remote_addr}')
             return jsonify({'success': True})
@@ -421,7 +424,7 @@ def upload():
     if not records:
         return jsonify({'error': 'CSV file contains no data rows'}), 400
 
-    # All rows validated — safe to wipe and re-insert
+    # All rows fully validated above — safe to wipe and re-insert atomically
     with get_db() as conn:
         c = conn.cursor()
         c.execute('DELETE FROM personnel')
