@@ -472,9 +472,21 @@
 
     /* ── RESPONSIVE ── */
     @media (max-width: 900px) {
-      body { grid-template-columns: 1fr; }
+      body { grid-template-columns: 1fr; overflow-y: auto; }
       .brand-panel { display: none; }
-      .login-panel { padding: 40px 28px; }
+      .login-panel {
+        padding: 40px 28px;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+    @media (max-width: 480px) {
+      .login-panel { padding: 32px 20px; align-items: flex-start; padding-top: 48px; }
+      .login-box { width: 100%; }
+      .login-greeting { font-size: 32px; }
+      .btn-login { padding: 14px; font-size: 14px; }
     }
   </style>
 </head>
