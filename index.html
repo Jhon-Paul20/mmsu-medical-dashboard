@@ -845,6 +845,12 @@
         <div class="page-heading">Reports <em>&amp; Analytics</em></div>
         <div class="page-sub">Health data summaries and statistical insights</div>
       </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="openPrintReport()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print Report
+        </button>
+      </div>
     </div>
 
     <div class="kpi-grid" style="margin-bottom:24px;">
@@ -3077,6 +3083,564 @@ Limit to 2 suggestions per condition, max 6 total.`;
 
   // ── searchTable override → use applyAllFilters ──
   window.searchTable = function(q) { applyAllFilters(); };
+
+  // ── PRINT REPORT ──
+  async function openPrintReport() {
+    if (!allData.length) { showToast('No data to generate report', true); return; }
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+    const timeStr = now.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
+
+    const total = allData.length;
+    const highRisk = allData.filter(p => isHighRisk(p.conditions)).length;
+    const normal = total - highRisk;
+    const riskRate = total ? ((highRisk / total) * 100).toFixed(1) : '0.0';
+
+    // Condition frequency
+    const condFreq = {};
+    allData.forEach(p => p.conditions.forEach(c => condFreq[c] = (condFreq[c]||0)+1));
+    const topConditions = Object.entries(condFreq).sort((a,b) => b[1]-a[1]).slice(0,10);
+
+    // Top at-risk individuals
+    const topAtRisk = allData
+      .filter(p => isHighRisk(p.conditions))
+      .sort((a,b) => b.conditions.filter(c => HIGH_RISK.includes(c)).length - a.conditions.filter(c => HIGH_RISK.includes(c)).length)
+      .slice(0, 10);
+
+    // Dept breakdown
+    const depts = [...new Set(allData.map(p => p.department).filter(Boolean))].sort();
+    const deptRows = depts.map(d => {
+      const members = allData.filter(p => p.department === d);
+      const hr = members.filter(p => isHighRisk(p.conditions)).length;
+      return { name:d, total:members.length, highRisk:hr, rate: members.length ? ((hr/members.length)*100).toFixed(0) : '0' };
+    }).sort((a,b) => b.highRisk - a.highRisk);
+
+    // Age distribution
+    const ageGroups = {'<30':0,'30–39':0,'40–49':0,'50–59':0,'60+':0};
+    allData.forEach(p => {
+      const age = parseInt(p.age);
+      if (!age || isNaN(age)) return;
+      if (age < 30) ageGroups['<30']++;
+      else if (age < 40) ageGroups['30–39']++;
+      else if (age < 50) ageGroups['40–49']++;
+      else if (age < 60) ageGroups['50–59']++;
+      else ageGroups['60+']++;
+    });
+
+    const condMaxVal = topConditions[0]?.[1] || 1;
+
+    const printWin = window.open('', '_blank', 'width=900,height=700');
+    printWin.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Health Report — MMSU Clinic · ${dateStr}</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: 'Figtree', sans-serif;
+    background: #fff;
+    color: #1a1a1a;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 0;
+  }
+
+  /* ── HEADER ── */
+  .print-header {
+    background: #07110a;
+    color: #f0ede8;
+    padding: 32px 48px 28px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .print-header-left {}
+  .print-clinic-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    color: #d4b84a;
+    margin-bottom: 6px;
+  }
+  .print-clinic-name {
+    font-family: 'Instrument Serif', serif;
+    font-size: 24px;
+    color: #f0ede8;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .print-clinic-sub {
+    font-size: 11px;
+    color: rgba(240,237,232,0.45);
+  }
+  .print-header-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .print-report-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 14px;
+    color: #d4b84a;
+    font-style: italic;
+    margin-bottom: 4px;
+  }
+  .print-report-date {
+    font-size: 11px;
+    color: rgba(240,237,232,0.55);
+  }
+  .print-confidential {
+    margin-top: 8px;
+    display: inline-block;
+    padding: 3px 9px;
+    border: 1px solid rgba(212,184,74,0.3);
+    border-radius: 20px;
+    font-size: 9px;
+    color: rgba(212,184,74,0.7);
+    text-transform: uppercase;
+    letter-spacing: .12em;
+  }
+
+  /* ── BODY ── */
+  .print-body { padding: 36px 48px; }
+
+  /* ── KPI ROW ── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+  .kpi-box {
+    border: 1.5px solid #e8e4dc;
+    border-radius: 10px;
+    padding: 18px 20px;
+    position: relative;
+  }
+  .kpi-box-label {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .kpi-box-val {
+    font-family: 'Instrument Serif', serif;
+    font-size: 34px;
+    color: #1a1a1a;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-box-val.danger { color: #c0392b; }
+  .kpi-box-val.safe { color: #1e7e45; }
+  .kpi-box-sub {
+    font-size: 10px;
+    color: #999;
+  }
+  .kpi-box.highlight-danger { border-color: #f5c6c6; background: #fffafa; }
+  .kpi-box.highlight-safe   { border-color: #b8e8c9; background: #f8fff9; }
+
+  /* ── SECTION HEADERS ── */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid #eee;
+  }
+  .section-label {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #b8a040;
+  }
+  .section-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 16px;
+    color: #1a1a1a;
+  }
+  .section-block { margin-bottom: 30px; }
+
+  /* ── CONDITIONS BARS ── */
+  .cond-list { display: flex; flex-direction: column; gap: 9px; }
+  .cond-row { display: flex; align-items: center; gap: 12px; }
+  .cond-rank {
+    font-size: 10px;
+    font-weight: 700;
+    color: #bbb;
+    width: 18px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .cond-name {
+    width: 170px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #222;
+    font-weight: 500;
+  }
+  .cond-name.high-risk { color: #c0392b; font-weight: 600; }
+  .cond-track {
+    flex: 1;
+    height: 8px;
+    background: #f0ede8;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .cond-fill {
+    height: 100%;
+    background: #07110a;
+    border-radius: 4px;
+  }
+  .cond-fill.high-risk { background: #c0392b; }
+  .cond-count {
+    width: 28px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 600;
+    color: #444;
+    flex-shrink: 0;
+  }
+  .cond-pct {
+    width: 38px;
+    text-align: right;
+    font-size: 10px;
+    color: #999;
+    flex-shrink: 0;
+  }
+
+  /* ── TWO COLUMN LAYOUT ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
+
+  /* ── AGE TABLE ── */
+  .age-table { width: 100%; border-collapse: collapse; }
+  .age-table th {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .11em;
+    color: #999;
+    border-bottom: 1.5px solid #eee;
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .age-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f5f3ef;
+    font-size: 12px;
+    color: #333;
+  }
+  .age-bar-cell { width: 100px; }
+  .age-bar-wrap { background: #f0ede8; border-radius: 3px; height: 6px; overflow: hidden; }
+  .age-bar-fill { height: 100%; background: #2c5f3a; border-radius: 3px; }
+
+  /* ── DEPT TABLE ── */
+  .dept-table { width: 100%; border-collapse: collapse; }
+  .dept-table th {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .11em;
+    color: #999;
+    border-bottom: 1.5px solid #eee;
+    padding: 7px 12px;
+    text-align: left;
+  }
+  .dept-table td { padding: 9px 12px; border-bottom: 1px solid #f5f3ef; font-size: 12px; color: #333; }
+  .dept-table tr:last-child td { border-bottom: none; }
+  .risk-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .risk-badge.critical { background: #fde8e8; color: #c0392b; }
+  .risk-badge.moderate { background: #fef3cd; color: #b8860b; }
+  .risk-badge.low      { background: #e8f5ee; color: #1e7e45; }
+
+  /* ── AT-RISK TABLE ── */
+  .atrisk-table { width: 100%; border-collapse: collapse; }
+  .atrisk-table th {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .11em;
+    color: #999;
+    border-bottom: 1.5px solid #eee;
+    padding: 7px 12px;
+    text-align: left;
+  }
+  .atrisk-table td { padding: 9px 12px; border-bottom: 1px solid #f5f3ef; font-size: 12px; color: #333; vertical-align: top; }
+  .atrisk-table tr:last-child td { border-bottom: none; }
+  .pill-sm {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 9.5px;
+    font-weight: 600;
+    background: #fde8e8;
+    color: #c0392b;
+    margin: 1px 2px 1px 0;
+  }
+  .pill-normal {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 9.5px;
+    background: #f0ede8;
+    color: #666;
+    margin: 1px 2px 1px 0;
+  }
+
+  /* ── FOOTER ── */
+  .print-footer {
+    margin-top: 20px;
+    padding: 16px 48px;
+    border-top: 1.5px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .print-footer-note { font-size: 10px; color: #aaa; }
+  .print-footer-pg   { font-size: 10px; color: #bbb; }
+
+  /* ── PRINT ACTIONS ── */
+  .print-actions {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #07110a;
+    padding: 12px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 999;
+    gap: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .print-actions-label {
+    font-size: 12px;
+    color: rgba(240,237,232,0.55);
+    font-family: 'Figtree', sans-serif;
+  }
+  .print-actions-left { display: flex; align-items: center; gap: 12px; }
+  .pa-btn {
+    font-family: 'Figtree', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 18px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .pa-btn.primary { background: #d4b84a; color: #06090a; }
+  .pa-btn.primary:hover { background: #e8d080; }
+  .pa-btn.ghost  { background: transparent; color: rgba(240,237,232,0.65); border: 1px solid rgba(255,255,255,0.12); }
+  .pa-btn.ghost:hover { background: rgba(255,255,255,0.06); color: #f0ede8; }
+
+  .print-wrap { padding-top: 60px; }
+
+  @media print {
+    .print-actions { display: none !important; }
+    .print-wrap { padding-top: 0; }
+    body { background: #fff; }
+    @page { margin: 0; size: A4; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── ACTIONS BAR ── -->
+<div class="print-actions">
+  <div class="print-actions-left">
+    <span style="font-family:'Instrument Serif',serif;font-size:15px;color:#d4b84a;">MMSU Health Records</span>
+    <span class="print-actions-label">· Clinic Health Report · ${dateStr}</span>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="pa-btn ghost" onclick="window.close()">✕ Close</button>
+    <button class="pa-btn primary" onclick="window.print()">
+      🖨 Print / Save PDF
+    </button>
+  </div>
+</div>
+
+<div class="print-wrap">
+
+<!-- ── HEADER ── -->
+<div class="print-header">
+  <div class="print-header-left">
+    <div class="print-clinic-label">Mariano Marcos State University</div>
+    <div class="print-clinic-name">MMSU Health Records<br><em style="font-style:italic;color:#d4b84a;">Clinic System</em></div>
+    <div class="print-clinic-sub">University Health Services · Personnel Health Management</div>
+  </div>
+  <div class="print-header-right">
+    <div class="print-report-title">Analytics &amp; Health Report</div>
+    <div class="print-report-date">Generated: ${dateStr} at ${timeStr}</div>
+    <div class="print-confidential">Confidential — For Clinic Use Only</div>
+  </div>
+</div>
+
+<!-- ── BODY ── -->
+<div class="print-body">
+
+  <!-- KPI ROW -->
+  <div class="kpi-row">
+    <div class="kpi-box">
+      <div class="kpi-box-label">Total Personnel</div>
+      <div class="kpi-box-val">${total}</div>
+      <div class="kpi-box-sub">Registered in system</div>
+    </div>
+    <div class="kpi-box highlight-safe">
+      <div class="kpi-box-label">Normal Risk</div>
+      <div class="kpi-box-val safe">${normal}</div>
+      <div class="kpi-box-sub">${total ? (100 - parseFloat(riskRate)).toFixed(1) : '0.0'}% of personnel</div>
+    </div>
+    <div class="kpi-box highlight-danger">
+      <div class="kpi-box-label">High Risk</div>
+      <div class="kpi-box-val danger">${highRisk}</div>
+      <div class="kpi-box-sub">${riskRate}% of personnel</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-box-label">Departments</div>
+      <div class="kpi-box-val">${depts.length}</div>
+      <div class="kpi-box-sub">Active departments</div>
+    </div>
+  </div>
+
+  <!-- MOST COMMON CONDITIONS -->
+  <div class="section-block">
+    <div class="section-head">
+      <div>
+        <div class="section-label">Disease Prevalence</div>
+        <div class="section-title">Most Common Conditions</div>
+      </div>
+    </div>
+    <div class="cond-list">
+      ${topConditions.map(([c,n], i) => {
+        const isHR = HIGH_RISK.includes(c);
+        const pct = ((n / total) * 100).toFixed(1);
+        const barW = ((n / condMaxVal) * 100).toFixed(1);
+        return `<div class="cond-row">
+          <div class="cond-rank">${i+1}</div>
+          <div class="cond-name ${isHR ? 'high-risk' : ''}">${c}${isHR ? ' ⚠' : ''}</div>
+          <div class="cond-track"><div class="cond-fill ${isHR ? 'high-risk' : ''}" style="width:${barW}%"></div></div>
+          <div class="cond-count">${n}</div>
+          <div class="cond-pct">${pct}%</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:10px;font-size:10px;color:#aaa;">⚠ indicates a high-risk condition · Count = number of personnel affected · % = share of total personnel</div>
+  </div>
+
+  <!-- AGE DIST + DEPT OVERVIEW -->
+  <div class="two-col">
+    <!-- Age Distribution -->
+    <div class="section-block" style="margin-bottom:0;">
+      <div class="section-head">
+        <div>
+          <div class="section-label">Demographics</div>
+          <div class="section-title">Age Distribution</div>
+        </div>
+      </div>
+      ${(() => {
+        const maxAge = Math.max(...Object.values(ageGroups), 1);
+        return `<table class="age-table">
+          <thead><tr><th>Age Group</th><th>Count</th><th class="age-bar-cell"></th><th>Share</th></tr></thead>
+          <tbody>
+            ${Object.entries(ageGroups).map(([g,n]) => `<tr>
+              <td style="font-weight:500;">${g}</td>
+              <td>${n}</td>
+              <td><div class="age-bar-wrap"><div class="age-bar-fill" style="width:${((n/maxAge)*100).toFixed(0)}%"></div></div></td>
+              <td style="color:#888;">${total ? ((n/total)*100).toFixed(1) : 0}%</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+      })()}
+    </div>
+
+    <!-- Dept Health Overview -->
+    <div class="section-block" style="margin-bottom:0;">
+      <div class="section-head">
+        <div>
+          <div class="section-label">By Department</div>
+          <div class="section-title">Department Health Overview</div>
+        </div>
+      </div>
+      <table class="dept-table">
+        <thead><tr><th>Department</th><th>Total</th><th>High Risk</th><th>Risk Rate</th></tr></thead>
+        <tbody>
+          ${deptRows.slice(0, 10).map(d => {
+            const rate = parseInt(d.rate);
+            const badgeCls = rate >= 50 ? 'critical' : rate >= 20 ? 'moderate' : 'low';
+            return `<tr>
+              <td style="font-weight:500;">${d.name}</td>
+              <td>${d.total}</td>
+              <td style="color:${d.highRisk > 0 ? '#c0392b' : '#1e7e45'};font-weight:600;">${d.highRisk}</td>
+              <td><span class="risk-badge ${badgeCls}">${d.rate}%</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TOP AT-RISK INDIVIDUALS -->
+  <div class="section-block">
+    <div class="section-head">
+      <div>
+        <div class="section-label">Priority Monitoring</div>
+        <div class="section-title">Top At-Risk Personnel</div>
+      </div>
+    </div>
+    ${topAtRisk.length ? `
+    <table class="atrisk-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Department</th>
+          <th>Age</th>
+          <th>Gender</th>
+          <th>Conditions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${topAtRisk.map((p, i) => `<tr>
+          <td style="color:#bbb;font-weight:700;">${i+1}</td>
+          <td style="font-weight:600;">${p.name}</td>
+          <td style="color:#666;">${p.department || '—'}</td>
+          <td>${p.age || '—'}</td>
+          <td>${p.gender || '—'}</td>
+          <td>${p.conditions.map(c => `<span class="${HIGH_RISK.includes(c) ? 'pill-sm' : 'pill-normal'}">${c}</span>`).join('')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:10px;color:#aaa;">Red tags indicate high-risk conditions requiring priority medical attention.</div>
+    ` : `<div style="font-size:13px;color:#aaa;padding:16px 0;">No high-risk personnel on record.</div>`}
+  </div>
+
+</div><!-- /print-body -->
+
+<!-- FOOTER -->
+<div class="print-footer">
+  <div class="print-footer-note">⚕ MMSU Health Records System · This report is auto-generated and intended for authorized clinic personnel only.</div>
+  <div class="print-footer-pg">Report Date: ${dateStr}</div>
+</div>
+
+</div><!-- /print-wrap -->
+</body>
+</html>`);
+    printWin.document.close();
+  }
 
 </script>
 </body>
