@@ -221,6 +221,72 @@
     .audit-detail{font-size:11.5px;color:var(--text-2);margin-top:2px;}
     .audit-time{font-size:10.5px;color:var(--text-3);flex-shrink:0;margin-top:2px;}
 
+    /* ── HEALTH RISK REPORT ── */
+    .risk-report-hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+    .risk-report-hero-left{display:flex;align-items:center;gap:18px;}
+    .risk-hero-icon{width:52px;height:52px;background:var(--danger-bg);border:1px solid rgba(217,85,85,0.2);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;}
+    .risk-hero-title{font-family:'Instrument Serif',serif;font-size:22px;color:var(--text);line-height:1.1;}
+    .risk-hero-title em{font-style:italic;color:var(--danger);}
+    .risk-hero-sub{font-size:12px;color:var(--text-3);margin-top:4px;}
+    .risk-hero-stats{display:flex;gap:24px;flex-wrap:wrap;}
+    .risk-hero-stat{text-align:center;}
+    .risk-hero-stat-val{font-family:'Instrument Serif',serif;font-size:28px;line-height:1;}
+    .risk-hero-stat-val.danger{color:var(--danger);}
+    .risk-hero-stat-val.safe{color:var(--safe);}
+    .risk-hero-stat-val.accent{color:var(--accent);}
+    .risk-hero-stat-label{font-size:10px;color:var(--text-3);margin-top:3px;text-transform:uppercase;letter-spacing:.08em;}
+
+    .risk-generated-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(224,85,85,0.08);border:1px solid rgba(224,85,85,0.15);border-radius:20px;font-size:11px;color:var(--danger);font-weight:500;}
+
+    .risk-dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:20px;}
+    .risk-dept-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s,transform .15s,box-shadow .15s;}
+    .risk-dept-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow);}
+    .risk-dept-card.critical{border-color:rgba(217,85,85,0.3);}
+    .risk-dept-header{padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+    .risk-dept-name{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);line-height:1.2;}
+    .risk-dept-total{font-size:11px;color:var(--text-3);margin-top:3px;}
+    .risk-dept-badge{flex-shrink:0;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.03em;}
+    .risk-dept-badge.critical{background:var(--danger-bg);color:var(--danger);}
+    .risk-dept-badge.moderate{background:rgba(232,200,74,0.12);color:var(--accent);}
+    .risk-dept-badge.low{background:var(--safe-bg);color:var(--safe);}
+
+    .risk-dept-body{padding:14px 20px 16px;}
+    .risk-dept-progress{margin-bottom:14px;}
+    .risk-dept-progress-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);margin-bottom:5px;}
+    .risk-dept-track{height:7px;background:var(--surface2);border-radius:10px;overflow:hidden;}
+    .risk-dept-fill{height:100%;border-radius:10px;transition:width .8s ease;}
+    .risk-dept-fill.critical{background:linear-gradient(90deg,rgba(217,85,85,0.9),rgba(217,85,85,0.6));}
+    .risk-dept-fill.moderate{background:linear-gradient(90deg,rgba(232,200,74,0.9),rgba(232,200,74,0.6));}
+    .risk-dept-fill.low{background:linear-gradient(90deg,rgba(78,201,122,0.9),rgba(78,201,122,0.6));}
+
+    .risk-dept-persons{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+    .risk-person-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text-2);cursor:pointer;transition:all .12s;}
+    .risk-person-pill:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-bg);}
+    .risk-person-pill-dot{width:5px;height:5px;border-radius:50%;background:var(--danger);flex-shrink:0;}
+
+    .risk-dept-conditions{display:flex;flex-wrap:wrap;gap:4px;}
+    .risk-cond-chip{padding:2px 9px;border-radius:4px;font-size:10.5px;font-weight:500;}
+    .risk-cond-chip.danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(217,85,85,.15);}
+    .risk-cond-chip.warn{background:rgba(232,200,74,0.1);color:var(--accent);border:1px solid rgba(232,200,74,.15);}
+
+    .risk-summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;}
+    .risk-summary-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+    .risk-condition-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
+    .risk-condition-row:last-child{border-bottom:none;}
+    .risk-condition-name{font-size:12.5px;font-weight:500;color:var(--text);width:160px;flex-shrink:0;}
+    .risk-condition-name.danger{color:var(--danger);}
+    .risk-cond-bar-track{flex:1;height:6px;background:var(--surface2);border-radius:10px;overflow:hidden;}
+    .risk-cond-bar-fill{height:100%;border-radius:10px;}
+    .risk-cond-bar-fill.danger{background:rgba(217,85,85,0.8);}
+    .risk-cond-bar-fill.warn{background:rgba(232,200,74,0.7);}
+    .risk-condition-count{font-size:11.5px;color:var(--text-2);width:40px;text-align:right;flex-shrink:0;font-weight:600;}
+    .risk-condition-pct{font-size:10.5px;color:var(--text-3);width:44px;text-align:right;flex-shrink:0;}
+
+    .risk-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;gap:8px;color:var(--text-3);}
+    .risk-empty-icon{font-size:36px;opacity:.3;margin-bottom:4px;}
+
+    .risk-report-actions{display:flex;gap:10px;align-items:center;}
+
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar{width:4px;}
     ::-webkit-scrollbar-track{background:transparent;}
@@ -445,6 +511,10 @@
     <button class="nav-item" onclick="showPage('reports',this)">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16V8l4-3 4 4 4-6 4 2v11H2z"/></svg>
       Reports & Analytics
+    </button>
+    <button class="nav-item" onclick="showPage('riskReport',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2L2 17h16L10 2z"/><line x1="10" y1="8" x2="10" y2="12"/><line x1="10" y1="14" x2="10.01" y2="14"/></svg>
+      Health Risk Report
     </button>
     <button class="nav-item" onclick="showPage('medlookup',this)">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2v16M2 10h16"/><circle cx="10" cy="10" r="8"/></svg>
@@ -803,6 +873,91 @@
     </div>
   </div>
 
+  <!-- ═══════════════ HEALTH RISK REPORT PAGE ═══════════════ -->
+  <div class="page" id="page-riskReport">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Health <em>Risk Report</em></div>
+        <div class="page-sub">Auto-generated summary of high-risk personnel per department</div>
+      </div>
+      <div class="topbar-right risk-report-actions">
+        <button class="btn btn-ghost btn-sm" onclick="renderRiskReport()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Refresh
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="exportRiskReportCSV()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Hero summary bar -->
+    <div class="risk-report-hero" id="riskReportHero">
+      <div class="risk-report-hero-left">
+        <div class="risk-hero-icon">⚠️</div>
+        <div>
+          <div class="risk-hero-title">High <em>Risk</em> Summary</div>
+          <div class="risk-hero-sub" id="riskReportGenDate">Generating…</div>
+        </div>
+      </div>
+      <div class="risk-hero-stats">
+        <div class="risk-hero-stat">
+          <div class="risk-hero-stat-val danger" id="rr-totalHighRisk">—</div>
+          <div class="risk-hero-stat-label">High Risk Personnel</div>
+        </div>
+        <div class="risk-hero-stat">
+          <div class="risk-hero-stat-val accent" id="rr-deptAffected">—</div>
+          <div class="risk-hero-stat-label">Departments Affected</div>
+        </div>
+        <div class="risk-hero-stat">
+          <div class="risk-hero-stat-val danger" id="rr-riskRate">—</div>
+          <div class="risk-hero-stat-label">Overall Risk Rate</div>
+        </div>
+        <div class="risk-hero-stat">
+          <div class="risk-hero-stat-val accent" id="rr-topCondition">—</div>
+          <div class="risk-hero-stat-label">Most Common Condition</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top high-risk conditions summary -->
+    <div class="risk-summary-card" id="riskConditionSummary">
+      <div class="risk-summary-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        High-Risk Conditions Among Personnel
+      </div>
+      <div id="riskConditionList"></div>
+    </div>
+
+    <!-- Department cards grid -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.11em;">Department Breakdown</div>
+        <div style="font-size:13px;color:var(--text);margin-top:3px;" id="riskDeptSubtitle">—</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select class="filter-select" id="riskSortSelect" onchange="renderRiskReport()" style="font-size:11.5px;padding:5px 10px;">
+          <option value="risk_desc">Sort: Highest Risk %</option>
+          <option value="risk_asc">Sort: Lowest Risk %</option>
+          <option value="count_desc">Sort: Most Personnel</option>
+          <option value="alpha">Sort: A → Z</option>
+        </select>
+        <select class="filter-select" id="riskFilterLevel" onchange="renderRiskReport()" style="font-size:11.5px;padding:5px 10px;">
+          <option value="all">All Levels</option>
+          <option value="critical">Critical (≥50%)</option>
+          <option value="moderate">Moderate (20–49%)</option>
+          <option value="low">Low (&lt;20%)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="risk-dept-grid" id="riskDeptGrid">
+      <div class="risk-empty"><div class="risk-empty-icon">📊</div><div style="font-size:13px;">Loading data…</div></div>
+    </div>
+
+  </div>
+
   <!-- ═══════════════ SETTINGS PAGE ═══════════════ -->
   <div class="page" id="page-settings">
     <div class="topbar">
@@ -1075,6 +1230,7 @@
     if (btn) btn.classList.add('active');
     if (name === 'audit') loadAuditLog();
     if (name === 'reports') renderReports();
+    if (name === 'riskReport') renderRiskReport();
     if (name === 'settings') loadDepartments();
     if (name === 'visits') renderPersonPicker();
     if (name === 'medlookup') initMedLookupPage();
@@ -1740,6 +1896,176 @@
     t.classList.toggle('error', isError);
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ── HEALTH RISK REPORT ──
+  function renderRiskReport() {
+    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
+    const MODERATE_SET = new Set(['Hypertension','Diabetes','Obesity','Migraine','Arthritis','Gout','Anemia','Asthma','Mental Health','Allergies','Thyroid Disorder']);
+
+    const sortVal   = document.getElementById('riskSortSelect')?.value  || 'risk_desc';
+    const filterLvl = document.getElementById('riskFilterLevel')?.value || 'all';
+
+    // Build per-dept data
+    const deptMap = {};
+    allData.forEach(p => {
+      if (!p.department) return;
+      if (!deptMap[p.department]) deptMap[p.department] = { total: 0, highRisk: [], normal: 0, condFreq: {} };
+      const entry = deptMap[p.department];
+      entry.total++;
+      if (isHighRisk(p.conditions)) {
+        entry.highRisk.push(p);
+      } else {
+        entry.normal++;
+      }
+      p.conditions.forEach(c => { entry.condFreq[c] = (entry.condFreq[c] || 0) + 1; });
+    });
+
+    // Global stats
+    const totalPersonnel = allData.length;
+    const totalHighRisk  = allData.filter(p => isHighRisk(p.conditions)).length;
+    const deptsAffected  = Object.values(deptMap).filter(d => d.highRisk.length > 0).length;
+    const riskRate       = totalPersonnel ? ((totalHighRisk / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
+
+    // Top high-risk condition across all data
+    const globalCondFreq = {};
+    allData.forEach(p => p.conditions.filter(c => HIGH_RISK_SET.has(c)).forEach(c => {
+      globalCondFreq[c] = (globalCondFreq[c] || 0) + 1;
+    }));
+    const topCondEntries = Object.entries(globalCondFreq).sort((a,b) => b[1]-a[1]);
+    const topCond = topCondEntries[0]?.[0] || '—';
+
+    // Hero stats
+    document.getElementById('rr-totalHighRisk').textContent  = totalHighRisk;
+    document.getElementById('rr-deptAffected').textContent   = deptsAffected;
+    document.getElementById('rr-riskRate').textContent       = riskRate;
+    document.getElementById('rr-topCondition').textContent   = topCond;
+    document.getElementById('riskReportGenDate').textContent =
+      'Generated ' + new Date().toLocaleString('en-PH', { dateStyle:'medium', timeStyle:'short' });
+
+    // Condition summary bars (high-risk conditions only)
+    const condSummaryMax = topCondEntries[0]?.[1] || 1;
+    document.getElementById('riskConditionList').innerHTML = topCondEntries.length
+      ? topCondEntries.slice(0, 10).map(([c, n]) => {
+          const pct = totalPersonnel ? ((n / totalPersonnel) * 100).toFixed(1) : 0;
+          const cls = HIGH_RISK_SET.has(c) ? 'danger' : 'warn';
+          return `<div class="risk-condition-row">
+            <div class="risk-condition-name ${cls}">${c}</div>
+            <div class="risk-cond-bar-track">
+              <div class="risk-cond-bar-fill ${cls}" style="width:${(n/condSummaryMax*100).toFixed(1)}%"></div>
+            </div>
+            <div class="risk-condition-count">${n}</div>
+            <div class="risk-condition-pct">${pct}%</div>
+          </div>`;
+        }).join('')
+      : '<div style="padding:16px 0;font-size:12.5px;color:var(--text-3);">No high-risk conditions recorded yet.</div>';
+
+    // Build dept array + sort
+    let deptArr = Object.entries(deptMap).map(([name, d]) => ({
+      name,
+      total: d.total,
+      highRiskCount: d.highRisk.length,
+      highRiskPct: d.total ? (d.highRisk.length / d.total) * 100 : 0,
+      persons: d.highRisk,
+      condFreq: d.condFreq,
+    }));
+
+    // Filter
+    if (filterLvl === 'critical')  deptArr = deptArr.filter(d => d.highRiskPct >= 50);
+    if (filterLvl === 'moderate')  deptArr = deptArr.filter(d => d.highRiskPct >= 20 && d.highRiskPct < 50);
+    if (filterLvl === 'low')       deptArr = deptArr.filter(d => d.highRiskPct < 20);
+
+    // Sort
+    if (sortVal === 'risk_desc')   deptArr.sort((a,b) => b.highRiskPct - a.highRiskPct);
+    if (sortVal === 'risk_asc')    deptArr.sort((a,b) => a.highRiskPct - b.highRiskPct);
+    if (sortVal === 'count_desc')  deptArr.sort((a,b) => b.total - a.total);
+    if (sortVal === 'alpha')       deptArr.sort((a,b) => a.name.localeCompare(b.name));
+
+    document.getElementById('riskDeptSubtitle').textContent =
+      `${deptArr.length} department${deptArr.length !== 1 ? 's' : ''} shown`;
+
+    const grid = document.getElementById('riskDeptGrid');
+
+    if (!deptArr.length) {
+      grid.innerHTML = `<div class="risk-empty" style="grid-column:1/-1;"><div class="risk-empty-icon">✅</div><div style="font-size:13px;color:var(--text-2);">No departments match the current filter.</div></div>`;
+      return;
+    }
+
+    grid.innerHTML = deptArr.map(d => {
+      const level  = d.highRiskPct >= 50 ? 'critical' : d.highRiskPct >= 20 ? 'moderate' : 'low';
+      const label  = level === 'critical' ? '⚠ Critical' : level === 'moderate' ? '◈ Moderate' : '✓ Low Risk';
+      const fillW  = d.highRiskPct.toFixed(1);
+
+      // Top conditions in this dept (high+moderate only)
+      const condChips = Object.entries(d.condFreq)
+        .filter(([c]) => HIGH_RISK_SET.has(c) || MODERATE_SET.has(c))
+        .sort((a,b) => b[1]-a[1])
+        .slice(0, 6)
+        .map(([c, n]) => {
+          const cls = HIGH_RISK_SET.has(c) ? 'danger' : 'warn';
+          return `<span class="risk-cond-chip ${cls}">${c} (${n})</span>`;
+        }).join('');
+
+      // High-risk persons pills (up to 6 shown, rest counted)
+      const shown = d.persons.slice(0, 6);
+      const extra = d.persons.length - shown.length;
+      const personPills = shown.map(p =>
+        `<span class="risk-person-pill" onclick="openModal(${p.id})" title="View ${p.name}"><span class="risk-person-pill-dot"></span>${p.name}</span>`
+      ).join('') + (extra > 0 ? `<span class="risk-person-pill" style="cursor:default;opacity:.6;">+${extra} more</span>` : '');
+
+      return `<div class="risk-dept-card ${level === 'critical' ? 'critical' : ''}">
+        <div class="risk-dept-header">
+          <div>
+            <div class="risk-dept-name">${d.name}</div>
+            <div class="risk-dept-total">${d.total} personnel total · ${d.highRiskCount} high risk</div>
+          </div>
+          <span class="risk-dept-badge ${level}">${label}</span>
+        </div>
+        <div class="risk-dept-body">
+          <div class="risk-dept-progress">
+            <div class="risk-dept-progress-row">
+              <span>High Risk Rate</span>
+              <span style="font-weight:600;color:${level==='low'?'var(--safe)':level==='moderate'?'var(--accent)':'var(--danger)'};">${fillW}%</span>
+            </div>
+            <div class="risk-dept-track">
+              <div class="risk-dept-fill ${level}" style="width:${fillW}%;"></div>
+            </div>
+          </div>
+          ${d.highRiskCount > 0 ? `
+          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:7px;">High-Risk Personnel</div>
+          <div class="risk-dept-persons">${personPills}</div>
+          ` : `<div style="font-size:12px;color:var(--safe);padding:6px 0;">✓ No high-risk personnel in this department.</div>`}
+          ${condChips ? `
+          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:6px;margin-top:6px;">Recorded Conditions</div>
+          <div class="risk-dept-conditions">${condChips}</div>
+          ` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function exportRiskReportCSV() {
+    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
+    const highRiskPersonnel = allData.filter(p => isHighRisk(p.conditions));
+    if (!highRiskPersonnel.length) { showToast('No high-risk personnel to export', true); return; }
+    const headers = ['Name','Age','Gender','Blood Type','Department','Phone','High-Risk Conditions','All Conditions'];
+    const rows = highRiskPersonnel.map(p => {
+      const hrConds = p.conditions.filter(c => HIGH_RISK_SET.has(c)).join('; ');
+      return [
+        `"${p.name}"`, p.age || '', p.gender || '', p.blood || '',
+        `"${p.department}"`, p.phone || '',
+        `"${hrConds}"`, `"${p.conditions.join('; ')}"`
+      ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `MMSU_HealthRiskReport_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Risk report exported as CSV');
   }
 
   // ── HELPERS ──
