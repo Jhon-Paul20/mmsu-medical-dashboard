@@ -894,6 +894,67 @@ def ai_suggest():
         print(f'[ai_suggest] Groq API error: {e}', file=sys.stderr)
         return jsonify({'error': str(e)}), 500
 
+# ── INSTITUTIONAL INSIGHT ─────────────────────────────────────────────────────
+
+@app.route('/ai/insight', methods=['POST'])
+@login_required
+@csrf_required
+def ai_insight():
+    """Generate AI-powered institutional health insights from aggregated data."""
+    client = get_groq_client()
+    if client is None:
+        try:
+            import groq  # noqa: F401
+        except ImportError:
+            return jsonify({'error': 'groq package not installed.'}), 500
+        return jsonify({'error': 'GROQ_API_KEY is not configured on the server.'}), 500
+
+    payload = request.json or {}
+    stats   = payload.get('stats', {})
+
+    if not stats:
+        return jsonify({'error': 'No stats provided.'}), 400
+
+    prompt = f"""
+You are a public-health analyst for a Philippine state university medical clinic.
+Given the following aggregated health data for the institution, produce a JSON object
+with these exact keys:
+
+{{
+  "headline": "<one concise sentence summarising the most important finding>",
+  "risk_summary": "<2-3 sentences on overall risk profile>",
+  "top_concern": "<the single most pressing health concern and why>",
+  "recommendations": ["<actionable rec 1>", "<actionable rec 2>", "<actionable rec 3>"],
+  "dept_spotlight": "<name the department with the highest risk rate and give 1-2 sentences of context>",
+  "positive_finding": "<1 encouraging or positive observation from the data>",
+  "data_gaps": "<1 sentence on what data is missing or could improve the analysis>"
+}}
+
+Respond ONLY with valid JSON. No markdown, no explanation.
+
+INSTITUTION DATA:
+{json.dumps(stats, indent=2)}
+"""
+
+    try:
+        chat_completion = client.chat.completions.create(
+            model='llama-3.1-8b-instant',
+            messages=[
+                {'role': 'system', 'content': 'You are a clinical data analyst. Respond ONLY with valid JSON.'},
+                {'role': 'user',   'content': prompt},
+            ],
+            max_tokens=1024,
+            temperature=0.4,
+            response_format={'type': 'json_object'},
+        )
+        text = chat_completion.choices[0].message.content
+        if not text:
+            return jsonify({'error': 'Empty response from AI model.'}), 502
+        return jsonify({'content': [{'text': text}]})
+    except Exception as e:
+        print(f'[ai_insight] Groq API error: {e}', file=sys.stderr)
+        return jsonify({'error': str(e)}), 500
+
 # ── ENTRYPOINT ────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
