@@ -871,82 +871,6 @@
         <canvas id="deptRiskChart" style="max-height:180px;"></canvas>
       </div>
     </div>
-
-    <!-- ── AI DEPARTMENT HEALTH SUMMARY ── -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:20px;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.11em;">AI Health Analysis</span>
-          </div>
-          <div style="font-family:'Instrument Serif',serif;font-size:18px;color:var(--text);">Department Health <em>Summary</em></div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:3px;">AI-generated narrative based on current personnel health data</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <select class="filter-select" id="aiSummaryDeptSelect" style="font-size:11.5px;padding:5px 10px;min-width:160px;">
-            <option value="all">All Departments</option>
-          </select>
-          <button class="btn btn-primary btn-sm" id="aiSummaryBtn" onclick="runAIDeptSummary()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            Generate Summary
-          </button>
-          <button class="btn btn-ghost btn-sm" id="aiSummaryCopyBtn" onclick="copyAISummary()" style="display:none;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            Copy
-          </button>
-        </div>
-      </div>
-
-      <!-- Idle placeholder -->
-      <div id="aiSummaryPlaceholder" style="background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:28px;text-align:center;">
-        <div style="font-size:28px;margin-bottom:8px;opacity:.4;">🏥</div>
-        <div style="font-size:13px;color:var(--text-2);margin-bottom:4px;">No summary generated yet</div>
-        <div style="font-size:12px;color:var(--text-3);">Select a department (or leave on <strong style="color:var(--accent);">All</strong>) and click <strong style="color:var(--accent);">Generate Summary</strong></div>
-      </div>
-
-      <!-- Loading state -->
-      <div id="aiSummaryLoading" style="display:none;">
-        <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:22px 24px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;flex-shrink:0;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          <div>
-            <div style="font-size:13px;color:var(--text);font-weight:500;" id="aiSummaryLoadingText">Analyzing department health data…</div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:2px;">This may take a few seconds</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Results -->
-      <div id="aiSummaryResults" style="display:none;">
-        <!-- Header row -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--safe);box-shadow:0 0 6px var(--safe);"></div>
-            <span style="font-size:12px;font-weight:600;color:var(--text);" id="aiSummaryScope">All Departments</span>
-          </div>
-          <span style="font-size:11px;color:var(--text-3);" id="aiSummaryTimestamp"></span>
-        </div>
-
-        <!-- Overall assessment banner -->
-        <div id="aiSummaryBanner" style="border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:16px;border:1px solid;"></div>
-
-        <!-- Section grid -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" id="aiSummarySectionGrid"></div>
-
-        <!-- Recommendations -->
-        <div id="aiSummaryRecsBox" style="display:none;background:rgba(232,200,74,0.06);border:1px solid rgba(232,200,74,0.15);border-radius:var(--radius-sm);padding:14px 16px;">
-          <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;">💡 Recommendations</div>
-          <div id="aiSummaryRecs" style="display:flex;flex-direction:column;gap:7px;"></div>
-        </div>
-
-        <div style="font-size:11px;color:var(--text-3);margin-top:12px;line-height:1.6;">⚕ AI-generated analysis for reference only. Always consult licensed medical professionals for clinical decisions.</div>
-      </div>
-
-      <!-- Error -->
-      <div id="aiSummaryError" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius-sm);padding:14px 16px;">
-        <div style="font-size:12.5px;color:var(--danger);" id="aiSummaryErrorMsg">Something went wrong. Please try again.</div>
-      </div>
-    </div>
   </div>
 
   <!-- ═══════════════ HEALTH RISK REPORT PAGE ═══════════════ -->
@@ -1183,6 +1107,90 @@
       <!-- State: error -->
       <div id="aiError" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius);padding:14px 16px;">
         <div style="font-size:12.5px;color:var(--danger);" id="aiErrorMsg">Something went wrong. Check your API key.</div>
+      </div>
+    </div>
+
+    <!-- ── AI RISK PREDICTION SECTION ── -->
+    <div id="modalRiskSection" style="margin-top:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div class="modal-section-title" style="margin:0 0 2px;">AI Risk Prediction</div>
+          <div style="font-size:11px;color:var(--text-3);">Health risk score based on age, gender & conditions</div>
+        </div>
+        <button class="btn btn-sm" id="aiRiskBtn" onclick="getAIRiskPrediction()"
+          style="background:rgba(217,85,85,0.12);border:1px solid rgba(217,85,85,0.25);color:var(--danger);font-size:11.5px;padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;"
+          onmouseover="this.style.background='rgba(217,85,85,0.2)'" onmouseout="this.style.background='rgba(217,85,85,0.12)'">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Predict Risk
+        </button>
+      </div>
+
+      <!-- Idle -->
+      <div id="aiRiskPlaceholder" style="background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--radius);padding:16px;text-align:center;">
+        <div style="font-size:12px;color:var(--text-3);line-height:1.6;">Click <strong style="color:var(--danger);">Predict Risk</strong> to generate an AI health risk score and future condition outlook for this personnel.</div>
+      </div>
+
+      <!-- Loading -->
+      <div id="aiRiskLoading" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:22px;text-align:center;">
+        <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+          Calculating risk profile…
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="aiRiskResults" style="display:none;">
+        <!-- Score gauge row -->
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);margin-bottom:3px;">Overall Risk Score</div>
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span id="aiRiskScore" style="font-family:'Instrument Serif',serif;font-size:32px;line-height:1;"></span>
+                <span style="font-size:12px;color:var(--text-3);">/ 100</span>
+              </div>
+            </div>
+            <div id="aiRiskBadge" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.04em;"></div>
+          </div>
+          <!-- Score bar -->
+          <div style="height:8px;background:var(--surface);border-radius:10px;overflow:hidden;">
+            <div id="aiRiskBar" style="height:100%;border-radius:10px;transition:width 1s ease;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--text-3);margin-top:4px;">
+            <span>Low</span><span>Moderate</span><span>High</span><span>Critical</span>
+          </div>
+        </div>
+
+        <!-- Risk factors + outlook grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px;">Risk Factors</div>
+            <div id="aiRiskFactors" style="display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px;">Future Outlook</div>
+            <div id="aiRiskOutlook" style="font-size:12px;color:var(--text-2);line-height:1.65;"></div>
+          </div>
+        </div>
+
+        <!-- Conditions at risk -->
+        <div id="aiRiskCondBox" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,0.2);border-radius:var(--radius-sm);padding:12px 15px;margin-bottom:8px;">
+          <div style="font-size:10px;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:.09em;margin-bottom:7px;">⚠ Conditions to Monitor</div>
+          <div id="aiRiskCondList" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+        </div>
+
+        <!-- Preventive actions -->
+        <div id="aiRiskActionsBox" style="display:none;background:rgba(78,201,122,0.06);border:1px solid rgba(78,201,122,0.2);border-radius:var(--radius-sm);padding:12px 15px;">
+          <div style="font-size:10px;font-weight:700;color:var(--safe);text-transform:uppercase;letter-spacing:.09em;margin-bottom:7px;">✓ Preventive Actions</div>
+          <div id="aiRiskActions" style="display:flex;flex-direction:column;gap:5px;"></div>
+        </div>
+
+        <div style="font-size:11px;color:var(--text-3);margin-top:10px;line-height:1.5;">Risk prediction is AI-generated for reference only. Consult a licensed physician for clinical decisions.</div>
+      </div>
+
+      <!-- Error -->
+      <div id="aiRiskError" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius);padding:12px 15px;">
+        <div style="font-size:12.5px;color:var(--danger);" id="aiRiskErrorMsg">Something went wrong. Please try again.</div>
       </div>
     </div>
 
@@ -1669,12 +1677,18 @@
     document.getElementById('modalConditions').innerHTML = p.conditions.length
       ? p.conditions.map(c => `<span class="pill ${HIGH_RISK.includes(c)?'high':''}">${c}</span>`).join('')
       : '<span style="color:var(--text-3);font-size:13px;">No conditions recorded</span>';
-    // Reset AI panel
+    // Reset AI treatment panel
     document.getElementById('aiPlaceholder').style.display = 'block';
     document.getElementById('aiLoading').style.display = 'none';
     document.getElementById('aiResults').style.display = 'none';
     document.getElementById('aiError').style.display = 'none';
     document.getElementById('aiSuggestBtn').disabled = p.conditions.length === 0;
+    // Reset AI risk panel
+    document.getElementById('aiRiskPlaceholder').style.display = 'block';
+    document.getElementById('aiRiskLoading').style.display = 'none';
+    document.getElementById('aiRiskResults').style.display = 'none';
+    document.getElementById('aiRiskError').style.display = 'none';
+    document.getElementById('aiRiskBtn').disabled = false;
     document.getElementById('modalOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';
   }
@@ -1875,14 +1889,6 @@
       ageChart = new Chart(ageCanvas, { type:'bar', data:{ labels:Object.keys(ageGroups), datasets:[{ label:'Count', data:Object.values(ageGroups), backgroundColor:'rgba(91,164,212,0.7)', borderRadius:4 }] }, options:{ plugins:{legend:{display:false},tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'}}, scales:{x:{ticks:{color:tcA,font:cfA},grid:{color:gcA}},y:{beginAtZero:true,ticks:{stepSize:1,color:tcA,font:cfA},grid:{color:gcA}}} } });
     }
 
-    // Populate AI summary dept dropdown
-    const aiDeptSel = document.getElementById('aiSummaryDeptSelect');
-    if (aiDeptSel) {
-      const deptNames = [...new Set(allData.map(p => p.department).filter(Boolean))].sort();
-      aiDeptSel.innerHTML = '<option value="all">All Departments</option>' +
-        deptNames.map(d => `<option value="${d}">${d}</option>`).join('');
-    }
-
     // Dept risk chart
     const depts = [...new Set(allData.map(p=>p.department))].filter(Boolean);
     const normalCounts = depts.map(d => allData.filter(p=>p.department===d && !isHighRisk(p.conditions)).length);
@@ -1980,215 +1986,6 @@
     t.classList.toggle('error', isError);
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3500);
-  }
-
-  // ── AI DEPARTMENT HEALTH SUMMARY ──
-  async function runAIDeptSummary() {
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-    const selectedDept = document.getElementById('aiSummaryDeptSelect')?.value || 'all';
-    const btn = document.getElementById('aiSummaryBtn');
-    const placeholder = document.getElementById('aiSummaryPlaceholder');
-    const loading     = document.getElementById('aiSummaryLoading');
-    const results     = document.getElementById('aiSummaryResults');
-    const errorBox    = document.getElementById('aiSummaryError');
-    const copyBtn     = document.getElementById('aiSummaryCopyBtn');
-
-    if (!allData.length) { showToast('No personnel data to analyze', true); return; }
-
-    // Filter data
-    const data = selectedDept === 'all' ? allData : allData.filter(p => p.department === selectedDept);
-    if (!data.length) { showToast('No personnel in selected department', true); return; }
-
-    // Build stats for prompt
-    const total = data.length;
-    const highRiskPersonnel = data.filter(p => isHighRisk(p.conditions));
-    const highRiskCount = highRiskPersonnel.length;
-    const riskRate = ((highRiskCount / total) * 100).toFixed(1);
-
-    const condFreq = {};
-    data.forEach(p => p.conditions.forEach(c => condFreq[c] = (condFreq[c]||0)+1));
-    const topConditions = Object.entries(condFreq).sort((a,b)=>b[1]-a[1]).slice(0,8);
-
-    const deptBreakdown = {};
-    if (selectedDept === 'all') {
-      data.forEach(p => {
-        if (!p.department) return;
-        if (!deptBreakdown[p.department]) deptBreakdown[p.department] = { total:0, highRisk:0 };
-        deptBreakdown[p.department].total++;
-        if (isHighRisk(p.conditions)) deptBreakdown[p.department].highRisk++;
-      });
-    }
-
-    const ageGroups = {'Under 30':0,'30-39':0,'40-49':0,'50-59':0,'60 and above':0};
-    data.forEach(p => {
-      const age = parseInt(p.age);
-      if (!age || isNaN(age)) return;
-      if (age < 30) ageGroups['Under 30']++;
-      else if (age < 40) ageGroups['30-39']++;
-      else if (age < 50) ageGroups['40-49']++;
-      else if (age < 60) ageGroups['50-59']++;
-      else ageGroups['60 and above']++;
-    });
-
-    const genderCount = { Male: data.filter(p=>p.gender==='Male').length, Female: data.filter(p=>p.gender==='Female').length };
-
-    const deptSummaryLines = selectedDept === 'all'
-      ? Object.entries(deptBreakdown).map(([d,v]) => `  - ${d}: ${v.total} total, ${v.highRisk} high-risk (${v.total ? ((v.highRisk/v.total)*100).toFixed(0) : 0}%)`)
-      : [];
-
-    const prompt = `You are a health analyst for MMSU (Mariano Marcos State University) Medical Health Records System in the Philippines. Analyze the following personnel health data and generate a concise, professional department health summary report.
-
-SCOPE: ${selectedDept === 'all' ? 'All Departments Combined' : `Department: ${selectedDept}`}
-TOTAL PERSONNEL: ${total}
-GENDER: ${genderCount.Male} Male, ${genderCount.Female} Female
-HIGH-RISK PERSONNEL: ${highRiskCount} (${riskRate}%)
-AGE DISTRIBUTION: ${Object.entries(ageGroups).map(([k,v])=>`${k}: ${v}`).join(', ')}
-TOP CONDITIONS: ${topConditions.map(([c,n])=>`${c} (${n} personnel)`).join(', ')}
-${selectedDept === 'all' && deptSummaryLines.length ? `\nDEPARTMENT BREAKDOWN:\n${deptSummaryLines.join('\n')}` : ''}
-HIGH-RISK CONDITIONS PRESENT: ${topConditions.filter(([c])=>HIGH_RISK_SET.has(c)).map(([c,n])=>`${c} (${n})`).join(', ') || 'None recorded'}
-
-Respond ONLY with a valid JSON object (no markdown, no backticks):
-{
-  "overall_status": "Critical" | "Concerning" | "Moderate" | "Good",
-  "status_color": "danger" | "warn" | "safe",
-  "executive_summary": "2-3 sentence overall health status narrative for this scope",
-  "key_findings": [
-    { "title": "short finding title", "detail": "1-2 sentence explanation", "severity": "high" | "medium" | "low" }
-  ],
-  "risk_analysis": "2-3 sentences about the risk profile, age and gender factors",
-  "recommendations": [
-    "Actionable recommendation string (start with a verb)"
-  ]
-}
-
-Limit key_findings to 4 items. Limit recommendations to 4 items. Keep language professional but accessible to clinic administrators.`;
-
-    // UI: show loading
-    placeholder.style.display  = 'none';
-    results.style.display      = 'none';
-    errorBox.style.display     = 'none';
-    copyBtn.style.display      = 'none';
-    loading.style.display      = 'block';
-    btn.disabled = true;
-    document.getElementById('aiSummaryLoadingText').textContent =
-      selectedDept === 'all' ? 'Analyzing all department health data…' : `Analyzing ${selectedDept} health data…`;
-
-    try {
-      const res = await fetch('/ai/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
-      }
-
-      const apiData = await res.json();
-      const raw = apiData.content?.[0]?.text || '';
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON in response');
-      const parsed = JSON.parse(jsonMatch[0]);
-
-      // Render results
-      loading.style.display = 'none';
-      results.style.display = 'block';
-      copyBtn.style.display = '';
-
-      document.getElementById('aiSummaryScope').textContent =
-        selectedDept === 'all' ? 'All Departments' : selectedDept;
-      document.getElementById('aiSummaryTimestamp').textContent =
-        'Generated ' + new Date().toLocaleString('en-PH', { dateStyle:'medium', timeStyle:'short' });
-
-      // Status banner
-      const bannerColors = {
-        danger: { bg:'var(--danger-bg)', border:'rgba(217,85,85,0.25)', text:'var(--danger)', icon:'⚠️' },
-        warn:   { bg:'rgba(232,200,74,0.08)', border:'rgba(232,200,74,0.25)', text:'var(--accent)', icon:'⚡' },
-        safe:   { bg:'var(--safe-bg)', border:'rgba(78,201,122,0.25)', text:'var(--safe)', icon:'✅' },
-      };
-      const bc = bannerColors[parsed.status_color] || bannerColors.warn;
-      const banner = document.getElementById('aiSummaryBanner');
-      banner.style.background   = bc.bg;
-      banner.style.borderColor  = bc.border;
-      banner.innerHTML = `
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <span style="font-size:18px;flex-shrink:0;">${bc.icon}</span>
-          <div>
-            <div style="font-size:11px;font-weight:700;color:${bc.text};text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;">Overall Status: ${parsed.overall_status}</div>
-            <div style="font-size:13px;color:var(--text);line-height:1.65;">${parsed.executive_summary}</div>
-          </div>
-        </div>`;
-
-      // Key findings + risk analysis grid
-      const severityStyle = { high:'var(--danger)', medium:'var(--accent)', low:'var(--safe)' };
-      const severityBg    = { high:'var(--danger-bg)', medium:'rgba(232,200,74,0.08)', low:'var(--safe-bg)' };
-      const findings = (parsed.key_findings || []).slice(0,4);
-      const findingCards = findings.map(f => `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="width:7px;height:7px;border-radius:50%;background:${severityStyle[f.severity]||'var(--accent)'};flex-shrink:0;"></span>
-            <span style="font-size:11px;font-weight:700;color:${severityStyle[f.severity]||'var(--accent)'};text-transform:uppercase;letter-spacing:.07em;">${f.severity||'medium'}</span>
-          </div>
-          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">${f.title}</div>
-          <div style="font-size:12px;color:var(--text-2);line-height:1.6;">${f.detail}</div>
-        </div>`).join('');
-
-      const riskCard = parsed.risk_analysis ? `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;${findings.length % 2 === 0 ? 'grid-column:1/-1;' : ''}">
-          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Risk Profile Analysis</div>
-          <div style="font-size:12.5px;color:var(--text-2);line-height:1.65;">${parsed.risk_analysis}</div>
-        </div>` : '';
-
-      document.getElementById('aiSummarySectionGrid').innerHTML = findingCards + riskCard;
-
-      // Recommendations
-      const recs = parsed.recommendations || [];
-      if (recs.length) {
-        document.getElementById('aiSummaryRecsBox').style.display = 'block';
-        document.getElementById('aiSummaryRecs').innerHTML = recs.map((r,i) =>
-          `<div style="display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text-2);line-height:1.6;">
-            <span style="background:rgba(232,200,74,0.15);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px;">${i+1}</span>
-            ${r}
-          </div>`
-        ).join('');
-      } else {
-        document.getElementById('aiSummaryRecsBox').style.display = 'none';
-      }
-
-      // Store for copy
-      window._aiSummaryText = [
-        `MMSU Medical — Department Health Summary`,
-        `Scope: ${selectedDept === 'all' ? 'All Departments' : selectedDept}`,
-        `Generated: ${new Date().toLocaleString()}`,
-        `Overall Status: ${parsed.overall_status}`,
-        ``,
-        parsed.executive_summary,
-        ``,
-        `KEY FINDINGS:`,
-        ...findings.map((f,i) => `${i+1}. [${(f.severity||'').toUpperCase()}] ${f.title}: ${f.detail}`),
-        ``,
-        `RISK ANALYSIS:`,
-        parsed.risk_analysis || '',
-        ``,
-        `RECOMMENDATIONS:`,
-        ...recs.map((r,i) => `${i+1}. ${r}`),
-      ].join('\n');
-
-    } catch(err) {
-      loading.style.display = 'none';
-      errorBox.style.display = 'block';
-      document.getElementById('aiSummaryErrorMsg').textContent = 'Error: ' + (err.message || 'Something went wrong. Please try again.');
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  function copyAISummary() {
-    if (!window._aiSummaryText) return;
-    navigator.clipboard.writeText(window._aiSummaryText).then(() => {
-      showToast('Summary copied to clipboard');
-    }).catch(() => showToast('Could not copy to clipboard', true));
   }
 
   // ── HEALTH RISK REPORT ──
@@ -2540,6 +2337,147 @@ Limit to 4 medicine suggestions. Focus on medicines commonly available in the Ph
       try { const j = JSON.parse(e.message); msg = j.error || msg; } catch(_) {}
       document.getElementById('aiMedLookupErrorMsg').textContent = msg;
       error.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── AI RISK PREDICTION ──
+  async function getAIRiskPrediction() {
+    const p = allData.find(x => x.id === currentPersonnelId);
+    if (!p) return;
+
+    const btn         = document.getElementById('aiRiskBtn');
+    const placeholder = document.getElementById('aiRiskPlaceholder');
+    const loading     = document.getElementById('aiRiskLoading');
+    const results     = document.getElementById('aiRiskResults');
+    const errorBox    = document.getElementById('aiRiskError');
+
+    placeholder.style.display = 'none';
+    loading.style.display     = 'block';
+    results.style.display     = 'none';
+    errorBox.style.display    = 'none';
+    btn.disabled = true;
+
+    const prompt = `You are a health risk assessment AI for a university clinic in the Philippines. Analyze the following patient profile and produce a structured health risk prediction.
+
+Patient profile:
+- Name: ${p.name}
+- Age: ${p.age || 'unknown'} years old
+- Gender: ${p.gender || 'unknown'}
+- Blood type: ${p.blood || 'unknown'}
+- Current conditions: ${p.conditions.length ? p.conditions.join(', ') : 'None recorded'}
+- Department: ${p.department || 'unknown'}
+
+Respond ONLY with a valid JSON object (no markdown, no extra text):
+{
+  "risk_score": <integer 0-100>,
+  "risk_level": "Low" | "Moderate" | "High" | "Critical",
+  "risk_color": "safe" | "warn" | "danger" | "critical",
+  "risk_factors": [
+    { "factor": "factor name", "impact": "low" | "medium" | "high", "detail": "one sentence explanation" }
+  ],
+  "future_outlook": "2-3 sentences about probable health trajectory if no intervention",
+  "conditions_to_monitor": ["condition1", "condition2"],
+  "preventive_actions": ["action1", "action2", "action3"]
+}
+
+Rules:
+- risk_score of 0-24 = Low, 25-49 = Moderate, 50-74 = High, 75-100 = Critical
+- Limit risk_factors to 4 items
+- Limit conditions_to_monitor to 4 items
+- Limit preventive_actions to 4 items, each starting with a verb
+- Be specific to this patient's age, gender, and existing conditions
+- Consider comorbidity risk (multiple conditions compounding each other)`;
+
+    try {
+      const res = await fetch('/ai/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
+      }
+
+      const apiData = await res.json();
+      const raw = apiData.content?.[0]?.text || '';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON in response');
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      loading.style.display  = 'none';
+      results.style.display  = 'block';
+
+      // Score & color
+      const scoreColors = {
+        safe:     { bar:'rgba(78,201,122,0.85)',  badge:'background:var(--safe-bg);color:var(--safe);border:1px solid rgba(78,201,122,0.25);' },
+        warn:     { bar:'rgba(232,200,74,0.85)',  badge:'background:rgba(232,200,74,0.1);color:var(--accent);border:1px solid rgba(232,200,74,0.25);' },
+        danger:   { bar:'rgba(217,85,85,0.85)',   badge:'background:var(--danger-bg);color:var(--danger);border:1px solid rgba(217,85,85,0.25);' },
+        critical: { bar:'rgba(180,40,40,0.9)',    badge:'background:rgba(180,40,40,0.15);color:#e05555;border:1px solid rgba(180,40,40,0.3);' },
+      };
+      const sc = scoreColors[parsed.risk_color] || scoreColors.warn;
+      const scoreEl = document.getElementById('aiRiskScore');
+      scoreEl.textContent = parsed.risk_score;
+      scoreEl.style.color = sc.bar;
+
+      const badge = document.getElementById('aiRiskBadge');
+      badge.textContent = parsed.risk_level;
+      badge.style.cssText += sc.badge;
+
+      const bar = document.getElementById('aiRiskBar');
+      bar.style.width = '0%';
+      bar.style.background = sc.bar;
+      setTimeout(() => { bar.style.width = parsed.risk_score + '%'; }, 50);
+
+      // Risk factors
+      const impactColor = { high:'var(--danger)', medium:'var(--accent)', low:'var(--safe)' };
+      document.getElementById('aiRiskFactors').innerHTML = (parsed.risk_factors || []).map(f =>
+        `<div style="display:flex;align-items:flex-start;gap:7px;">
+          <span style="margin-top:3px;width:7px;height:7px;border-radius:50%;background:${impactColor[f.impact]||'var(--accent)'};flex-shrink:0;"></span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);">${f.factor}</div>
+            <div style="font-size:11px;color:var(--text-2);line-height:1.5;">${f.detail}</div>
+          </div>
+        </div>`
+      ).join('');
+
+      // Outlook
+      document.getElementById('aiRiskOutlook').textContent = parsed.future_outlook || '—';
+
+      // Conditions to monitor
+      const condBox = document.getElementById('aiRiskCondBox');
+      const condList = document.getElementById('aiRiskCondList');
+      if (parsed.conditions_to_monitor?.length) {
+        condList.innerHTML = parsed.conditions_to_monitor.map(c =>
+          `<span style="padding:3px 10px;background:rgba(217,85,85,0.1);border:1px solid rgba(217,85,85,0.2);border-radius:20px;font-size:11px;color:var(--danger);font-weight:500;">${c}</span>`
+        ).join('');
+        condBox.style.display = 'block';
+      } else {
+        condBox.style.display = 'none';
+      }
+
+      // Preventive actions
+      const actBox  = document.getElementById('aiRiskActionsBox');
+      const actList = document.getElementById('aiRiskActions');
+      if (parsed.preventive_actions?.length) {
+        actList.innerHTML = parsed.preventive_actions.map((a, i) =>
+          `<div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-2);line-height:1.6;">
+            <span style="background:rgba(78,201,122,0.15);color:var(--safe);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px;">${i+1}</span>
+            ${a}
+          </div>`
+        ).join('');
+        actBox.style.display = 'block';
+      } else {
+        actBox.style.display = 'none';
+      }
+
+    } catch(err) {
+      loading.style.display  = 'none';
+      errorBox.style.display = 'block';
+      document.getElementById('aiRiskErrorMsg').textContent = 'Error: ' + (err.message || 'Something went wrong.');
     } finally {
       btn.disabled = false;
     }
