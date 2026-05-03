@@ -1,7 +1,18 @@
-Flask==3.0.0
-Werkzeug==3.0.1
-gunicorn==21.2.0
-python-dotenv==1.0.0
-psycopg2-binary==2.9.9
-reportlab
-groq
+# MMSU Medical Dashboard — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# Web framework
+Flask==3.1.1
+Werkzeug==3.1.3
+
+# Production WSGI server
+gunicorn==23.0.0
+
+# PostgreSQL adapter
+psycopg2-binary==2.9.10
+
+# PDF generation (optional — used for per-personnel PDF export)
+reportlab==4.4.1
+
+# Excel report generation (optional — used for medicine inventory report)
+openpyxl==3.1.5
