@@ -1,164 +1,104 @@
 # MMSU Medical Dashboard
 
-A web-based medical personnel dashboard for managing health records, built with Flask and modern web technologies.
+A health records management system for MMSU personnel — built with Flask and PostgreSQL.
 
-![Dashboard Preview](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)
+---
 
 ## Features
 
-- 🔐 Secure login system
-- 📊 Interactive data visualizations with Chart.js
-- 🩺 Medical condition tracking
-- 🔍 Advanced filtering and search
-- 📁 CSV data import/export
-- 📱 Responsive design
-- 🎨 Modern dark-themed UI
+- Personnel records with medical conditions, visit history, and department tracking
+- Dashboard with KPI cards and charts
+- CSV import/export, per-personnel PDF export, medicine inventory Excel report
+- Audit log for all admin actions
+- CSRF protection, rate-limited login, and hashed passwords
 
-## Quick Start
+---
 
-### Prerequisites
+## Local Setup
 
-- Python 3.8 or higher
-- pip (Python package manager)
+### 1. Clone and install dependencies
 
-### Installation
-
-1. Clone or download this repository
-2. Install dependencies:
 ```bash
+git clone <your-repo-url>
+cd mmsu-medical
 pip install -r requirements.txt
 ```
 
-3. Run the application:
+### 2. Create your environment file
+
 ```bash
+cp .env.example .env
+# Edit .env and fill in your DATABASE_URL, SECRET_KEY, and admin credentials
+```
+
+### 3. Start PostgreSQL and run the app
+
+The app creates its tables automatically on first run.
+
+```bash
+# Load env vars (Linux/macOS)
+export $(cat .env | xargs)
+
+# Run locally
 python app.py
 ```
 
-4. Open your browser and navigate to:
-```
-http://127.0.0.1:5000
-```
+Visit `http://localhost:5000` and log in with your `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
 
-### Default Login Credentials
+---
 
-- **Username:** `admin`
-- **Password:** `mmsu2024`
+## Deploying to Heroku / Railway / Render
 
-⚠️ **Important:** Change these credentials before deploying to production!
+### Required environment variables
 
-## Usage
+Set these in your platform's dashboard (never hardcode them):
 
-### Uploading Data
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string (provided automatically by most platforms) |
+| `SECRET_KEY` | Random 32-byte hex string — generate with `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `FLASK_ENV` | Set to `production` |
+| `ADMIN_USERNAME` | Login username |
+| `ADMIN_PASSWORD` | Login password — use a strong password in production |
 
-The dashboard accepts CSV files with the following format:
+### Heroku
 
-```csv
-name,gender,blood,department,conditions
-John Doe,Male,O+,CHS,Diabetes|Hypertension
-Jane Smith,Female,A+,COE,None
-```
-
-**CSV Columns:**
-- `name` - Full name of the personnel
-- `gender` - Male/Female
-- `blood` - Blood type (e.g., O+, A-, AB+)
-- `department` - Department code (CHS, COE, CBEA, CAS, CTE)
-- `conditions` - Medical conditions separated by `|` (pipe character)
-
-### Features Overview
-
-1. **Dashboard View** - View statistics, charts, and personnel overview
-2. **Filter by Condition** - Click on conditions in the sidebar to filter
-3. **Search** - Search by name or department
-4. **Personnel Details** - Click on any record to view detailed information
-5. **CSV Upload** - Upload new data via the upload button
-
-## Deployment
-
-### Deploy to Python Anywhere
-
-1. Sign up at [pythonanywhere.com](https://www.pythonanywhere.com)
-2. Upload your files or clone from GitHub
-3. Create a new web app (Flask)
-4. Set up virtual environment:
 ```bash
-mkvirtualenv --python=/usr/bin/python3.10 mmsu-env
-pip install -r requirements.txt
-```
-5. Configure WSGI file to point to your app
-6. Reload the web app
-
-### Deploy to Heroku
-
-1. Install Heroku CLI
-2. Create a `Procfile`:
-```
-web: gunicorn app:app
-```
-3. Add gunicorn to requirements.txt
-4. Deploy:
-```bash
-heroku login
 heroku create your-app-name
+heroku addons:create heroku-postgresql:essential-0
+heroku config:set SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+heroku config:set FLASK_ENV=production
+heroku config:set ADMIN_USERNAME=admin
+heroku config:set ADMIN_PASSWORD=your_strong_password
 git push heroku main
 ```
 
-### Deploy to Render
+### Railway / Render
 
-1. Sign up at [render.com](https://render.com)
-2. Connect your GitHub repository
-3. Create a new Web Service
-4. Set build command: `pip install -r requirements.txt`
-5. Set start command: `gunicorn app:app`
+1. Connect your GitHub repository.
+2. Add a PostgreSQL plugin/database — the platform sets `DATABASE_URL` automatically.
+3. Add the remaining environment variables listed above.
+4. The `Procfile` tells the platform to run Gunicorn automatically.
 
-## Security Recommendations
-
-Before deploying to production:
-
-1. **Change Admin Credentials** - Update username/password in `app.py`
-2. **Use Environment Variables** - Store credentials in `.env` file:
-```python
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-app.secret_key = os.getenv('SECRET_KEY')
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
-```
-3. **Enable HTTPS** - Always use SSL certificates in production
-4. **Database Security** - Consider using PostgreSQL instead of SQLite
-5. **Rate Limiting** - Add Flask-Limiter to prevent brute force attacks
+---
 
 ## Project Structure
 
 ```
-mmsu-medical-dashboard/
-├── app.py              # Flask backend application
-├── index.html          # Main dashboard interface
+├── app.py              # Flask application and all routes
+├── index.html          # Main dashboard (served as a Jinja2 template)
 ├── login.html          # Login page
 ├── requirements.txt    # Python dependencies
-├── mmsu.db            # SQLite database (auto-generated)
-└── README.md          # This file
+├── Procfile            # Production server command (Gunicorn)
+└── .env.example        # Template for environment variables
 ```
-
-## Technologies Used
-
-- **Backend:** Flask (Python)
-- **Frontend:** HTML5, CSS3, Vanilla JavaScript
-- **Charts:** Chart.js
-- **CSV Parsing:** PapaParse.js
-- **Database:** SQLite
-- **Fonts:** Google Fonts (Figtree, Instrument Serif)
-
-## License
-
-This project is open source and available for educational purposes.
-
-## Support
-
-For issues or questions, please contact the development team or create an issue in the repository.
 
 ---
 
-**Made for MMSU Medical Department** 🏥
+## Security Notes
+
+- Change `ADMIN_PASSWORD` before deploying — the default `mmsu2024` is insecure.
+- `SECRET_KEY` must be set to a long random value in production.
+- The app enforces HTTPS-only cookies when `FLASK_ENV=production`.
+- All write operations require a valid CSRF token.
+- Login is rate-limited to 10 attempts per 5 minutes per IP.
