@@ -506,52 +506,38 @@
     .trend-insight-text{font-size:11.5px;color:var(--text-2);line-height:1.55;}
     @media(max-width:700px){.trend-grid{grid-template-columns:1fr;}.trend-card.wide{grid-column:1;}}
 
-    /* ── INSTITUTIONAL INSIGHT ── */
-    .insight-hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px 28px;margin-bottom:20px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;}
-    .insight-hero-left{flex:1;min-width:0;}
-    .insight-hero-label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;}
-    .insight-headline{font-family:'Instrument Serif',serif;font-size:20px;color:var(--text);line-height:1.35;margin-bottom:6px;}
-    .insight-headline em{font-style:italic;color:var(--accent);}
-    .insight-hero-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-    .insight-gen-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;background:var(--accent);color:#06090a;border:none;border-radius:var(--radius-sm);font-size:12.5px;font-family:'Figtree',sans-serif;font-weight:600;cursor:pointer;transition:all .15s;letter-spacing:.01em;}
-    .insight-gen-btn:hover{background:var(--accent2);transform:translateY(-1px);}
-    .insight-gen-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
-    .insight-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
-    .insight-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;transition:border-color .2s,transform .15s,box-shadow .15s;}
-    .insight-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow);}
-    .insight-card.wide{grid-column:1/-1;}
-    .insight-card.accent-border{border-color:rgba(212,184,74,.25);}
-    .insight-card.danger-border{border-color:rgba(217,85,85,.3);}
-    .insight-card.safe-border{border-color:rgba(69,191,110,.25);}
-    .insight-card-label{font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.11em;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
-    .insight-card-label .ilabel-icon{font-size:11px;}
-    .insight-card-body{font-size:13px;color:var(--text-2);line-height:1.65;}
-    .insight-card-body strong{color:var(--text);font-weight:600;}
-    .insight-recs{display:flex;flex-direction:column;gap:8px;margin-top:2px;}
-    .insight-rec{display:flex;align-items:flex-start;gap:10px;padding:10px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);}
-    .insight-rec-num{width:20px;height:20px;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
-    .insight-rec-text{font-size:12.5px;color:var(--text-2);line-height:1.55;}
-    .insight-snapshot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
-    .insight-snap-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
-    .insight-snap-label{font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;}
-    .insight-snap-val{font-family:'Instrument Serif',serif;font-size:26px;color:var(--text);line-height:1;}
-    .insight-snap-val.danger{color:var(--danger);}
-    .insight-snap-val.safe{color:var(--safe);}
-    .insight-snap-sub{font-size:10.5px;color:var(--text-3);margin-top:4px;}
-    .insight-skeleton{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:14px;}
-    .skel-line{height:11px;background:var(--border);border-radius:4px;margin-bottom:9px;animation:skel-pulse 1.5s ease-in-out infinite;}
-    .skel-line.w90{width:90%;}.skel-line.w70{width:70%;}.skel-line.w50{width:50%;}.skel-line.w40{width:40%;}
-    @keyframes skel-pulse{0%,100%{opacity:.6;}50%{opacity:.25;}}
-    .insight-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);}
-    .insight-empty-icon{width:52px;height:52px;background:var(--accent-dim);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px;}
-    .insight-empty-title{font-family:'Instrument Serif',serif;font-size:18px;color:var(--text);}
-    .insight-empty-sub{font-size:12.5px;color:var(--text-3);text-align:center;max-width:340px;line-height:1.55;}
-    .insight-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:600;}
-    .insight-badge.ai{background:var(--accent-dim);color:var(--accent);}
-    .insight-badge.ts{background:var(--surface2);color:var(--text-3);border:1px solid var(--border);}
-    .insight-top-concern{padding:16px 18px;background:rgba(217,85,85,0.06);border:1px solid rgba(217,85,85,0.2);border-radius:var(--radius-sm);margin-bottom:4px;}
-    .insight-positive{padding:14px 18px;background:rgba(69,191,110,0.06);border:1px solid rgba(69,191,110,0.2);border-radius:var(--radius-sm);}
-    .insight-gap{padding:12px 15px;background:rgba(80,150,200,0.06);border:1px solid rgba(80,150,200,0.15);border-radius:var(--radius-sm);}
+    /* ── PDF / EXCEL REPORTS PANEL ── */
+    .rpt-tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:5px;}
+    .rpt-tab{flex:1;padding:8px 4px;border:none;border-radius:var(--radius-sm);background:transparent;color:var(--text-3);font-size:11.5px;font-family:'Figtree',sans-serif;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;white-space:nowrap;}
+    .rpt-tab:hover{background:rgba(255,255,255,.04);color:var(--text);}
+    .rpt-tab.active{background:var(--accent-dim);color:var(--accent);font-weight:600;}
+    .rpt-panel{display:none;}
+    .rpt-panel.active{display:block;}
+    .rpt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:16px;}
+    .rpt-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
+    .rpt-card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+    .rpt-card-icon.pdf{background:rgba(217,85,85,.12);}
+    .rpt-card-icon.xlsx{background:rgba(69,191,110,.12);}
+    .rpt-card-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);margin-bottom:2px;}
+    .rpt-card-desc{font-size:12px;color:var(--text-3);line-height:1.55;}
+    .rpt-form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+    .rpt-form-group{display:flex;flex-direction:column;gap:5px;}
+    .rpt-form-group label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;}
+    .rpt-select,.rpt-input{padding:8px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:12.5px;font-family:'Figtree',sans-serif;outline:none;transition:border-color .15s;}
+    .rpt-select:focus,.rpt-input:focus{border-color:rgba(212,184,74,.3);}
+    .rpt-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(240,237,232,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px;}
+    .rpt-dl-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius-sm);border:none;font-size:12.5px;font-family:'Figtree',sans-serif;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
+    .rpt-dl-btn.pdf-btn{background:rgba(217,85,85,.15);color:#e07070;}
+    .rpt-dl-btn.pdf-btn:hover{background:rgba(217,85,85,.25);}
+    .rpt-dl-btn.xlsx-btn{background:rgba(69,191,110,.15);color:var(--safe);}
+    .rpt-dl-btn.xlsx-btn:hover{background:rgba(69,191,110,.25);}
+    .rpt-dl-btn:disabled{opacity:.45;cursor:not-allowed;}
+    .rpt-divider{height:1px;background:var(--border);margin:18px 0;}
+    .rpt-preview{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;font-size:11.5px;color:var(--text-3);line-height:1.65;}
+    .rpt-preview strong{color:var(--text);}
+    .rpt-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.03em;}
+    .rpt-badge.pdf{background:rgba(217,85,85,.1);color:#e07070;}
+    .rpt-badge.xlsx{background:rgba(69,191,110,.1);color:var(--safe);}
   </style>
 </head>
 <body>
@@ -595,10 +581,6 @@
     <button class="nav-item" onclick="showPage('riskReport',this)">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2L2 17h16L10 2z"/><line x1="10" y1="8" x2="10" y2="12"/><line x1="10" y1="14" x2="10.01" y2="14"/></svg>
       Health Risk Report
-    </button>
-    <button class="nav-item" onclick="showPage('insight',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l3 3"/><path d="M6 10h.01"/></svg>
-      Institutional Insight
     </button>
     <button class="nav-item" onclick="showPage('medlookup',this)">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2v16M2 10h16"/><circle cx="10" cy="10" r="8"/></svg>
@@ -922,133 +904,228 @@
     </div>
   </div>
 
-  <!-- ═══════════════ INSTITUTIONAL INSIGHT PAGE ═══════════════ -->
-  <div class="page" id="page-insight">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Institutional <em>Insight</em></div>
-        <div class="page-sub">AI-generated health analysis of your institution's personnel data</div>
-      </div>
-      <div class="topbar-right">
-        <span class="insight-badge ai" style="margin-right:4px;">✦ AI Powered</span>
-        <button class="insight-gen-btn" id="insightGenBtn" onclick="generateInsight()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          Generate Insight
-        </button>
-      </div>
-    </div>
-
-    <!-- Snapshot KPIs (always visible, data-driven) -->
-    <div class="insight-snapshot-grid" id="insightSnapshotGrid">
-      <div class="insight-snap-card"><div class="insight-snap-label">Total Personnel</div><div class="insight-snap-val" id="ins-total">—</div><div class="insight-snap-sub">Active records</div></div>
-      <div class="insight-snap-card"><div class="insight-snap-label">High Risk</div><div class="insight-snap-val danger" id="ins-highrisk">—</div><div class="insight-snap-sub" id="ins-highrisk-pct">— of personnel</div></div>
-      <div class="insight-snap-card"><div class="insight-snap-label">Departments</div><div class="insight-snap-val" id="ins-depts">—</div><div class="insight-snap-sub">Active departments</div></div>
-      <div class="insight-snap-card"><div class="insight-snap-label">Conditions Tracked</div><div class="insight-snap-val safe" id="ins-conds">—</div><div class="insight-snap-sub">Unique conditions</div></div>
-    </div>
-
-    <!-- Empty / prompt state -->
-    <div id="insightEmpty">
-      <div class="insight-empty">
-        <div class="insight-empty-icon">✦</div>
-        <div class="insight-empty-title">Ready to Analyse</div>
-        <div class="insight-empty-sub">Click <strong style="color:var(--accent);">Generate Insight</strong> to have the AI analyse your institution's current health data and produce actionable findings.</div>
-      </div>
-    </div>
-
-    <!-- Loading skeleton -->
-    <div id="insightLoading" style="display:none;">
-      <div class="insight-skeleton"><div class="skel-line w40"></div><div class="skel-line w90"></div><div class="skel-line w70"></div></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;">
-        <div class="insight-skeleton" style="margin-bottom:0;"><div class="skel-line w40"></div><div class="skel-line w90"></div><div class="skel-line w70"></div><div class="skel-line w50"></div></div>
-        <div class="insight-skeleton" style="margin-bottom:0;"><div class="skel-line w40"></div><div class="skel-line w90"></div><div class="skel-line w70"></div></div>
-        <div class="insight-skeleton" style="margin-bottom:0;"><div class="skel-line w40"></div><div class="skel-line w90"></div><div class="skel-line w50"></div></div>
-      </div>
-      <div class="insight-skeleton"><div class="skel-line w40"></div><div class="skel-line w90"></div><div class="skel-line w70"></div><div class="skel-line w50"></div><div class="skel-line w70"></div></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:4px;color:var(--text-3);font-size:12px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;flex-shrink:0;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-        Analysing institutional health data with AI…
-      </div>
-    </div>
-
-    <!-- Error -->
-    <div id="insightError" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,.2);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;">
-      <div style="font-size:12.5px;font-weight:600;color:var(--danger);margin-bottom:3px;">⚠ Could not generate insight</div>
-      <div id="insightErrorMsg" style="font-size:12px;color:var(--text-2);"></div>
-    </div>
-
-    <!-- Results -->
-    <div id="insightResults" style="display:none;">
-
-      <!-- Headline card -->
-      <div class="insight-card accent-border" style="margin-bottom:14px;">
-        <div class="insight-card-label"><span class="ilabel-icon">✦</span> AI Summary</div>
-        <div class="insight-headline" id="ins-headline"></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-          <span class="insight-badge ai">AI Generated</span>
-          <span class="insight-badge ts" id="ins-timestamp"></span>
-        </div>
-      </div>
-
-      <!-- 3-col grid -->
-      <div class="insight-grid">
-
-        <!-- Risk Summary -->
-        <div class="insight-card">
-          <div class="insight-card-label"><span class="ilabel-icon">🩺</span> Risk Profile</div>
-          <div class="insight-card-body" id="ins-risk-summary"></div>
-        </div>
-
-        <!-- Dept Spotlight -->
-        <div class="insight-card danger-border">
-          <div class="insight-card-label"><span class="ilabel-icon">🏢</span> Department Spotlight</div>
-          <div class="insight-card-body" id="ins-dept-spotlight"></div>
-        </div>
-
-        <!-- Data Gaps -->
-        <div class="insight-card">
-          <div class="insight-card-label"><span class="ilabel-icon">📊</span> Data Quality</div>
-          <div class="insight-card-body"><div class="insight-gap" id="ins-data-gaps"></div></div>
-        </div>
-
-        <!-- Top Concern (wide) -->
-        <div class="insight-card wide danger-border">
-          <div class="insight-card-label"><span class="ilabel-icon">⚠</span> Top Concern</div>
-          <div class="insight-top-concern insight-card-body" id="ins-top-concern"></div>
-        </div>
-
-        <!-- Recommendations (wide) -->
-        <div class="insight-card wide accent-border">
-          <div class="insight-card-label"><span class="ilabel-icon">📋</span> Recommendations</div>
-          <div class="insight-recs" id="ins-recs"></div>
-        </div>
-
-        <!-- Positive Finding -->
-        <div class="insight-card wide safe-border">
-          <div class="insight-card-label"><span class="ilabel-icon">✅</span> Positive Finding</div>
-          <div class="insight-positive insight-card-body" id="ins-positive"></div>
-        </div>
-
-      </div>
-
-      <div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-top:4px;">
-        ✦ AI-generated insights are based on current records and intended for administrative reference only. Always involve a licensed health professional in clinical decisions.
-      </div>
-    </div>
-  </div>
-
   <!-- ═══════════════ REPORTS PAGE ═══════════════ -->
   <div class="page" id="page-reports">
     <div class="topbar">
       <div>
         <div class="page-heading">Reports <em>&amp; Analytics</em></div>
-        <div class="page-sub">Health data summaries and statistical insights</div>
+        <div class="page-sub">Download formatted reports or view live health analytics</div>
       </div>
       <div class="topbar-right">
         <button class="btn btn-ghost btn-sm" onclick="openPrintReport()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          Print Report
+          Print Analytics
         </button>
       </div>
+    </div>
+
+    <!-- ── DOWNLOADABLE REPORTS SECTION ── -->
+    <div style="margin-bottom:28px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;">Downloadable Reports</span>
+      </div>
+
+      <!-- Tab strip -->
+      <div class="rpt-tabs">
+        <button class="rpt-tab active" onclick="switchRptTab('monthly',this)">📅 Monthly</button>
+        <button class="rpt-tab" onclick="switchRptTab('yearly',this)">📆 Yearly</button>
+        <button class="rpt-tab" onclick="switchRptTab('department',this)">🏢 Department</button>
+        <button class="rpt-tab" onclick="switchRptTab('consultation',this)">📋 Consultation</button>
+        <button class="rpt-tab" onclick="switchRptTab('medicine',this)">💊 Medicine Inventory</button>
+      </div>
+
+      <!-- 1. MONTHLY -->
+      <div class="rpt-panel active" id="rpt-panel-monthly">
+        <div class="rpt-card">
+          <div class="rpt-card-head">
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div class="rpt-card-icon pdf">📅</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                  <div class="rpt-card-title">Monthly Medical Report</div>
+                  <span class="rpt-badge pdf">PDF</span>
+                </div>
+                <div class="rpt-card-desc">Full visit log, top reasons, and department breakdown for any selected month. Includes a KPI summary row and printable table layout.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rpt-form-row">
+            <div class="rpt-form-group">
+              <label>Year</label>
+              <select class="rpt-select" id="rpt-month-year" style="width:100px;"></select>
+            </div>
+            <div class="rpt-form-group">
+              <label>Month</label>
+              <select class="rpt-select" id="rpt-month-month" style="width:140px;">
+                <option value="1">January</option><option value="2">February</option>
+                <option value="3">March</option><option value="4">April</option>
+                <option value="5">May</option><option value="6">June</option>
+                <option value="7">July</option><option value="8">August</option>
+                <option value="9">September</option><option value="10">October</option>
+                <option value="11">November</option><option value="12">December</option>
+              </select>
+            </div>
+            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('monthly')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download PDF
+            </button>
+          </div>
+          <div class="rpt-divider"></div>
+          <div class="rpt-preview">
+            <strong>Includes:</strong> KPI summary (total personnel, high-risk count, visits, departments) · Full visit log with date, name, department, reason & notes · Top visit reasons ranked · Department visit breakdown
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. YEARLY -->
+      <div class="rpt-panel" id="rpt-panel-yearly">
+        <div class="rpt-card">
+          <div class="rpt-card-head">
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div class="rpt-card-icon pdf">📆</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                  <div class="rpt-card-title">Yearly Summary Report</div>
+                  <span class="rpt-badge pdf">PDF</span>
+                </div>
+                <div class="rpt-card-desc">Annual health overview with monthly visit volumes, personnel demographics, department health stats, and top visit reasons for the whole year.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rpt-form-row">
+            <div class="rpt-form-group">
+              <label>Year</label>
+              <select class="rpt-select" id="rpt-year-year" style="width:100px;"></select>
+            </div>
+            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('yearly')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download PDF
+            </button>
+          </div>
+          <div class="rpt-divider"></div>
+          <div class="rpt-preview">
+            <strong>Includes:</strong> Personnel KPIs (total, high-risk, gender split, total visits) · Monthly visit volume table for all 12 months · Department overview (personnel count, yearly visits, high-risk count) · Top 10 visit reasons ranked
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. DEPARTMENT -->
+      <div class="rpt-panel" id="rpt-panel-department">
+        <div class="rpt-card">
+          <div class="rpt-card-head">
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div class="rpt-card-icon pdf">🏢</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                  <div class="rpt-card-title">Department Report</div>
+                  <span class="rpt-badge pdf">PDF</span>
+                </div>
+                <div class="rpt-card-desc">Lists all personnel within one or all departments with risk status, health conditions, and department-level KPI summaries.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rpt-form-row">
+            <div class="rpt-form-group">
+              <label>Department</label>
+              <select class="rpt-select" id="rpt-dept-select" style="width:200px;">
+                <option value="">All Departments</option>
+              </select>
+            </div>
+            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('department')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download PDF
+            </button>
+          </div>
+          <div class="rpt-divider"></div>
+          <div class="rpt-preview">
+            <strong>Includes:</strong> Per-department KPI block (headcount, high-risk count, total visits) · Personnel roster with name, age, gender, blood type, risk level, and conditions · Grouped by department with section headers
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. CONSULTATION HISTORY -->
+      <div class="rpt-panel" id="rpt-panel-consultation">
+        <div class="rpt-card">
+          <div class="rpt-card-head">
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div class="rpt-card-icon pdf">📋</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                  <div class="rpt-card-title">Printable Consultation History</div>
+                  <span class="rpt-badge pdf">PDF</span>
+                </div>
+                <div class="rpt-card-desc">Complete visit records filtered by person, department, or date range. Ideal for insurance documentation or clinical audit.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rpt-form-row">
+            <div class="rpt-form-group">
+              <label>Department (optional)</label>
+              <select class="rpt-select" id="rpt-consult-dept" style="width:180px;">
+                <option value="">All Departments</option>
+              </select>
+            </div>
+            <div class="rpt-form-group">
+              <label>From Date</label>
+              <input type="date" class="rpt-input" id="rpt-consult-from" style="width:150px;">
+            </div>
+            <div class="rpt-form-group">
+              <label>To Date</label>
+              <input type="date" class="rpt-input" id="rpt-consult-to" style="width:150px;">
+            </div>
+            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('consultation')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download PDF
+            </button>
+          </div>
+          <div class="rpt-divider"></div>
+          <div class="rpt-preview">
+            <strong>Includes:</strong> Filterable by department and date range · Full visit table: date, personnel, department, age, gender, reason, notes · Record count summary · MMSU clinic header and confidentiality footer
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. MEDICINE INVENTORY -->
+      <div class="rpt-panel" id="rpt-panel-medicine">
+        <div class="rpt-card">
+          <div class="rpt-card-head">
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div class="rpt-card-icon xlsx">💊</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                  <div class="rpt-card-title">Medicine Inventory Report</div>
+                  <span class="rpt-badge xlsx">Excel</span>
+                </div>
+                <div class="rpt-card-desc">Multi-sheet Excel workbook showing conditions, suggested medicines, affected personnel counts, department breakdowns, and estimated monthly medicine needs.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rpt-form-row">
+            <button class="rpt-dl-btn xlsx-btn" onclick="downloadReport('medicine')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download Excel (.xlsx)
+            </button>
+          </div>
+          <div class="rpt-divider"></div>
+          <div class="rpt-preview">
+            <strong>4 Sheets included:</strong><br>
+            <strong>① Condition Inventory</strong> — all conditions ranked by prevalence with suggested medicines and risk level<br>
+            <strong>② By Department</strong> — pivot-style breakdown of every condition per department<br>
+            <strong>③ Medicine Needs</strong> — estimated monthly units per medicine based on patient count<br>
+            <strong>④ Summary</strong> — key KPIs and report metadata
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /downloadable reports -->
+
+    <div style="height:1px;background:var(--border);margin-bottom:24px;"></div>
+
+    <!-- existing analytics content below -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      <span style="font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.12em;">Live Analytics</span>
     </div>
 
     <div class="kpi-grid" style="margin-bottom:24px;">
@@ -1654,7 +1731,6 @@
     allData = await res.json();
     filterData('All');
     renderPersonPicker();
-    updateInsightSnapshot();
   }
 
   function renderTable(data) {
@@ -3526,7 +3602,6 @@ Limit to 2 suggestions per condition, max 6 total.`;
     buildConditionSidebar();
     filterData('All');
     renderPersonPicker();
-    updateInsightSnapshot();
   };
 
   // ── HOOK INTO processData TO THEN RENDER PAGINATED TABLE ──
@@ -4134,121 +4209,95 @@ Limit to 2 suggestions per condition, max 6 total.`;
     printWin.document.close();
   }
 
-// ── INSTITUTIONAL INSIGHT ─────────────────────────────────────────────────────
+  // ── PDF / EXCEL REPORTS ──────────────────────────────────────────────────────
 
-function updateInsightSnapshot() {
-  const p = allData;
-  const total = p.length;
-  const HIGH_RISK_CONDS = ['Hypertension','Diabetes','Asthma','Heart Disease','Tuberculosis','Cancer','HIV/AIDS','Epilepsy'];
-  const highRisk = p.filter(x => x.conditions && x.conditions.some(c => HIGH_RISK_CONDS.includes(c))).length;
-  const depts = [...new Set(p.map(x => x.department).filter(Boolean))];
-  const allConds = [...new Set(p.flatMap(x => x.conditions || []).filter(Boolean))];
-  const pct = total ? ((highRisk / total) * 100).toFixed(1) : '0.0';
-  const el = id => document.getElementById(id);
-  if (el('ins-total')) el('ins-total').textContent = total || '—';
-  if (el('ins-highrisk')) el('ins-highrisk').textContent = highRisk || '—';
-  if (el('ins-highrisk-pct')) el('ins-highrisk-pct').textContent = total ? `${pct}% of personnel` : '—';
-  if (el('ins-depts')) el('ins-depts').textContent = depts.length || '—';
-  if (el('ins-conds')) el('ins-conds').textContent = allConds.length || '—';
-}
+  function initReportControls() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
 
-async function generateInsight() {
-  const p = allData;
-  if (!p || p.length === 0) { showToast('No personnel data available to analyse.', true); return; }
-
-  const HIGH_RISK_CONDS = ['Hypertension','Diabetes','Asthma','Heart Disease','Tuberculosis','Cancer','HIV/AIDS','Epilepsy'];
-  const total = p.length;
-  const highRisk = p.filter(x => x.conditions && x.conditions.some(c => HIGH_RISK_CONDS.includes(c))).length;
-
-  const condCounts = {};
-  p.forEach(x => (x.conditions || []).forEach(c => { condCounts[c] = (condCounts[c] || 0) + 1; }));
-
-  const deptStats = {};
-  p.forEach(x => {
-    const d = x.department || 'Unknown';
-    if (!deptStats[d]) deptStats[d] = { total: 0, highRisk: 0 };
-    deptStats[d].total++;
-    if ((x.conditions || []).some(c => HIGH_RISK_CONDS.includes(c))) deptStats[d].highRisk++;
-  });
-
-  const ageCounts = { '18-30':0, '31-40':0, '41-50':0, '51-60':0, '60+':0 };
-  p.forEach(x => {
-    const a = parseInt(x.age);
-    if (!isNaN(a)) {
-      if (a<=30) ageCounts['18-30']++;
-      else if (a<=40) ageCounts['31-40']++;
-      else if (a<=50) ageCounts['41-50']++;
-      else if (a<=60) ageCounts['51-60']++;
-      else ageCounts['60+']++;
-    }
-  });
-
-  const genderCounts = {Male:0, Female:0, Other:0};
-  p.forEach(x => {
-    if (x.gender==='Male') genderCounts.Male++;
-    else if (x.gender==='Female') genderCounts.Female++;
-    else genderCounts.Other++;
-  });
-
-  const stats = {
-    total_personnel: total,
-    high_risk_personnel: highRisk,
-    high_risk_rate_pct: total ? parseFloat(((highRisk/total)*100).toFixed(1)) : 0,
-    high_risk_conditions: HIGH_RISK_CONDS,
-    top_10_conditions: Object.entries(condCounts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([c,n])=>({condition:c,count:n,is_high_risk:HIGH_RISK_CONDS.includes(c)})),
-    department_breakdown: Object.entries(deptStats).map(([name,s])=>({name,total:s.total,high_risk:s.highRisk,risk_rate_pct:parseFloat(((s.highRisk/s.total)*100).toFixed(1))})).sort((a,b)=>b.risk_rate_pct-a.risk_rate_pct),
-    age_distribution: ageCounts,
-    gender_distribution: genderCounts,
-  };
-
-  const btn = document.getElementById('insightGenBtn');
-  btn.disabled = true;
-  btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Analysing…`;
-
-  document.getElementById('insightEmpty').style.display = 'none';
-  document.getElementById('insightResults').style.display = 'none';
-  document.getElementById('insightError').style.display = 'none';
-  document.getElementById('insightLoading').style.display = 'block';
-
-  try {
-    const res = await fetch('/ai/insight', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','X-CSRF-Token':csrfToken},
-      body: JSON.stringify({stats}),
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Unknown error');
-
-    const raw = data.content?.[0]?.text || '{}';
-    const ins = JSON.parse(raw.replace(/```json|```/g,'').trim());
-
-    if (document.getElementById('ins-headline')) document.getElementById('ins-headline').textContent = ins.headline || '—';
-    document.getElementById('ins-risk-summary').innerHTML   = ins.risk_summary    || '—';
-    document.getElementById('ins-dept-spotlight').innerHTML = ins.dept_spotlight  || '—';
-    document.getElementById('ins-top-concern').innerHTML    = ins.top_concern     || '—';
-    document.getElementById('ins-positive').innerHTML       = ins.positive_finding|| '—';
-    document.getElementById('ins-data-gaps').innerHTML      = ins.data_gaps       || '—';
-    document.getElementById('ins-timestamp').textContent    = 'Generated ' + new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-
-    const recsEl = document.getElementById('ins-recs');
-    recsEl.innerHTML = '';
-    (ins.recommendations || []).forEach((r,i) => {
-      recsEl.innerHTML += `<div class="insight-rec"><div class="insight-rec-num">${i+1}</div><div class="insight-rec-text">${r}</div></div>`;
+    // Populate year selects (5 years back)
+    ['rpt-month-year','rpt-year-year'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = '';
+      for (let y = currentYear; y >= currentYear - 5; y--) {
+        el.innerHTML += `<option value="${y}">${y}</option>`;
+      }
     });
 
-    document.getElementById('insightLoading').style.display = 'none';
-    document.getElementById('insightResults').style.display = 'block';
+    // Set current month
+    const mm = document.getElementById('rpt-month-month');
+    if (mm) mm.value = currentMonth;
 
-  } catch(err) {
-    document.getElementById('insightLoading').style.display = 'none';
-    document.getElementById('insightError').style.display = 'block';
-    document.getElementById('insightErrorMsg').textContent = err.message || 'Failed to generate insight.';
-    document.getElementById('insightEmpty').style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> Generate Insight`;
+    // Populate dept selects from loaded allData
+    ['rpt-dept-select','rpt-consult-dept'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const first = el.options[0];
+      el.innerHTML = '';
+      el.appendChild(first);
+      const depts = [...new Set((window.allData||[]).map(p => p.department).filter(Boolean))].sort();
+      depts.forEach(d => { el.innerHTML += `<option value="${d}">${d}</option>`; });
+    });
+
+    // Default date range for consultation: last 3 months
+    const toDate   = new Date();
+    const fromDate = new Date(); fromDate.setMonth(fromDate.getMonth() - 3);
+    const fmt = d => d.toISOString().split('T')[0];
+    const cf = document.getElementById('rpt-consult-from');
+    const ct = document.getElementById('rpt-consult-to');
+    if (cf) cf.value = fmt(fromDate);
+    if (ct) ct.value = fmt(toDate);
   }
-}
+
+  function switchRptTab(name, btn) {
+    document.querySelectorAll('.rpt-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.rpt-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = document.getElementById(`rpt-panel-${name}`);
+    if (panel) panel.classList.add('active');
+  }
+
+  function downloadReport(type) {
+    let url = '';
+    switch (type) {
+      case 'monthly': {
+        const y = document.getElementById('rpt-month-year').value;
+        const m = document.getElementById('rpt-month-month').value;
+        url = `/reports/monthly?year=${y}&month=${m}`;
+        break;
+      }
+      case 'yearly': {
+        const y = document.getElementById('rpt-year-year').value;
+        url = `/reports/yearly?year=${y}`;
+        break;
+      }
+      case 'department': {
+        const d = encodeURIComponent(document.getElementById('rpt-dept-select').value);
+        url = `/reports/department?dept=${d}`;
+        break;
+      }
+      case 'consultation': {
+        const dept = encodeURIComponent(document.getElementById('rpt-consult-dept').value);
+        const from = document.getElementById('rpt-consult-from').value;
+        const to   = document.getElementById('rpt-consult-to').value;
+        url = `/reports/consultation?dept=${dept}&from=${from}&to=${to}`;
+        break;
+      }
+      case 'medicine':
+        url = '/reports/medicine-inventory';
+        break;
+    }
+    if (url) window.location.href = url;
+  }
+
+  // Hook into showPage to init controls when reports tab is opened
+  const _origShowPage = window.showPage;
+  window.showPage = function(name, btn) {
+    if (typeof _origShowPage === 'function') _origShowPage(name, btn);
+    if (name === 'reports') setTimeout(initReportControls, 100);
+  };
 
 </script>
 </body>

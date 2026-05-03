@@ -1,4304 +1,1574 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MMSU Health Records · Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg:         #080c0a;
-      --surface:    #0e1612;
-      --surface2:   #131d16;
-      --border:     rgba(255,255,255,0.055);
-      --border2:    rgba(255,255,255,0.09);
-      --green:      #1a7a3c;
-      --green-dim:  #0f4a24;
-      --accent:     #d4b84a;
-      --accent2:    #e8d080;
-      --accent-dim: rgba(212,184,74,0.10);
-      --text:       #eceae5;
-      --text-2:     rgba(236,234,229,0.52);
-      --text-3:     rgba(236,234,229,0.28);
-      --danger:     #d95555;
-      --danger-bg:  rgba(217,85,85,0.10);
-      --safe:       #45bf6e;
-      --safe-bg:    rgba(69,191,110,0.10);
-      --blue:       #5096c8;
-      --blue-bg:    rgba(80,150,200,0.10);
-      --pink:       #c46ea0;
-      --sidebar-w:  252px;
-      --radius:     12px;
-      --radius-sm:  7px;
-      --shadow:     0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2);
-    }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    html{scroll-behavior:smooth;}
-    body{font-family:'Figtree',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+# -*- coding: utf-8 -*-
+from flask import Flask, Response, request, jsonify, render_template, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+from contextlib import contextmanager
+import csv
+import io
+import json
+import os
+import secrets
+import sys
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
+from threading import Lock
 
-    /* ── SIDEBAR ── */
-    .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;overflow:hidden;}
-    .sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;}
-    .logo-mark{width:48px;height:48px;flex-shrink:0;background:transparent;display:flex;align-items:center;justify-content:center;}
-    .logo-mark img{width:48px;height:48px;object-fit:contain;}
-    .logo-title{font-family:'Instrument Serif',serif;font-size:14.5px;color:var(--text);line-height:1.2;letter-spacing:.01em;}
-    .logo-sub{font-size:10px;color:var(--text-3);margin-top:2px;letter-spacing:.04em;}
-    .sidebar-nav{padding:14px 10px;flex:1;overflow-y:auto;overflow-x:hidden;}
-    .sidebar-nav::-webkit-scrollbar{width:2px;}
-    .sidebar-nav::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
-    .nav-label{font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.12em;padding:12px 10px 5px;}
-    .nav-item{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:var(--radius-sm);border:none;background:transparent;color:var(--text-2);font-size:12.5px;font-family:'Figtree',sans-serif;font-weight:400;cursor:pointer;width:100%;text-align:left;margin-bottom:1px;transition:all .15s ease;position:relative;}
-    .nav-item:hover{background:rgba(255,255,255,0.04);color:var(--text);}
-    .nav-item.active{background:var(--accent-dim);color:var(--accent);font-weight:500;}
-    .nav-item.active::before{content:'';position:absolute;left:0;top:28%;bottom:28%;width:2px;background:var(--accent);border-radius:4px;}
-    .nav-icon{width:15px;height:15px;opacity:.65;flex-shrink:0;}
-    .nav-item.active .nav-icon{opacity:1;}
-    .sidebar-divider{height:1px;background:var(--border);margin:10px 8px;}
-    .sidebar-footer{padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;}
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
 
-    /* ── MAIN ── */
-    .main{margin-left:var(--sidebar-w);padding:30px 34px;min-height:100vh;}
-    .page{display:none;}
-    .page.active{display:block;}
+import psycopg2
+import psycopg2.extras
 
-    /* ── TOPBAR ── */
-    .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid var(--border);}
-    .page-heading{font-family:'Instrument Serif',serif;font-size:26px;color:var(--text);line-height:1.1;letter-spacing:-.01em;}
-    .page-heading em{font-style:italic;color:var(--accent);}
-    .page-sub{font-size:12.5px;color:var(--text-3);margin-top:5px;letter-spacing:.01em;}
-    .topbar-right{display:flex;align-items:center;gap:8px;padding-top:2px;}
-    .status-pill{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:11.5px;color:var(--text-3);}
-    .status-dot{width:6px;height:6px;border-radius:50%;background:var(--safe);box-shadow:0 0 6px var(--safe);animation:pulse-dot 2.5s ease-in-out infinite;}
-    @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.35;}}
-    @keyframes spin-ai{to{transform:rotate(360deg);}}
+# ── APP SETUP ─────────────────────────────────────────────────────────────────
 
-    /* ── BUTTONS ── */
-    .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:var(--radius-sm);border:none;font-size:12.5px;font-family:'Figtree',sans-serif;font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:.01em;}
-    .btn-primary{background:var(--accent);color:#06090a;}
-    .btn-primary:hover{background:var(--accent2);transform:translateY(-1px);}
-    .btn-ghost{background:transparent;color:var(--text-2);border:1px solid var(--border2);}
-    .btn-ghost:hover{background:rgba(255,255,255,0.04);color:var(--text);border-color:rgba(255,255,255,0.12);}
-    .btn-danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(217,85,85,.18);}
-    .btn-danger:hover{background:rgba(217,85,85,.18);}
-    .btn-sm{padding:5px 11px;font-size:11.5px;}
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=BASE_DIR)
 
-    /* ── KPI CARDS ── */
-    .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
-    .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;}
-    .kpi-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow);}
-    .kpi-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:14px;}
-    .kpi-icon.gold{background:var(--accent-dim);}
-    .kpi-icon.blue{background:rgba(80,150,200,.10);}
-    .kpi-icon.pink{background:rgba(196,110,160,.10);}
-    .kpi-icon.green{background:rgba(69,191,110,.10);}
-    .kpi-label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
-    .kpi-value{font-family:'Instrument Serif',serif;font-size:32px;color:var(--text);line-height:1;}
-    .kpi-sub{font-size:11px;color:var(--text-3);margin-top:6px;}
+app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(
+            'SECRET_KEY environment variable must be set in production. '
+            'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+    # Dev/local only -- never reaches production
+    app.secret_key = 'mmsu_medical_dashboard_DEV_ONLY_not_for_production'
+    print('[WARNING] SECRET_KEY not set -- using insecure dev default. Set SECRET_KEY env var.', file=sys.stderr)
 
-    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
-    .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
-    .chart-card.wide{grid-column:1/-1;}
-    .chart-card.tall canvas{max-height:240px;}
-    .chart-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;gap:6px;}
-    .chart-empty-icon{font-size:22px;opacity:.3;}
-    .chart-empty-text{font-size:12px;color:var(--text-3);}
-    .chart-label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.11em;margin-bottom:3px;}
-    .chart-title-text{font-family:'Instrument Serif',serif;font-size:15px;color:var(--text);margin-bottom:16px;}
-    canvas{max-height:190px;}
+app.config['SESSION_COOKIE_SECURE']   = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-    /* ── MED PANEL ── */
-    .med-panel{display:none;background:var(--surface2);border:1px solid rgba(212,184,74,.15);border-radius:var(--radius);padding:18px 22px;margin-bottom:20px;animation:slideIn .25s ease;}
-    .med-panel.visible{display:block;}
-    @keyframes slideIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
-    .med-panel-head{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
-    .med-panel-title{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;}
-    .med-panel-cond{font-family:'Instrument Serif',serif;font-size:15px;color:var(--text);margin-left:4px;}
-    .med-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
-    .med-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:13px 15px;transition:border-color .15s;}
-    .med-card:hover{border-color:rgba(212,184,74,.2);}
-    .med-name{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:4px;}
-    .med-desc{font-size:11px;color:var(--text-2);line-height:1.55;}
-    .med-warn{font-size:10.5px;color:var(--danger);margin-top:6px;display:flex;align-items:center;gap:4px;}
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+_raw_password  = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
+ADMIN_PASSWORD_HASH = generate_password_hash(_raw_password)
+del _raw_password  # don't keep plaintext in memory
 
-    /* ── TABLE ── */
-    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
-    .table-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
-    .table-title{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.11em;}
-    .table-count{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);margin-top:2px;}
-    .table-actions{display:flex;align-items:center;gap:8px;}
-    .table-search{padding:7px 13px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;font-family:'Figtree',sans-serif;outline:none;width:196px;transition:border-color .15s;}
-    .table-search::placeholder{color:var(--text-3);}
-    .table-search:focus{border-color:rgba(212,184,74,.25);}
-    .active-filter{font-size:11px;padding:4px 11px;background:var(--accent-dim);color:var(--accent);border-radius:20px;font-weight:600;letter-spacing:.02em;}
-    table{width:100%;border-collapse:collapse;}
-    thead tr{border-bottom:1px solid var(--border);}
-    thead th{padding:9px 18px;text-align:left;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;}
-    tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
-    tbody tr:last-child{border-bottom:none;}
-    tbody tr:hover{background:rgba(255,255,255,.02);}
-    tbody td{padding:12px 18px;font-size:12.5px;color:var(--text-2);}
-    td.name-col{font-weight:600;color:var(--text);}
-    .blood-badge{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-dim);padding:2px 8px;border-radius:4px;letter-spacing:.02em;}
-    .conditions-cell{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
-    .risk-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:600;letter-spacing:.02em;}
-    .risk-tag.high{background:var(--danger-bg);color:var(--danger);}
-    .risk-tag.normal{background:var(--safe-bg);color:var(--safe);}
+# ── DATABASE ──────────────────────────────────────────────────────────────────
 
-    /* ── FORM ELEMENTS ── */
-    .form-group{margin-bottom:14px;}
-    .form-label{display:block;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
-    .form-input{width:100%;padding:9px 13px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:'Figtree',sans-serif;outline:none;transition:border-color .15s;}
-    .form-input:focus{border-color:rgba(212,184,74,.3);}
-    .form-input::placeholder{color:var(--text-3);}
-    .form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(240,237,232,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
-    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-    .form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-    textarea.form-input{resize:vertical;min-height:80px;}
+def _get_db_url():
+    url = os.environ.get('DATABASE_URL')
+    if not url:
+        raise RuntimeError('DATABASE_URL environment variable is not set.')
+    # Heroku/Railway uses the legacy postgres:// scheme; psycopg2 needs postgresql://
+    return url.replace('postgres://', 'postgresql://', 1)
 
-    /* ── MODAL ── */
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;}
-    .modal-overlay.open{opacity:1;pointer-events:all;}
-    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:90vw;max-height:88vh;overflow-y:auto;padding:28px;position:relative;transform:scale(.97) translateY(8px);transition:transform .2s ease;box-shadow:0 40px 100px rgba(0,0,0,.7);}
-    .modal-overlay.open .modal{transform:scale(1) translateY(0);}
-    .modal::-webkit-scrollbar{width:3px;}
-    .modal::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
-    .modal-close{position:absolute;top:18px;right:18px;width:28px;height:28px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:14px;transition:all .15s;}
-    .modal-close:hover{background:var(--border);color:var(--text);}
-    .modal-avatar{width:48px;height:48px;background:linear-gradient(145deg,var(--green-dim),var(--green));border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:18px;color:var(--accent);margin-bottom:12px;box-shadow:0 6px 20px rgba(26,122,60,.2);}
-    .modal-name{font-family:'Instrument Serif',serif;font-size:21px;color:var(--text);margin-bottom:2px;}
-    .modal-dept{font-size:12px;color:var(--text-2);margin-bottom:18px;}
-    .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
-    .modal-field{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
-    .modal-field-label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
-    .modal-field-val{font-size:13.5px;font-weight:600;color:var(--text);}
-    .modal-section-title{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px;margin-top:18px;}
-    .pills-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px;}
-    .pill{padding:3px 11px;border-radius:20px;font-size:11.5px;font-weight:500;background:var(--surface2);border:1px solid var(--border);color:var(--text-2);}
-    .pill.high{background:var(--danger-bg);border-color:rgba(217,85,85,.18);color:var(--danger);}
-    .modal-meds-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
-    .modal-med-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
-    .modal-med-cond-label{font-size:9px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.09em;margin-bottom:5px;}
-    .modal-med-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;}
-    .modal-med-desc{font-size:11px;color:var(--text-2);}
 
-    /* ── EMPTY STATE ── */
-    .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:8px;}
-    .empty-icon{width:46px;height:46px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;}
-    .empty-title{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text-2);}
-    .empty-sub{font-size:12px;color:var(--text-3);}
+# Connection pool -- reuses connections instead of opening a new one per request
+from psycopg2 import pool as pg_pool
 
-    /* ── TOAST ── */
-    .toast{position:fixed;bottom:22px;right:22px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:11px 16px;font-size:12.5px;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);transform:translateY(80px);opacity:0;transition:all .3s ease;z-index:300;display:flex;align-items:center;gap:8px;}
-    .toast.show{transform:translateY(0);opacity:1;}
-    .toast-dot{width:7px;height:7px;border-radius:50%;background:var(--safe);}
-    .toast.error .toast-dot{background:var(--danger);}
+_pool: pg_pool.ThreadedConnectionPool | None = None
+_pool_lock = Lock()
 
-    /* ── VISITS ── */
-    .visit-item{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:13px 15px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:flex-start;}
-    .visit-date{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;}
-    .visit-reason{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:4px;}
-    .visit-notes{font-size:11.5px;color:var(--text-2);line-height:1.55;}
+def get_pool() -> pg_pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = pg_pool.ThreadedConnectionPool(
+                    minconn=2,
+                    maxconn=10,
+                    dsn=_get_db_url(),
+                )
+    return _pool
 
-    /* ── SETTINGS SECTION ── */
-    .settings-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px;}
-    .settings-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);margin-bottom:3px;}
-    .settings-desc{font-size:12px;color:var(--text-2);margin-bottom:18px;}
-    .dept-item{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;margin-bottom:7px;}
-    .dept-name{font-size:12.5px;font-weight:500;color:var(--text);}
 
-    /* ── AUDIT LOG ── */
-    .audit-item{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
-    .audit-item:last-child{border-bottom:none;}
-    .audit-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
-    .audit-icon.login{background:var(--safe-bg);}
-    .audit-icon.logout{background:var(--blue-bg);}
-    .audit-icon.add{background:var(--accent-dim);}
-    .audit-icon.delete{background:var(--danger-bg);}
-    .audit-icon.export{background:rgba(196,110,160,.10);}
-    .audit-icon.other{background:var(--surface2);}
-    .audit-action{font-size:12.5px;font-weight:500;color:var(--text);}
-    .audit-detail{font-size:11.5px;color:var(--text-2);margin-top:2px;}
-    .audit-time{font-size:10.5px;color:var(--text-3);flex-shrink:0;margin-top:2px;}
+@contextmanager
+def get_db():
+    """Context manager that borrows a connection from the pool and always returns it."""
+    pool = get_pool()
+    conn = pool.getconn()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        pool.putconn(conn)
 
-    /* ── HEALTH RISK REPORT ── */
-    .risk-report-hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;}
-    .risk-report-hero-left{display:flex;align-items:center;gap:18px;}
-    .risk-hero-icon{width:52px;height:52px;background:var(--danger-bg);border:1px solid rgba(217,85,85,0.2);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;}
-    .risk-hero-title{font-family:'Instrument Serif',serif;font-size:22px;color:var(--text);line-height:1.1;}
-    .risk-hero-title em{font-style:italic;color:var(--danger);}
-    .risk-hero-sub{font-size:12px;color:var(--text-3);margin-top:4px;}
-    .risk-hero-stats{display:flex;gap:24px;flex-wrap:wrap;}
-    .risk-hero-stat{text-align:center;}
-    .risk-hero-stat-val{font-family:'Instrument Serif',serif;font-size:28px;line-height:1;}
-    .risk-hero-stat-val.danger{color:var(--danger);}
-    .risk-hero-stat-val.safe{color:var(--safe);}
-    .risk-hero-stat-val.accent{color:var(--accent);}
-    .risk-hero-stat-label{font-size:10px;color:var(--text-3);margin-top:3px;text-transform:uppercase;letter-spacing:.08em;}
 
-    .risk-generated-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(224,85,85,0.08);border:1px solid rgba(224,85,85,0.15);border-radius:20px;font-size:11px;color:var(--danger);font-weight:500;}
+def init_db():
+    with get_db() as conn:
+        c = conn.cursor()
 
-    .risk-dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:20px;}
-    .risk-dept-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s,transform .15s,box-shadow .15s;}
-    .risk-dept-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow);}
-    .risk-dept-card.critical{border-color:rgba(217,85,85,0.3);}
-    .risk-dept-header{padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-    .risk-dept-name{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);line-height:1.2;}
-    .risk-dept-total{font-size:11px;color:var(--text-3);margin-top:3px;}
-    .risk-dept-badge{flex-shrink:0;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.03em;}
-    .risk-dept-badge.critical{background:var(--danger-bg);color:var(--danger);}
-    .risk-dept-badge.moderate{background:rgba(232,200,74,0.12);color:var(--accent);}
-    .risk-dept-badge.low{background:var(--safe-bg);color:var(--safe);}
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS personnel (
+                id         SERIAL PRIMARY KEY,
+                name       TEXT,
+                age        INTEGER,
+                gender     TEXT,
+                blood      TEXT,
+                department TEXT,
+                phone      TEXT,
+                address    TEXT,
+                conditions TEXT
+            )
+        ''')
 
-    .risk-dept-body{padding:14px 20px 16px;}
-    .risk-dept-progress{margin-bottom:14px;}
-    .risk-dept-progress-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);margin-bottom:5px;}
-    .risk-dept-track{height:7px;background:var(--surface2);border-radius:10px;overflow:hidden;}
-    .risk-dept-fill{height:100%;border-radius:10px;transition:width .8s ease;}
-    .risk-dept-fill.critical{background:linear-gradient(90deg,rgba(217,85,85,0.9),rgba(217,85,85,0.6));}
-    .risk-dept-fill.moderate{background:linear-gradient(90deg,rgba(232,200,74,0.9),rgba(232,200,74,0.6));}
-    .risk-dept-fill.low{background:linear-gradient(90deg,rgba(78,201,122,0.9),rgba(78,201,122,0.6));}
+        # Migrate older tables that predate the age/phone/address columns
+        for col, coltype in [('age', 'INTEGER'), ('phone', 'TEXT'), ('address', 'TEXT')]:
+            c.execute(f'''
+                DO $$ BEGIN
+                    ALTER TABLE personnel ADD COLUMN {col} {coltype};
+                EXCEPTION WHEN duplicate_column THEN NULL;
+                END $$;
+            ''')
 
-    .risk-dept-persons{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
-    .risk-person-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text-2);cursor:pointer;transition:all .12s;}
-    .risk-person-pill:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-bg);}
-    .risk-person-pill-dot{width:5px;height:5px;border-radius:50%;background:var(--danger);flex-shrink:0;}
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS visits (
+                id           SERIAL PRIMARY KEY,
+                personnel_id INTEGER REFERENCES personnel(id) ON DELETE CASCADE,
+                visit_date   DATE NOT NULL,
+                reason       TEXT,
+                notes        TEXT,
+                created_at   TIMESTAMP DEFAULT NOW()
+            )
+        ''')
 
-    .risk-dept-conditions{display:flex;flex-wrap:wrap;gap:4px;}
-    .risk-cond-chip{padding:2px 9px;border-radius:4px;font-size:10.5px;font-weight:500;}
-    .risk-cond-chip.danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(217,85,85,.15);}
-    .risk-cond-chip.warn{background:rgba(232,200,74,0.1);color:var(--accent);border:1px solid rgba(232,200,74,.15);}
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS departments (
+                id   SERIAL PRIMARY KEY,
+                name TEXT UNIQUE NOT NULL
+            )
+        ''')
 
-    .risk-summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;}
-    .risk-summary-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-    .risk-condition-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
-    .risk-condition-row:last-child{border-bottom:none;}
-    .risk-condition-name{font-size:12.5px;font-weight:500;color:var(--text);width:160px;flex-shrink:0;}
-    .risk-condition-name.danger{color:var(--danger);}
-    .risk-cond-bar-track{flex:1;height:6px;background:var(--surface2);border-radius:10px;overflow:hidden;}
-    .risk-cond-bar-fill{height:100%;border-radius:10px;}
-    .risk-cond-bar-fill.danger{background:rgba(217,85,85,0.8);}
-    .risk-cond-bar-fill.warn{background:rgba(232,200,74,0.7);}
-    .risk-condition-count{font-size:11.5px;color:var(--text-2);width:40px;text-align:right;flex-shrink:0;font-weight:600;}
-    .risk-condition-pct{font-size:10.5px;color:var(--text-3);width:44px;text-align:right;flex-shrink:0;}
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id         SERIAL PRIMARY KEY,
+                username   TEXT,
+                action     TEXT,
+                detail     TEXT,
+                ip         TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
 
-    .risk-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;gap:8px;color:var(--text-3);}
-    .risk-empty-icon{font-size:36px;opacity:.3;margin-bottom:4px;}
 
-    .risk-report-actions{display:flex;gap:10px;align-items:center;}
+init_db()
 
-    /* ── SCROLLBAR ── */
-    ::-webkit-scrollbar{width:4px;}
-    ::-webkit-scrollbar-track{background:transparent;}
-    ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+# ── HELPERS ───────────────────────────────────────────────────────────────────
 
-    /* ── LIGHT MODE ── */
-    body.light-mode{--bg:#f4f6f3;--surface:#ffffff;--surface2:#f0f2ef;--border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.13);--accent:#b5880a;--accent2:#9a7008;--accent-dim:rgba(181,136,10,0.10);--text:#141a16;--text-2:rgba(20,26,22,0.60);--text-3:rgba(20,26,22,0.38);--danger:#c0392b;--danger-bg:rgba(192,57,43,0.08);--safe:#1e8449;--safe-bg:rgba(30,132,73,0.08);--blue:#2471a3;--blue-bg:rgba(36,113,163,0.08);--shadow:0 1px 3px rgba(0,0,0,0.10),0 4px 16px rgba(0,0,0,0.07);}
-    body.light-mode .sidebar{background:#fff;}
-    body.light-mode .table-search,body.light-mode .cond-search,body.light-mode .form-input{background:#f4f6f3;}
-    body.light-mode canvas{filter:none;}
-
-    /* ── THEME TOGGLE ── */
-    .theme-toggle{width:32px;height:32px;border-radius:50%;border:1px solid var(--border2);background:var(--surface2);color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s;flex-shrink:0;}
-    .theme-toggle:hover{background:var(--border);color:var(--text);}
-
-    /* ── MOBILE / HAMBURGER ── */
-    .hamburger{display:none;width:38px;height:38px;border-radius:9px;border:1px solid var(--border2);background:var(--surface);cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:5px;position:fixed;top:14px;left:14px;z-index:300;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:background .15s;}
-    .hamburger:hover{background:var(--surface2);}
-    .hamburger span{display:block;width:16px;height:1.8px;background:var(--text-2);border-radius:2px;transition:all .25s ease;}
-    .hamburger.open span:nth-child(1){transform:translateY(6.8px) rotate(45deg);}
-    .hamburger.open span:nth-child(2){opacity:0;transform:scaleX(0);}
-    .hamburger.open span:nth-child(3){transform:translateY(-6.8px) rotate(-45deg);}
-    .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;opacity:0;transition:opacity .25s;pointer-events:none;}
-    .sidebar-backdrop.open{opacity:1;pointer-events:all;}
-
-    /* ── visits layout ── */
-    .visits-layout{display:grid;grid-template-columns:280px 1fr;gap:20px;}
-
-    /* ── TABLET (≤900px) ── */
-    @media(max-width:900px){
-      .hamburger{display:flex;}
-      .sidebar{transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:200;}
-      .sidebar.open{transform:translateX(0);}
-      .sidebar-backdrop{display:block;}
-      .main{margin-left:0;padding:20px 16px;padding-top:66px;}
-      .kpi-grid{grid-template-columns:repeat(3,1fr);}
-      .charts-grid{grid-template-columns:1fr;}
-      .chart-card.wide{grid-column:1;}
-      .report-grid{grid-template-columns:1fr;}
-      .report-card.wide{grid-column:1;}
-      .topbar{flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:18px;padding-bottom:16px;}
-      .topbar-right{width:100%;justify-content:flex-start;flex-wrap:wrap;}
-      .table-header{flex-wrap:wrap;gap:8px;}
-      .table-actions{flex-wrap:wrap;width:100%;}
-      .table-search{width:100%;}
-      .filters-bar{gap:6px;}
-      .filter-select{flex:1;min-width:120px;}
-      .modal-meds-grid{grid-template-columns:1fr;}
-      .visits-layout{grid-template-columns:1fr;}
-      .form-grid-3{grid-template-columns:1fr 1fr;}
+def row_to_person(r):
+    return {
+        'id':         r[0],
+        'name':       r[1],
+        'age':        r[2],
+        'gender':     r[3],
+        'blood':      r[4],
+        'department': r[5],
+        'phone':      r[6],
+        'address':    r[7],
+        'conditions': r[8].split('|') if r[8] else [],
     }
 
-    /* ── MOBILE (≤600px) ── */
-    @media(max-width:600px){
-      .main{padding:14px 12px;padding-top:62px;}
-      .kpi-grid{grid-template-columns:1fr 1fr;gap:8px;}
-      .kpi-card{padding:14px 14px;}
-      .kpi-value{font-size:26px;}
-      .page-heading{font-size:20px;}
-      .topbar{margin-bottom:14px;padding-bottom:12px;}
-      .topbar-right{gap:6px;}
-      .btn{padding:7px 12px;font-size:12px;}
-      .btn-sm{padding:5px 10px;font-size:11px;}
-      .modal{padding:18px 14px;max-width:96vw;border-radius:12px;}
-      .modal-grid{grid-template-columns:1fr;}
-      .modal-meds-grid{grid-template-columns:1fr;}
-      .form-grid{grid-template-columns:1fr;}
-      .form-grid-3{grid-template-columns:1fr;}
-      table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-      thead th{white-space:nowrap;padding:8px 12px;}
-      tbody td{padding:10px 12px;white-space:nowrap;}
-      .conditions-cell{max-width:160px;}
-      .filters-bar{flex-direction:column;align-items:stretch;}
-      .filter-select{width:100%;}
-      .filter-clear{text-align:left;}
-      .charts-grid{gap:8px;}
-      .chart-card{padding:14px;}
-      canvas{max-height:160px;}
-      .settings-section{padding:16px;}
-      .settings-section > div[style*="display:flex"]{flex-direction:column;align-items:stretch;}
-      .settings-section .btn{width:100%;justify-content:center;}
-      #newDeptName{max-width:100%!important;}
-      .report-grid{gap:8px;}
-      .report-card{padding:14px;}
-      .visit-item{flex-direction:column;gap:8px;}
-      .visit-item > *:last-child{align-self:flex-start;}
-      .table-header{padding:12px 14px;}
-      .pagination{padding:10px 14px;flex-wrap:wrap;justify-content:center;gap:4px;}
-      .pag-btn{width:28px;height:28px;font-size:11px;}
-      .pag-info{font-size:10.5px;}
-      .status-pill{display:none;}
-      .audit-item{gap:8px;}
-      .audit-time{font-size:10px;}
-      .med-grid{grid-template-columns:1fr;}
-      .topbar-right .btn-ghost:not(:last-child){display:none;}
-    }
-
-    /* ── SMALL MOBILE (≤380px) ── */
-    @media(max-width:380px){
-      .kpi-grid{grid-template-columns:1fr;}
-      .main{padding:12px 10px;padding-top:60px;}
-      .page-heading{font-size:18px;}
-      .kpi-value{font-size:24px;}
-    }
-
-    /* ── ADVANCED FILTERS ── */
-    .filters-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 20px;background:var(--surface2);border-bottom:1px solid var(--border);}
-    .filter-select{padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text-2);font-size:11.5px;font-family:'Figtree',sans-serif;outline:none;cursor:pointer;transition:border-color .15s;}
-    .filter-select:focus{border-color:rgba(212,184,74,.3);color:var(--text);}
-    .filter-clear{font-size:11px;color:var(--text-3);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:5px;transition:all .15s;}
-    .filter-clear:hover{color:var(--accent);background:var(--accent-dim);}
-
-    /* ── SKELETON LOADER ── */
-    .skel{background:var(--border);border-radius:4px;animation:shimmer 1.4s ease-in-out infinite;}
-    @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.9}}
-
-    /* ── PAGINATION ── */
-    .pagination{display:flex;align-items:center;gap:6px;padding:14px 20px;border-top:1px solid var(--border);justify-content:flex-end;}
-    .pag-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text-2);font-size:12px;font-family:'Figtree',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
-    .pag-btn:hover:not(:disabled){background:var(--surface2);color:var(--text);}
-    .pag-btn.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(212,184,74,.3);font-weight:600;}
-    .pag-btn:disabled{opacity:.3;cursor:not-allowed;}
-    .pag-info{font-size:11.5px;color:var(--text-3);margin:0 4px;}
-
-    /* ── TOPBAR DATE ── */
-    .topbar-date{font-size:11px;color:var(--text-3);margin-top:3px;letter-spacing:.01em;}
-
-    /* ── MODAL VISIT HISTORY ── */
-    .modal-visit-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:6px;}
-    .modal-visit-date{font-size:9.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;}
-    .modal-visit-reason{font-size:12.5px;font-weight:600;color:var(--text);}
-    .modal-visit-notes{font-size:11px;color:var(--text-2);margin-top:2px;line-height:1.5;}
-
-    /* ── CONDITION PILLS IN TABLE ── */
-    .cond-pill{display:inline-block;padding:2px 7px;border-radius:12px;font-size:10.5px;font-weight:500;margin:1px 2px 1px 0;background:var(--surface2);border:1px solid var(--border);color:var(--text-2);}
-    .cond-pill.danger{background:var(--danger-bg);border-color:rgba(217,85,85,.2);color:var(--danger);}
-    .cond-pill.warn{background:rgba(255,165,80,.08);border-color:rgba(255,165,80,.25);color:#d4791a;}
-
-    /* ── ANIM ── */
-    .fade-in{opacity:0;animation:fadeUp .4s ease forwards;}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-    .kpi-card:nth-child(1){animation-delay:.04s;}
-    .kpi-card:nth-child(2){animation-delay:.09s;}
-    .kpi-card:nth-child(3){animation-delay:.14s;}
-    .kpi-card:nth-child(4){animation-delay:.19s;}
-
-    /* ── COND SIDEBAR ── */
-    .cond-search-wrap{padding:4px 4px 8px;position:relative;}
-    .cond-search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-60%);width:12px;height:12px;color:var(--text-3);}
-    .cond-search{width:100%;padding:7px 10px 7px 30px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:11.5px;font-family:'Figtree',sans-serif;outline:none;transition:border-color .15s;}
-    .cond-search::placeholder{color:var(--text-3);}
-    .cond-search:focus{border-color:rgba(212,184,74,.25);}
-    .cond-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 11px;border-radius:6px;border:none;background:transparent;color:var(--text-2);font-size:12px;font-family:'Figtree',sans-serif;cursor:pointer;transition:all .12s;text-align:left;gap:6px;}
-    .cond-btn:hover{background:rgba(255,255,255,.04);color:var(--text);}
-    .cond-btn.active{background:var(--accent-dim);color:var(--accent);font-weight:500;}
-    .cond-dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.4;flex-shrink:0;}
-    .cond-btn.active .cond-dot{opacity:1;}
-    .cond-check{width:13px;height:13px;border-radius:3px;border:1.5px solid var(--border2);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s;}
-    .cond-btn.active .cond-check{background:var(--accent);border-color:var(--accent);}
-    .cond-check-tick{display:none;width:8px;height:8px;}
-    .cond-btn.active .cond-check-tick{display:block;}
-
-    /* ── MULTI-CONDITION FILTER BAR ── */
-    .multi-cond-bar{padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;}
-    .multi-cond-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;min-height:0;}
-    .multi-cond-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 7px 2px 8px;background:var(--accent-dim);border:1px solid rgba(212,184,74,.25);border-radius:20px;font-size:10.5px;color:var(--accent);font-weight:500;}
-    .multi-cond-tag button{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;line-height:1;font-size:11px;opacity:.7;transition:opacity .1s;}
-    .multi-cond-tag button:hover{opacity:1;}
-    .multi-cond-tag.danger{background:var(--danger-bg);border-color:rgba(217,85,85,.2);color:var(--danger);}
-    .multi-cond-tag.danger button{color:var(--danger);}
-    .cond-logic-row{display:flex;align-items:center;justify-content:space-between;}
-    .cond-logic-toggle{display:flex;border:1px solid var(--border2);border-radius:5px;overflow:hidden;}
-    .cond-logic-btn{padding:3px 8px;font-size:10px;font-weight:700;font-family:'Figtree',sans-serif;border:none;background:transparent;color:var(--text-3);cursor:pointer;letter-spacing:.04em;transition:all .12s;}
-    .cond-logic-btn.active{background:var(--accent-dim);color:var(--accent);}
-    .cond-clear-all{font-size:10px;color:var(--text-3);background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;transition:all .12s;}
-    .cond-clear-all:hover{color:var(--danger);}
-
-    /* ── REPORTS ── */
-    .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
-    .report-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;}
-    .report-card.wide{grid-column:1/-1;}
-    .conditions-bar{margin-bottom:10px;}
-    .cbar-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:5px;}
-    .cbar-track{height:6px;background:var(--surface2);border-radius:10px;overflow:hidden;}
-    .cbar-fill{height:100%;border-radius:10px;background:var(--accent);transition:width .6s ease;}
-
-    /* ── TREND ANALYTICS ── */
-    .trend-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:20px;}
-    .trend-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);}
-    .trend-header-left{}
-    .trend-eyebrow{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
-    .trend-eyebrow-label{font-size:9.5px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.13em;}
-    .trend-title{font-family:'Instrument Serif',serif;font-size:18px;color:var(--text);}
-    .trend-sub{font-size:12px;color:var(--text-3);margin-top:3px;}
-    .trend-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-    .trend-period-btns{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;}
-    .trend-period-btn{padding:5px 12px;font-size:11px;font-weight:600;font-family:'Figtree',sans-serif;border:none;background:transparent;color:var(--text-3);cursor:pointer;letter-spacing:.04em;transition:all .15s;}
-    .trend-period-btn:hover{color:var(--text);}
-    .trend-period-btn.active{background:var(--blue-bg);color:var(--blue);}
-    .trend-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-    .trend-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 18px;}
-    .trend-card.wide{grid-column:1/-1;}
-    .trend-card-label{font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.11em;margin-bottom:2px;}
-    .trend-card-title{font-family:'Instrument Serif',serif;font-size:14px;color:var(--text);margin-bottom:14px;}
-    .trend-stat-row{display:flex;gap:20px;margin-bottom:14px;flex-wrap:wrap;}
-    .trend-stat{display:flex;flex-direction:column;gap:2px;}
-    .trend-stat-val{font-family:'Instrument Serif',serif;font-size:22px;color:var(--text);line-height:1;}
-    .trend-stat-lbl{font-size:10px;color:var(--text-3);}
-    .trend-stat-val.up{color:var(--safe);}
-    .trend-stat-val.down{color:var(--danger);}
-    .trend-loading{display:flex;align-items:center;justify-content:center;min-height:120px;gap:8px;color:var(--text-3);font-size:12px;}
-    .trend-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100px;gap:5px;}
-    .trend-empty-icon{font-size:22px;opacity:.3;}
-    .trend-empty-text{font-size:12px;color:var(--text-3);}
-    .trend-insight{display:flex;align-items:flex-start;gap:8px;padding:10px 13px;background:rgba(80,150,200,0.06);border:1px solid rgba(80,150,200,0.15);border-radius:var(--radius-sm);margin-top:12px;}
-    .trend-insight-icon{font-size:13px;flex-shrink:0;margin-top:1px;}
-    .trend-insight-text{font-size:11.5px;color:var(--text-2);line-height:1.55;}
-    @media(max-width:700px){.trend-grid{grid-template-columns:1fr;}.trend-card.wide{grid-column:1;}}
-
-    /* ── PDF / EXCEL REPORTS PANEL ── */
-    .rpt-tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:5px;}
-    .rpt-tab{flex:1;padding:8px 4px;border:none;border-radius:var(--radius-sm);background:transparent;color:var(--text-3);font-size:11.5px;font-family:'Figtree',sans-serif;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;white-space:nowrap;}
-    .rpt-tab:hover{background:rgba(255,255,255,.04);color:var(--text);}
-    .rpt-tab.active{background:var(--accent-dim);color:var(--accent);font-weight:600;}
-    .rpt-panel{display:none;}
-    .rpt-panel.active{display:block;}
-    .rpt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:16px;}
-    .rpt-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
-    .rpt-card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
-    .rpt-card-icon.pdf{background:rgba(217,85,85,.12);}
-    .rpt-card-icon.xlsx{background:rgba(69,191,110,.12);}
-    .rpt-card-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);margin-bottom:2px;}
-    .rpt-card-desc{font-size:12px;color:var(--text-3);line-height:1.55;}
-    .rpt-form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
-    .rpt-form-group{display:flex;flex-direction:column;gap:5px;}
-    .rpt-form-group label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;}
-    .rpt-select,.rpt-input{padding:8px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:12.5px;font-family:'Figtree',sans-serif;outline:none;transition:border-color .15s;}
-    .rpt-select:focus,.rpt-input:focus{border-color:rgba(212,184,74,.3);}
-    .rpt-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(240,237,232,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px;}
-    .rpt-dl-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius-sm);border:none;font-size:12.5px;font-family:'Figtree',sans-serif;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
-    .rpt-dl-btn.pdf-btn{background:rgba(217,85,85,.15);color:#e07070;}
-    .rpt-dl-btn.pdf-btn:hover{background:rgba(217,85,85,.25);}
-    .rpt-dl-btn.xlsx-btn{background:rgba(69,191,110,.15);color:var(--safe);}
-    .rpt-dl-btn.xlsx-btn:hover{background:rgba(69,191,110,.25);}
-    .rpt-dl-btn:disabled{opacity:.45;cursor:not-allowed;}
-    .rpt-divider{height:1px;background:var(--border);margin:18px 0;}
-    .rpt-preview{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;font-size:11.5px;color:var(--text-3);line-height:1.65;}
-    .rpt-preview strong{color:var(--text);}
-    .rpt-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.03em;}
-    .rpt-badge.pdf{background:rgba(217,85,85,.1);color:#e07070;}
-    .rpt-badge.xlsx{background:rgba(69,191,110,.1);color:var(--safe);}
-  </style>
-</head>
-<body>
-
-<!-- ── MOBILE HAMBURGER ── -->
-<button class="hamburger" onclick="toggleSidebar()" id="hamburgerBtn" aria-label="Menu">
-  <span></span><span></span><span></span>
-</button>
-<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
-
-<!-- ── SIDEBAR ── -->
-<aside class="sidebar" id="mainSidebar">
-  <div class="sidebar-logo">
-    <div class="logo-mark">
-      <img src="MMSU_LOGO.png" alt="MMSU Logo">
-    </div>
-    <div>
-      <div class="logo-title">MMSU Medical</div>
-      <div class="logo-sub">Health Records System</div>
-    </div>
-  </div>
-
-  <nav class="sidebar-nav">
-    <div class="nav-label">Main</div>
-    <button class="nav-item active" onclick="showPage('overview',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="7" height="7" rx="2"/><rect x="11" y="2" width="7" height="7" rx="2"/><rect x="2" y="11" width="7" height="7" rx="2"/><rect x="11" y="11" width="7" height="7" rx="2"/></svg>
-      Overview
-    </button>
-    <button class="nav-item" onclick="showPage('personnel',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.31 2.69-6 6-6s6 2.69 6 6"/><circle cx="16" cy="7" r="2"/><path d="M16 12c1.66 0 3 1.34 3 3"/></svg>
-      Personnel
-    </button>
-    <button class="nav-item" onclick="showPage('visits',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M3 8h14M8 4V2M12 4V2"/></svg>
-      Patient Visits
-    </button>
-    <button class="nav-item" onclick="showPage('reports',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16V8l4-3 4 4 4-6 4 2v11H2z"/></svg>
-      Reports & Analytics
-    </button>
-    <button class="nav-item" onclick="showPage('riskReport',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2L2 17h16L10 2z"/><line x1="10" y1="8" x2="10" y2="12"/><line x1="10" y1="14" x2="10.01" y2="14"/></svg>
-      Health Risk Report
-    </button>
-    <button class="nav-item" onclick="showPage('medlookup',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2v16M2 10h16"/><circle cx="10" cy="10" r="8"/></svg>
-      Medicine Lookup
-    </button>
-
-    <div class="sidebar-divider"></div>
-    <div class="nav-label">Admin</div>
-    <button class="nav-item" onclick="showPage('settings',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"/></svg>
-      System Settings
-    </button>
-    <button class="nav-item" onclick="showPage('audit',this)">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6M9 16h6M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2z"/><path d="M5 7H3a2 2 0 00-2 2v8a2 2 0 002 2h4"/></svg>
-      Audit Log
-    </button>
-
-    <div class="sidebar-divider"></div>
-    <div style="padding:6px 10px 2px;display:flex;align-items:center;justify-content:space-between;">
-      <div class="nav-label" style="padding:0;margin:0;">Conditions</div>
-      <button class="cond-clear-all" id="condClearAll" onclick="clearConditionFilters()" style="display:none;">Clear all</button>
-    </div>
-    <div class="cond-search-wrap">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
-      <input class="cond-search" type="text" placeholder="Search conditions…" oninput="searchConditionSidebar(this.value)" id="condSidebarSearch">
-    </div>
-    <div id="condBtnList" style="padding:0 4px;flex:1;overflow-y:auto;max-height:220px;"></div>
-
-    <!-- Active condition tags + AND/OR toggle -->
-    <div class="multi-cond-bar" id="multiCondBar" style="display:none;">
-      <div class="multi-cond-tags" id="multiCondTags"></div>
-      <div class="cond-logic-row">
-        <div class="cond-logic-toggle">
-          <button class="cond-logic-btn active" id="logicBtnOR"  onclick="setCondLogic('OR')">OR</button>
-          <button class="cond-logic-btn"        id="logicBtnAND" onclick="setCondLogic('AND')">AND</button>
-        </div>
-        <span style="font-size:10px;color:var(--text-3);" id="condLogicHint">match any</span>
-      </div>
-    </div>
-
-  </nav>
-
-  <div class="sidebar-footer">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div style="font-size:11px;color:var(--text-3);padding:0 2px;line-height:1.5;">
-        Signed in as<br><span style="color:var(--text);font-weight:600;" id="loggedInUser">admin</span>
-      </div>
-      <button class="theme-toggle" onclick="toggleTheme()" id="themeToggleBtn" title="Toggle theme">🌙</button>
-    </div>
-    <button onclick="handleLogout()" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-      Sign Out
-    </button>
-  </div>
-</aside>
-
-<!-- ── MAIN ── -->
-<main class="main">
-
-  <!-- ═══════════════ OVERVIEW PAGE ═══════════════ -->
-  <div class="page active" id="page-overview">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Personnel <em>Health Records</em></div>
-        <div class="page-sub" id="activeFilterLabel">All personnel — records loaded</div>
-        <div class="topbar-date" id="topbarDate"></div>
-      </div>
-      <div class="topbar-right">
-        <div class="status-pill"><div class="status-dot"></div>System Active</div>
-      </div>
-    </div>
-
-    <div class="kpi-grid">
-      <div class="kpi-card fade-in"><div class="kpi-icon gold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M19 11c1.66 0 3 1.34 3 3v1" opacity=".5"/><circle cx="19" cy="7" r="2.5" opacity=".5"/></svg></div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="totalRecords">—</div><div class="kpi-sub">Active records</div></div>
-      <div class="kpi-card fade-in"><div class="kpi-icon blue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0 0 16 0c0-2.5-2-7-8-14z"/></svg></div><div class="kpi-label">Common Blood Type</div><div class="kpi-value" id="commonBloodType">—</div><div class="kpi-sub">Most frequent type</div></div>
-      <div class="kpi-card fade-in"><div class="kpi-icon blue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><circle cx="10" cy="14" r="5"/><path d="M19 5l-5 5M14 5h5v5"/></svg></div><div class="kpi-label">Male</div><div class="kpi-value" id="malePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
-      <div class="kpi-card fade-in"><div class="kpi-icon pink"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 18h6"/></svg></div><div class="kpi-label">Female</div><div class="kpi-value" id="femalePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
-      <div class="kpi-card fade-in"><div class="kpi-icon" style="background:var(--danger-bg);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-label">High Risk</div><div class="kpi-value" id="highRiskCount">—</div><div class="kpi-sub" id="highRiskPct">Of total personnel</div></div>
-    </div>
-
-    <div class="med-panel" id="medPanel">
-      <div class="med-panel-head">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#e8c84a" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
-        <div class="med-panel-title">Treatment Suggestions —</div>
-        <div class="med-panel-cond" id="medPanelCondition"></div>
-      </div>
-      <div class="med-grid" id="medGrid"></div>
-    </div>
-
-    <div class="charts-grid">
-      <div class="chart-card wide"><div class="chart-label">Distribution</div><div class="chart-title-text">Blood Type Frequency</div><canvas id="bloodTypeChart"></canvas></div>
-      <div class="chart-card"><div class="chart-label">Demographics</div><div class="chart-title-text">Gender Split</div><canvas id="genderChart"></canvas></div>
-      <div class="chart-card"><div class="chart-label">Risk</div><div class="chart-title-text">High Risk Rate</div><canvas id="riskChart"></canvas></div>
-      <div class="chart-card wide tall"><div class="chart-label">Breakdown</div><div class="chart-title-text">Personnel by Department</div><canvas id="deptChart"></canvas></div>
-      <div class="chart-card wide tall">
-        <div class="chart-label">Prevalence</div>
-        <div class="chart-title-text">Top Health Conditions</div>
-        <canvas id="conditionsOverviewChart"></canvas>
-        <div style="display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);"><span style="width:10px;height:10px;border-radius:3px;background:rgba(224,85,85,0.8);display:inline-block;"></span>High Risk Condition</div>
-          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);"><span style="width:10px;height:10px;border-radius:3px;background:rgba(91,164,212,0.75);display:inline-block;"></span>Standard Condition</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════ PERSONNEL PAGE ═══════════════ -->
-  <div class="page" id="page-personnel">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Personnel <em>Management</em></div>
-        <div class="page-sub">View, add, edit and manage all personnel records</div>
-      </div>
-      <div class="topbar-right">
-        <button class="btn btn-ghost btn-sm" onclick="exportPersonnel()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Export CSV
-        </button>
-        <button class="btn btn-primary btn-sm" onclick="openAddPersonnelModal()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-          Add Personnel
-        </button>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <div class="table-header">
-        <div>
-          <div class="table-title">Personnel Records</div>
-          <div class="table-count" id="personnelCountLabel">Loading…</div>
-        </div>
-        <div class="table-actions">
-          <span class="active-filter" id="filterBadge">All</span>
-          <input type="text" class="table-search" placeholder="Search name or dept…" oninput="applyAllFilters()" id="tableSearch">
-        </div>
-      </div>
-      <!-- Advanced filters bar -->
-      <div class="filters-bar">
-        <select class="filter-select" id="filterDept" onchange="applyAllFilters()">
-          <option value="">All Departments</option>
-        </select>
-        <select class="filter-select" id="filterGender" onchange="applyAllFilters()">
-          <option value="">All Genders</option>
-          <option>Male</option>
-          <option>Female</option>
-        </select>
-        <select class="filter-select" id="filterBlood" onchange="applyAllFilters()">
-          <option value="">All Blood Types</option>
-          <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
-          <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
-        </select>
-        <select class="filter-select" id="filterRisk" onchange="applyAllFilters()">
-          <option value="">All Risk Levels</option>
-          <option value="high">High Risk</option>
-          <option value="normal">Normal</option>
-        </select>
-        <button class="filter-clear" onclick="clearAdvancedFilters()">✕ Clear filters</button>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th><th>Age</th><th>Gender</th><th>Blood</th><th>Department</th><th>Phone</th><th>Conditions</th><th>Risk</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="personnelTable"></tbody>
-      </table>
-      <div class="pagination" id="paginationBar"></div>
-    </div>
-  </div>
-
-  <!-- ═══════════════ VISITS PAGE ═══════════════ -->
-  <div class="page" id="page-visits">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Patient <em>Visit Records</em></div>
-        <div class="page-sub">Record and view clinic visits for each personnel</div>
-      </div>
-      <div class="topbar-right">
-        <button class="btn btn-ghost btn-sm" onclick="exportVisits()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Export Visits
-        </button>
-      </div>
-    </div>
-
-    <div class="visits-layout">
-      <!-- Person picker -->
-      <div class="table-wrap" style="height:fit-content;">
-        <div class="table-header" style="padding:14px 16px;">
-          <div>
-            <div class="table-title">Select Personnel</div>
-          </div>
-        </div>
-        <div style="padding:10px;">
-          <input type="text" class="table-search" style="width:100%;margin-bottom:8px;" placeholder="Search…" oninput="filterPersonPicker(this.value)">
-          <div id="personPicker" style="max-height:400px;overflow-y:auto;"></div>
-        </div>
-      </div>
-      <!-- Visit panel -->
-      <div>
-        <div id="visitPanel" style="display:none;">
-          <div class="table-wrap" style="margin-bottom:16px;">
-            <div class="table-header">
-              <div>
-                <div class="table-title">Visit History</div>
-                <div class="table-count" id="visitPersonName">Select a person</div>
-              </div>
-              <button class="btn btn-primary btn-sm" onclick="openAddVisitModal()">+ Add Visit</button>
-            </div>
-            <div id="visitsList" style="padding:16px;"></div>
-          </div>
-        </div>
-        <div id="visitPlaceholder" style="display:flex;align-items:center;justify-content:center;height:300px;">
-          <div class="empty-state">
-            <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M9 4v5M15 4v5"/></svg></div>
-            <div class="empty-title">Select a person</div>
-            <div class="empty-sub">Choose from the list to view visit history</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════ MEDICINE LOOKUP PAGE ═══════════════ -->
-  <div class="page" id="page-medlookup">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Medicine <em>Lookup</em></div>
-        <div class="page-sub">Search any condition for AI-powered treatment suggestions</div>
-      </div>
-    </div>
-
-    <!-- Search bar -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:20px;">
-      <div style="display:flex;gap:10px;align-items:center;">
-        <div style="flex:1;position:relative;">
-          <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-3);pointer-events:none;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
-          <input class="form-input" id="medLookupInput" placeholder="Type any condition — e.g. Lupus, Diabetes, Hypertension…"
-            oninput="onMedLookupInput(this.value)"
-            onkeydown="if(event.key==='Enter') runAIMedLookup()"
-            autocomplete="off" style="padding-left:36px;">
-          <div id="medLookupDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4);"></div>
-        </div>
-        <button class="btn btn-primary" onclick="runAIMedLookup()" id="aiMedLookupBtn" style="white-space:nowrap;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          AI Assist
-        </button>
-        <button class="btn btn-ghost" onclick="clearMedLookup()">Clear</button>
-      </div>
-    </div>
-
-    <!-- Static medicine results -->
-    <div id="medLookupResult" style="display:none;margin-bottom:20px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#e8c84a" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
-        <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;">Standard Medicines —</span>
-        <span id="medLookupConditionLabel" style="font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);"></span>
-      </div>
-      <div class="med-grid" id="medLookupCards"></div>
-    </div>
-
-    <!-- AI Results section -->
-    <div id="aiMedLookupSection" style="display:none;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;">AI Treatment Analysis —</span>
-          <span id="aiMedLookupCondLabel" style="font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);"></span>
-        </div>
-        <span style="font-size:11px;color:var(--text-3);">Clinical AI · general reference only</span>
-      </div>
-
-      <!-- Loading skeleton -->
-      <div id="aiMedLookupLoading" style="display:none;">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px;">
-          <div style="height:10px;width:120px;background:var(--border2);border-radius:4px;margin-bottom:12px;"></div>
-          <div style="height:12px;width:90%;background:var(--border);border-radius:4px;margin-bottom:8px;"></div>
-          <div style="height:12px;width:75%;background:var(--border);border-radius:4px;"></div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
-          ${[1,2,3,4].map(()=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;">
-            <div style="height:10px;width:60%;background:var(--border2);border-radius:4px;margin-bottom:10px;"></div>
-            <div style="height:10px;width:40%;background:var(--border);border-radius:4px;margin-bottom:14px;"></div>
-            <div style="height:10px;width:90%;background:var(--border);border-radius:4px;margin-bottom:6px;"></div>
-            <div style="height:10px;width:70%;background:var(--border);border-radius:4px;"></div>
-          </div>`).join('')}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:16px;color:var(--text-3);font-size:12px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;flex-shrink:0;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          Analyzing condition with AI…
-        </div>
-      </div>
-
-      <!-- Results -->
-      <div id="aiMedLookupResults" style="display:none;">
-        <div id="aiMedLookupOverview" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:14px;">
-          <div style="font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Condition Overview</div>
-          <div id="aiMedLookupOverviewText" style="font-size:13px;color:var(--text-2);line-height:1.65;"></div>
-        </div>
-        <div id="aiMedLookupGrid" class="modal-meds-grid" style="margin-bottom:12px;"></div>
-        <div id="aiMedLookupNote" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,.18);border-radius:var(--radius-sm);padding:11px 15px;margin-bottom:12px;">
-          <div style="font-size:11px;font-weight:600;color:var(--danger);margin-bottom:3px;">⚠ Important Note</div>
-          <div id="aiMedLookupNoteText" style="font-size:11.5px;color:var(--text-2);line-height:1.5;"></div>
-        </div>
-        <div style="font-size:11px;color:var(--text-3);line-height:1.5;">AI suggestions are for general reference only. Always defer to a licensed physician for final treatment decisions.</div>
-      </div>
-
-      <!-- Error -->
-      <div id="aiMedLookupError" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,.18);border-radius:var(--radius);padding:14px 16px;">
-        <div style="font-size:12.5px;color:var(--danger);" id="aiMedLookupErrorMsg">Something went wrong.</div>
-      </div>
-    </div>
-
-    <!-- Placeholder -->
-    <div id="medLookupPlaceholder">
-      <div class="empty-state">
-        <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
-        <div class="empty-title">Search a condition</div>
-        <div class="empty-sub">Type any condition and press <strong style="color:var(--accent);">Enter</strong> or click <strong style="color:var(--accent);">AI Assist</strong></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════ REPORTS PAGE ═══════════════ -->
-  <div class="page" id="page-reports">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Reports <em>&amp; Analytics</em></div>
-        <div class="page-sub">Download formatted reports or view live health analytics</div>
-      </div>
-      <div class="topbar-right">
-        <button class="btn btn-ghost btn-sm" onclick="openPrintReport()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          Print Analytics
-        </button>
-      </div>
-    </div>
-
-    <!-- ── DOWNLOADABLE REPORTS SECTION ── -->
-    <div style="margin-bottom:28px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-        <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;">Downloadable Reports</span>
-      </div>
-
-      <!-- Tab strip -->
-      <div class="rpt-tabs">
-        <button class="rpt-tab active" onclick="switchRptTab('monthly',this)">📅 Monthly</button>
-        <button class="rpt-tab" onclick="switchRptTab('yearly',this)">📆 Yearly</button>
-        <button class="rpt-tab" onclick="switchRptTab('department',this)">🏢 Department</button>
-        <button class="rpt-tab" onclick="switchRptTab('consultation',this)">📋 Consultation</button>
-        <button class="rpt-tab" onclick="switchRptTab('medicine',this)">💊 Medicine Inventory</button>
-      </div>
-
-      <!-- 1. MONTHLY -->
-      <div class="rpt-panel active" id="rpt-panel-monthly">
-        <div class="rpt-card">
-          <div class="rpt-card-head">
-            <div style="display:flex;gap:14px;align-items:flex-start;">
-              <div class="rpt-card-icon pdf">📅</div>
-              <div>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                  <div class="rpt-card-title">Monthly Medical Report</div>
-                  <span class="rpt-badge pdf">PDF</span>
-                </div>
-                <div class="rpt-card-desc">Full visit log, top reasons, and department breakdown for any selected month. Includes a KPI summary row and printable table layout.</div>
-              </div>
-            </div>
-          </div>
-          <div class="rpt-form-row">
-            <div class="rpt-form-group">
-              <label>Year</label>
-              <select class="rpt-select" id="rpt-month-year" style="width:100px;"></select>
-            </div>
-            <div class="rpt-form-group">
-              <label>Month</label>
-              <select class="rpt-select" id="rpt-month-month" style="width:140px;">
-                <option value="1">January</option><option value="2">February</option>
-                <option value="3">March</option><option value="4">April</option>
-                <option value="5">May</option><option value="6">June</option>
-                <option value="7">July</option><option value="8">August</option>
-                <option value="9">September</option><option value="10">October</option>
-                <option value="11">November</option><option value="12">December</option>
-              </select>
-            </div>
-            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('monthly')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              Download PDF
-            </button>
-          </div>
-          <div class="rpt-divider"></div>
-          <div class="rpt-preview">
-            <strong>Includes:</strong> KPI summary (total personnel, high-risk count, visits, departments) · Full visit log with date, name, department, reason & notes · Top visit reasons ranked · Department visit breakdown
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. YEARLY -->
-      <div class="rpt-panel" id="rpt-panel-yearly">
-        <div class="rpt-card">
-          <div class="rpt-card-head">
-            <div style="display:flex;gap:14px;align-items:flex-start;">
-              <div class="rpt-card-icon pdf">📆</div>
-              <div>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                  <div class="rpt-card-title">Yearly Summary Report</div>
-                  <span class="rpt-badge pdf">PDF</span>
-                </div>
-                <div class="rpt-card-desc">Annual health overview with monthly visit volumes, personnel demographics, department health stats, and top visit reasons for the whole year.</div>
-              </div>
-            </div>
-          </div>
-          <div class="rpt-form-row">
-            <div class="rpt-form-group">
-              <label>Year</label>
-              <select class="rpt-select" id="rpt-year-year" style="width:100px;"></select>
-            </div>
-            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('yearly')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              Download PDF
-            </button>
-          </div>
-          <div class="rpt-divider"></div>
-          <div class="rpt-preview">
-            <strong>Includes:</strong> Personnel KPIs (total, high-risk, gender split, total visits) · Monthly visit volume table for all 12 months · Department overview (personnel count, yearly visits, high-risk count) · Top 10 visit reasons ranked
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. DEPARTMENT -->
-      <div class="rpt-panel" id="rpt-panel-department">
-        <div class="rpt-card">
-          <div class="rpt-card-head">
-            <div style="display:flex;gap:14px;align-items:flex-start;">
-              <div class="rpt-card-icon pdf">🏢</div>
-              <div>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                  <div class="rpt-card-title">Department Report</div>
-                  <span class="rpt-badge pdf">PDF</span>
-                </div>
-                <div class="rpt-card-desc">Lists all personnel within one or all departments with risk status, health conditions, and department-level KPI summaries.</div>
-              </div>
-            </div>
-          </div>
-          <div class="rpt-form-row">
-            <div class="rpt-form-group">
-              <label>Department</label>
-              <select class="rpt-select" id="rpt-dept-select" style="width:200px;">
-                <option value="">All Departments</option>
-              </select>
-            </div>
-            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('department')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              Download PDF
-            </button>
-          </div>
-          <div class="rpt-divider"></div>
-          <div class="rpt-preview">
-            <strong>Includes:</strong> Per-department KPI block (headcount, high-risk count, total visits) · Personnel roster with name, age, gender, blood type, risk level, and conditions · Grouped by department with section headers
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. CONSULTATION HISTORY -->
-      <div class="rpt-panel" id="rpt-panel-consultation">
-        <div class="rpt-card">
-          <div class="rpt-card-head">
-            <div style="display:flex;gap:14px;align-items:flex-start;">
-              <div class="rpt-card-icon pdf">📋</div>
-              <div>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                  <div class="rpt-card-title">Printable Consultation History</div>
-                  <span class="rpt-badge pdf">PDF</span>
-                </div>
-                <div class="rpt-card-desc">Complete visit records filtered by person, department, or date range. Ideal for insurance documentation or clinical audit.</div>
-              </div>
-            </div>
-          </div>
-          <div class="rpt-form-row">
-            <div class="rpt-form-group">
-              <label>Department (optional)</label>
-              <select class="rpt-select" id="rpt-consult-dept" style="width:180px;">
-                <option value="">All Departments</option>
-              </select>
-            </div>
-            <div class="rpt-form-group">
-              <label>From Date</label>
-              <input type="date" class="rpt-input" id="rpt-consult-from" style="width:150px;">
-            </div>
-            <div class="rpt-form-group">
-              <label>To Date</label>
-              <input type="date" class="rpt-input" id="rpt-consult-to" style="width:150px;">
-            </div>
-            <button class="rpt-dl-btn pdf-btn" onclick="downloadReport('consultation')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              Download PDF
-            </button>
-          </div>
-          <div class="rpt-divider"></div>
-          <div class="rpt-preview">
-            <strong>Includes:</strong> Filterable by department and date range · Full visit table: date, personnel, department, age, gender, reason, notes · Record count summary · MMSU clinic header and confidentiality footer
-          </div>
-        </div>
-      </div>
-
-      <!-- 5. MEDICINE INVENTORY -->
-      <div class="rpt-panel" id="rpt-panel-medicine">
-        <div class="rpt-card">
-          <div class="rpt-card-head">
-            <div style="display:flex;gap:14px;align-items:flex-start;">
-              <div class="rpt-card-icon xlsx">💊</div>
-              <div>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                  <div class="rpt-card-title">Medicine Inventory Report</div>
-                  <span class="rpt-badge xlsx">Excel</span>
-                </div>
-                <div class="rpt-card-desc">Multi-sheet Excel workbook showing conditions, suggested medicines, affected personnel counts, department breakdowns, and estimated monthly medicine needs.</div>
-              </div>
-            </div>
-          </div>
-          <div class="rpt-form-row">
-            <button class="rpt-dl-btn xlsx-btn" onclick="downloadReport('medicine')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              Download Excel (.xlsx)
-            </button>
-          </div>
-          <div class="rpt-divider"></div>
-          <div class="rpt-preview">
-            <strong>4 Sheets included:</strong><br>
-            <strong>① Condition Inventory</strong> — all conditions ranked by prevalence with suggested medicines and risk level<br>
-            <strong>② By Department</strong> — pivot-style breakdown of every condition per department<br>
-            <strong>③ Medicine Needs</strong> — estimated monthly units per medicine based on patient count<br>
-            <strong>④ Summary</strong> — key KPIs and report metadata
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /downloadable reports -->
-
-    <div style="height:1px;background:var(--border);margin-bottom:24px;"></div>
-
-    <!-- existing analytics content below -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-      <span style="font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.12em;">Live Analytics</span>
-    </div>
-
-    <div class="kpi-grid" style="margin-bottom:24px;">
-      <div class="kpi-card"><div class="kpi-icon gold"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M19 11c1.66 0 3 1.34 3 3v1" opacity=".5"/><circle cx="19" cy="7" r="2.5" opacity=".5"/></svg></div><div class="kpi-label">Total Personnel</div><div class="kpi-value" id="rpt-total">—</div></div>
-      <div class="kpi-card"><div class="kpi-icon green">✓</div><div class="kpi-label">Normal Risk</div><div class="kpi-value" id="rpt-normal">—</div></div>
-      <div class="kpi-card"><div class="kpi-icon" style="background:var(--danger-bg);">⚠</div><div class="kpi-label">High Risk</div><div class="kpi-value" id="rpt-highrisk">—</div></div>
-      <div class="kpi-card"><div class="kpi-icon blue">📋</div><div class="kpi-label">Total Visits</div><div class="kpi-value" id="rpt-visits">—</div></div>
-    </div>
-
-    <div class="report-grid">
-      <div class="report-card">
-        <div class="chart-label">Top Conditions</div>
-        <div class="chart-title-text">Most Common Diagnoses</div>
-        <div id="conditionsReport"></div>
-      </div>
-      <div class="report-card">
-        <div class="chart-label">Age Distribution</div>
-        <div class="chart-title-text">Personnel by Age Group</div>
-        <canvas id="ageChart" style="max-height:200px;"></canvas>
-      </div>
-      <div class="report-card wide">
-        <div class="chart-label">Department Health Overview</div>
-        <div class="chart-title-text">High Risk vs Normal by Department</div>
-        <canvas id="deptRiskChart" style="max-height:180px;"></canvas>
-      </div>
-    </div>
-
-    <!-- ── TREND ANALYTICS ── -->
-    <div class="trend-section" id="trendSection">
-      <div class="trend-header">
-        <div class="trend-header-left">
-          <div class="trend-eyebrow">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-            <span class="trend-eyebrow-label">Trend Analytics</span>
-          </div>
-          <div class="trend-title">Clinic Activity <em style="font-style:italic;color:var(--blue);">Over Time</em></div>
-          <div class="trend-sub">Based on visit records and personnel registration data</div>
-        </div>
-        <div class="trend-controls">
-          <div class="trend-period-btns">
-            <button class="trend-period-btn active" onclick="setTrendPeriod('6m',this)">6M</button>
-            <button class="trend-period-btn" onclick="setTrendPeriod('12m',this)">12M</button>
-            <button class="trend-period-btn" onclick="setTrendPeriod('all',this)">All</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="loadTrendData()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      <div class="trend-grid" id="trendGrid">
-        <!-- Visit Volume (wide) -->
-        <div class="trend-card wide">
-          <div class="trend-card-label">Visit Volume</div>
-          <div class="trend-card-title">Monthly Clinic Visits</div>
-          <div class="trend-stat-row" id="trendVisitStats">
-            <div class="trend-stat"><div class="trend-stat-val" id="trendTotalVisits">—</div><div class="trend-stat-lbl">Total Visits</div></div>
-            <div class="trend-stat"><div class="trend-stat-val" id="trendAvgVisits">—</div><div class="trend-stat-lbl">Avg / Month</div></div>
-            <div class="trend-stat"><div class="trend-stat-val" id="trendPeakMonth">—</div><div class="trend-stat-lbl">Peak Month</div></div>
-            <div class="trend-stat"><div class="trend-stat-val" id="trendThisMonth">—</div><div class="trend-stat-lbl">This Month</div></div>
-          </div>
-          <div id="trendVisitLoading" class="trend-loading">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-            Loading visit data…
-          </div>
-          <canvas id="visitTrendChart" style="display:none;max-height:200px;"></canvas>
-          <div id="trendVisitInsight" class="trend-insight" style="display:none;">
-            <span class="trend-insight-icon">💡</span>
-            <span class="trend-insight-text" id="trendVisitInsightText"></span>
-          </div>
-        </div>
-
-        <!-- Visit Reasons -->
-        <div class="trend-card">
-          <div class="trend-card-label">Reason Breakdown</div>
-          <div class="trend-card-title">Why People Visit</div>
-          <div id="trendReasonsLoading" class="trend-loading" style="min-height:80px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          </div>
-          <div id="trendReasonsList" style="display:none;"></div>
-        </div>
-
-        <!-- Visit Frequency by Dept -->
-        <div class="trend-card">
-          <div class="trend-card-label">By Department</div>
-          <div class="trend-card-title">Most Active Departments</div>
-          <div id="trendDeptLoading" class="trend-loading" style="min-height:80px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          </div>
-          <div id="trendDeptList" style="display:none;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── AI DEPARTMENT HEALTH SUMMARY ── -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:20px;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.11em;">AI Health Analysis</span>
-          </div>
-          <div style="font-family:'Instrument Serif',serif;font-size:18px;color:var(--text);">Department Health <em>Summary</em></div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:3px;">AI-generated narrative based on current personnel health data</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <select class="filter-select" id="aiSummaryDeptSelect" style="font-size:11.5px;padding:5px 10px;min-width:160px;">
-            <option value="all">All Departments</option>
-          </select>
-          <button class="btn btn-primary btn-sm" id="aiSummaryBtn" onclick="runAIDeptSummary()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            Generate Summary
-          </button>
-          <button class="btn btn-ghost btn-sm" id="aiSummaryCopyBtn" onclick="copyAISummary()" style="display:none;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            Copy
-          </button>
-        </div>
-      </div>
-
-      <div id="aiSummaryPlaceholder" style="background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:28px;text-align:center;">
-        <div style="font-size:28px;margin-bottom:8px;opacity:.4;">🏥</div>
-        <div style="font-size:13px;color:var(--text-2);margin-bottom:4px;">No summary generated yet</div>
-        <div style="font-size:12px;color:var(--text-3);">Select a department (or leave on <strong style="color:var(--accent);">All</strong>) and click <strong style="color:var(--accent);">Generate Summary</strong></div>
-      </div>
-
-      <div id="aiSummaryLoading" style="display:none;">
-        <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:22px 24px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;flex-shrink:0;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          <div>
-            <div style="font-size:13px;color:var(--text);font-weight:500;" id="aiSummaryLoadingText">Analyzing department health data…</div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:2px;">This may take a few seconds</div>
-          </div>
-        </div>
-      </div>
-
-      <div id="aiSummaryResults" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--safe);box-shadow:0 0 6px var(--safe);"></div>
-            <span style="font-size:12px;font-weight:600;color:var(--text);" id="aiSummaryScope">All Departments</span>
-          </div>
-          <span style="font-size:11px;color:var(--text-3);" id="aiSummaryTimestamp"></span>
-        </div>
-        <div id="aiSummaryBanner" style="border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:16px;border:1px solid;"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" id="aiSummarySectionGrid"></div>
-        <div id="aiSummaryRecsBox" style="display:none;background:rgba(232,200,74,0.06);border:1px solid rgba(232,200,74,0.15);border-radius:var(--radius-sm);padding:14px 16px;">
-          <div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;">💡 Recommendations</div>
-          <div id="aiSummaryRecs" style="display:flex;flex-direction:column;gap:7px;"></div>
-        </div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:12px;line-height:1.6;">⚕ AI-generated analysis for reference only. Always consult licensed medical professionals for clinical decisions.</div>
-      </div>
-
-      <div id="aiSummaryError" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius-sm);padding:14px 16px;">
-        <div style="font-size:12.5px;color:var(--danger);" id="aiSummaryErrorMsg">Something went wrong. Please try again.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════ HEALTH RISK REPORT PAGE ═══════════════ -->
-  <div class="page" id="page-riskReport">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Health <em>Risk Report</em></div>
-        <div class="page-sub">Auto-generated summary of high-risk personnel per department</div>
-      </div>
-      <div class="topbar-right risk-report-actions">
-        <button class="btn btn-ghost btn-sm" onclick="renderRiskReport()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-          Refresh
-        </button>
-        <button class="btn btn-ghost btn-sm" onclick="exportRiskReportCSV()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Export CSV
-        </button>
-      </div>
-    </div>
-
-    <!-- Hero summary bar -->
-    <div class="risk-report-hero" id="riskReportHero">
-      <div class="risk-report-hero-left">
-        <div class="risk-hero-icon">⚠️</div>
-        <div>
-          <div class="risk-hero-title">High <em>Risk</em> Summary</div>
-          <div class="risk-hero-sub" id="riskReportGenDate">Generating…</div>
-        </div>
-      </div>
-      <div class="risk-hero-stats">
-        <div class="risk-hero-stat">
-          <div class="risk-hero-stat-val danger" id="rr-totalHighRisk">—</div>
-          <div class="risk-hero-stat-label">High Risk Personnel</div>
-        </div>
-        <div class="risk-hero-stat">
-          <div class="risk-hero-stat-val accent" id="rr-deptAffected">—</div>
-          <div class="risk-hero-stat-label">Departments Affected</div>
-        </div>
-        <div class="risk-hero-stat">
-          <div class="risk-hero-stat-val danger" id="rr-riskRate">—</div>
-          <div class="risk-hero-stat-label">Overall Risk Rate</div>
-        </div>
-        <div class="risk-hero-stat">
-          <div class="risk-hero-stat-val accent" id="rr-topCondition">—</div>
-          <div class="risk-hero-stat-label">Most Common Condition</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top high-risk conditions summary -->
-    <div class="risk-summary-card" id="riskConditionSummary">
-      <div class="risk-summary-title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        High-Risk Conditions Among Personnel
-      </div>
-      <div id="riskConditionList"></div>
-    </div>
-
-    <!-- Department cards grid -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div>
-        <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.11em;">Department Breakdown</div>
-        <div style="font-size:13px;color:var(--text);margin-top:3px;" id="riskDeptSubtitle">—</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <select class="filter-select" id="riskSortSelect" onchange="renderRiskReport()" style="font-size:11.5px;padding:5px 10px;">
-          <option value="risk_desc">Sort: Highest Risk %</option>
-          <option value="risk_asc">Sort: Lowest Risk %</option>
-          <option value="count_desc">Sort: Most Personnel</option>
-          <option value="alpha">Sort: A → Z</option>
-        </select>
-        <select class="filter-select" id="riskFilterLevel" onchange="renderRiskReport()" style="font-size:11.5px;padding:5px 10px;">
-          <option value="all">All Levels</option>
-          <option value="critical">Critical (≥50%)</option>
-          <option value="moderate">Moderate (20–49%)</option>
-          <option value="low">Low (&lt;20%)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="risk-dept-grid" id="riskDeptGrid">
-      <div class="risk-empty"><div class="risk-empty-icon">📊</div><div style="font-size:13px;">Loading data…</div></div>
-    </div>
-
-  </div>
-
-  <!-- ═══════════════ SETTINGS PAGE ═══════════════ -->
-  <div class="page" id="page-settings">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">System <em>Settings</em></div>
-        <div class="page-sub">Manage departments, import data, and configure the system</div>
-      </div>
-    </div>
-
-    <!-- Departments -->
-    <div class="settings-section">
-      <div class="settings-title">Manage Departments</div>
-      <div class="settings-desc">Add or remove academic and administrative departments.</div>
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-        <input type="text" class="form-input" id="newDeptName" placeholder="Department name (e.g. COED)" style="max-width:260px;flex:1;min-width:160px;">
-        <button class="btn btn-primary" onclick="addDepartment()">Add Department</button>
-      </div>
-      <div id="deptList"></div>
-    </div>
-
-    <!-- CSV Upload -->
-    <div class="settings-section">
-      <div class="settings-title">Import Personnel Data</div>
-      <div class="settings-desc">Upload a CSV file to replace all personnel records. Required columns: <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px;">name, age, gender, blood, department, phone, address, conditions</code></div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <input type="file" id="csvFile" accept=".csv" onchange="requestUpload(this.files[0])" style="display:none;">
-        <button class="btn btn-ghost" onclick="document.getElementById('csvFile').click()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-          Choose CSV File
-        </button>
-        <span style="font-size:12px;color:var(--text-3);" id="csvFileName">No file chosen</span>
-      </div>
-    </div>
-
-    <!-- Export -->
-    <div class="settings-section">
-      <div class="settings-title">Export Data</div>
-      <div class="settings-desc">Download a full backup of personnel or visit records as CSV.</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-ghost" onclick="exportPersonnel()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Export Personnel CSV
-        </button>
-        <button class="btn btn-ghost" onclick="exportVisits()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Export Visits CSV
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════ AUDIT LOG PAGE ═══════════════ -->
-  <div class="page" id="page-audit">
-    <div class="topbar">
-      <div>
-        <div class="page-heading">Audit <em>Log</em></div>
-        <div class="page-sub">All admin actions recorded with timestamp and IP address</div>
-      </div>
-      <div class="topbar-right">
-        <button class="btn btn-ghost btn-sm" onclick="loadAuditLog()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-          Refresh
-        </button>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <div class="table-header">
-        <div>
-          <div class="table-title">Activity Log</div>
-          <div class="table-count" id="auditCountLabel">Loading…</div>
-        </div>
-      </div>
-      <div id="auditLogList" style="padding:8px 22px;"></div>
-    </div>
-  </div>
-
-</main>
-
-<!-- ── PERSONNEL DETAIL MODAL ── -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModalDirect()">✕</button>
-    <div class="modal-avatar" id="modalAvatar">?</div>
-    <div class="modal-name" id="modalName"></div>
-    <div class="modal-dept" id="modalDept"></div>
-    <div class="modal-grid">
-      <div class="modal-field"><div class="modal-field-label">Gender</div><div class="modal-field-val" id="modalGender"></div></div>
-      <div class="modal-field"><div class="modal-field-label">Blood Type</div><div class="modal-field-val" style="color:var(--accent)" id="modalBlood"></div></div>
-      <div class="modal-field"><div class="modal-field-label">Age</div><div class="modal-field-val" id="modalAge"></div></div>
-      <div class="modal-field"><div class="modal-field-label">Phone</div><div class="modal-field-val" id="modalPhone"></div></div>
-    </div>
-    <div class="modal-field" style="margin-bottom:16px;"><div class="modal-field-label">Address</div><div class="modal-field-val" id="modalAddress" style="font-size:13px;font-weight:400;"></div></div>
-    <div class="modal-section-title">Recorded Conditions</div>
-    <div class="pills-wrap" id="modalConditions"></div>
-    <!-- ── RECENT VISITS SECTION ── -->
-    <div id="modalVisitsSection" style="margin-top:18px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
-        <div class="modal-section-title" style="margin:0;">Recent Clinic Visits</div>
-        <span id="modalVisitsCount" style="font-size:11px;color:var(--text-3);"></span>
-      </div>
-      <div id="modalVisitsList">
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;">
-          <div class="skel" style="height:9px;width:60%;margin-bottom:8px;"></div>
-          <div class="skel" style="height:11px;width:80%;margin-bottom:5px;"></div>
-          <div class="skel" style="height:9px;width:50%;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── AI TREATMENT SECTION ── -->
-    <div id="modalMedsSection" style="margin-top:20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div>
-          <div class="modal-section-title" style="margin:0 0 2px;">AI Treatment Suggestions</div>
-          <div style="font-size:11px;color:var(--text-3);">Clinical AI · context-aware</div>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="getAISuggestions()" id="aiSuggestBtn">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          Get Suggestions
-        </button>
-      </div>
-
-      <!-- State: idle placeholder -->
-      <div id="aiPlaceholder" style="background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--radius);padding:20px;text-align:center;">
-        <div style="font-size:12px;color:var(--text-3);line-height:1.6;">Click <strong style="color:var(--accent);">Get Suggestions</strong> to generate AI-powered treatment recommendations based on this patient's age, gender, and conditions.</div>
-      </div>
-
-      <!-- State: loading -->
-      <div id="aiLoading" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;">
-        <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          Analyzing patient profile…
-        </div>
-      </div>
-
-      <!-- State: results -->
-      <div id="aiResults" style="display:none;">
-        <div id="aiMedsGrid" class="modal-meds-grid"></div>
-        <div id="aiInteractionBox" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius-sm);padding:10px 14px;margin-top:10px;">
-          <div style="font-size:11px;font-weight:600;color:var(--danger);margin-bottom:3px;">⚠ Interaction Note</div>
-          <div id="aiInteractionText" style="font-size:11.5px;color:var(--text-2);line-height:1.5;"></div>
-        </div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:10px;line-height:1.5;">AI suggestions are for reference only. Always defer to a licensed physician for final treatment decisions.</div>
-      </div>
-
-      <!-- State: error -->
-      <div id="aiError" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius);padding:14px 16px;">
-        <div style="font-size:12.5px;color:var(--danger);" id="aiErrorMsg">Something went wrong. Check your API key.</div>
-      </div>
-    </div>
-
-    <!-- ── AI RISK PREDICTION SECTION ── -->
-    <div id="modalRiskSection" style="margin-top:20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div>
-          <div class="modal-section-title" style="margin:0 0 2px;">AI Risk Prediction</div>
-          <div style="font-size:11px;color:var(--text-3);">Health risk score based on age, gender &amp; conditions</div>
-        </div>
-        <button id="aiRiskBtn" onclick="getAIRiskPrediction()"
-          style="background:rgba(217,85,85,0.12);border:1px solid rgba(217,85,85,0.25);color:var(--danger);font-size:11.5px;padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;"
-          onmouseover="this.style.background='rgba(217,85,85,0.2)'" onmouseout="this.style.background='rgba(217,85,85,0.12)'">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Predict Risk
-        </button>
-      </div>
-
-      <div id="aiRiskPlaceholder" style="background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--radius);padding:16px;text-align:center;">
-        <div style="font-size:12px;color:var(--text-3);line-height:1.6;">Click <strong style="color:var(--danger);">Predict Risk</strong> to generate an AI health risk score and future condition outlook for this personnel.</div>
-      </div>
-
-      <div id="aiRiskLoading" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:22px;text-align:center;">
-        <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-2);font-size:13px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-          Calculating risk profile…
-        </div>
-      </div>
-
-      <div id="aiRiskResults" style="display:none;">
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div>
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);margin-bottom:3px;">Overall Risk Score</div>
-              <div style="display:flex;align-items:baseline;gap:6px;">
-                <span id="aiRiskScore" style="font-family:'Instrument Serif',serif;font-size:32px;line-height:1;"></span>
-                <span style="font-size:12px;color:var(--text-3);">/ 100</span>
-              </div>
-            </div>
-            <div id="aiRiskBadge" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.04em;"></div>
-          </div>
-          <div style="height:8px;background:var(--surface);border-radius:10px;overflow:hidden;">
-            <div id="aiRiskBar" style="height:100%;border-radius:10px;transition:width 1s ease;"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--text-3);margin-top:4px;">
-            <span>Low</span><span>Moderate</span><span>High</span><span>Critical</span>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;">
-            <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px;">Risk Factors</div>
-            <div id="aiRiskFactors" style="display:flex;flex-direction:column;gap:6px;"></div>
-          </div>
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;">
-            <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px;">Future Outlook</div>
-            <div id="aiRiskOutlook" style="font-size:12px;color:var(--text-2);line-height:1.65;"></div>
-          </div>
-        </div>
-
-        <div id="aiRiskCondBox" style="display:none;background:var(--danger-bg);border:1px solid rgba(217,85,85,0.2);border-radius:var(--radius-sm);padding:12px 15px;margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:.09em;margin-bottom:7px;">⚠ Conditions to Monitor</div>
-          <div id="aiRiskCondList" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-        </div>
-
-        <div id="aiRiskActionsBox" style="display:none;background:rgba(78,201,122,0.06);border:1px solid rgba(78,201,122,0.2);border-radius:var(--radius-sm);padding:12px 15px;">
-          <div style="font-size:10px;font-weight:700;color:var(--safe);text-transform:uppercase;letter-spacing:.09em;margin-bottom:7px;">✓ Preventive Actions</div>
-          <div id="aiRiskActions" style="display:flex;flex-direction:column;gap:5px;"></div>
-        </div>
-
-        <div style="font-size:11px;color:var(--text-3);margin-top:10px;line-height:1.5;">Risk prediction is AI-generated for reference only. Consult a licensed physician for clinical decisions.</div>
-      </div>
-
-      <div id="aiRiskError" style="display:none;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.2);border-radius:var(--radius);padding:12px 15px;">
-        <div style="font-size:12.5px;color:var(--danger);" id="aiRiskErrorMsg">Something went wrong. Please try again.</div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
-      <button class="btn btn-ghost btn-sm" onclick="editPersonnel(currentPersonnelId)" style="flex:1;" id="modalEditBtn">Edit Record</button>
-      <button class="btn btn-ghost btn-sm" onclick="downloadPatientPDF()" style="flex:1;" id="modalPdfBtn">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download PDF
-      </button>
-      <button class="btn btn-danger btn-sm" onclick="deletePersonnel(currentPersonnelId)" style="flex:1;" id="modalDeleteBtn">Delete</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── ADD/EDIT PERSONNEL MODAL ── -->
-<div class="modal-overlay" id="addPersonnelOverlay" onclick="closeAddModal(event)">
-  <div class="modal" style="width:600px;">
-    <button class="modal-close" onclick="document.getElementById('addPersonnelOverlay').classList.remove('open')">✕</button>
-    <div class="modal-name" id="addPersonnelTitle" style="margin-bottom:20px;font-size:20px;">Add Personnel</div>
-    <input type="hidden" id="editPersonnelId">
-    <div class="form-grid">
-      <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="pName" placeholder="e.g. Ana Reyes"></div>
-      <div class="form-group"><label class="form-label">Age</label><input class="form-input" id="pAge" type="number" placeholder="e.g. 35" min="1" max="120"></div>
-    </div>
-    <div class="form-grid">
-      <div class="form-group"><label class="form-label">Gender</label><select class="form-input form-select" id="pGender"><option value="">Select…</option><option>Male</option><option>Female</option></select></div>
-      <div class="form-group"><label class="form-label">Blood Type</label><select class="form-input form-select" id="pBlood"><option value="">Select…</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
-    </div>
-    <div class="form-grid">
-      <div class="form-group"><label class="form-label">Department</label><select class="form-input form-select" id="pDept"><option value="">Select…</option></select></div>
-      <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="pPhone" placeholder="e.g. 09171234567"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Address</label><input class="form-input" id="pAddress" placeholder="e.g. Laoag City, Ilocos Norte"></div>
-    <div class="form-group">
-      <label class="form-label">Conditions (comma separated)</label>
-      <input class="form-input" id="pConditions" placeholder="e.g. Hypertension, Diabetes" oninput="previewModalMeds(this.value)">
-    </div>
-    <!-- Live medicine preview -->
-    <div id="modalMedPreview" style="display:none;background:var(--surface2);border:1px solid rgba(232,200,74,0.18);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:4px;">
-      <div style="font-size:10.5px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">💊 Medicine Suggestions for entered conditions</div>
-      <div id="modalMedPreviewGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
-      <button class="btn btn-ghost" onclick="document.getElementById('addPersonnelOverlay').classList.remove('open')">Cancel</button>
-      <button class="btn btn-primary" onclick="savePersonnel()" id="savePersonnelBtn">Add Personnel</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── ADD VISIT MODAL ── -->
-<div class="modal-overlay" id="addVisitOverlay" onclick="closeVisitModal(event)">
-  <div class="modal" style="width:480px;">
-    <button class="modal-close" onclick="document.getElementById('addVisitOverlay').classList.remove('open')">✕</button>
-    <div class="modal-name" style="margin-bottom:20px;font-size:20px;">Record Visit</div>
-    <div class="form-group"><label class="form-label">Visit Date</label><input class="form-input" id="vDate" type="date"></div>
-    <div class="form-group"><label class="form-label">Reason / Complaint</label><input class="form-input" id="vReason" placeholder="e.g. Routine check-up, Fever, Headache"></div>
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="vNotes" placeholder="Additional observations, prescriptions, follow-up…"></textarea></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
-      <button class="btn btn-ghost" onclick="document.getElementById('addVisitOverlay').classList.remove('open')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveVisit()">Save Visit</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── CONFIRM MODAL ── -->
-<div class="modal-overlay" id="confirmOverlay" style="z-index:250;">
-  <div class="modal" style="max-width:400px;text-align:center;">
-    <div style="font-size:32px;margin-bottom:12px;" id="confirmIcon">⚠️</div>
-    <div class="modal-name" style="font-size:18px;margin-bottom:8px;" id="confirmTitle">Are you sure?</div>
-    <div style="font-size:13px;color:var(--text-2);margin-bottom:24px;line-height:1.6;" id="confirmBody"></div>
-    <div style="display:flex;gap:10px;justify-content:center;">
-      <button class="btn btn-ghost" onclick="document.getElementById('confirmOverlay').classList.remove('open')">Cancel</button>
-      <button class="btn btn-danger" id="confirmOkBtn">Confirm</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── TOAST ── -->
-<div class="toast" id="toast"><div class="toast-dot"></div><span id="toastMsg"></span></div>
-
-<script>
-  // ── STATE ──
-  let allData = [], filteredData = [], activeCondition = 'All';
-  let activeConditions = new Set(); // multi-condition selection
-  let conditionLogic = 'OR';        // 'OR' = match any, 'AND' = match all
-  let bloodChart, genderChart, deptChart, riskChart, ageChart, deptRiskChart;
-  let csrfToken = '';
-  let currentPersonnelId = null;
-  let currentVisitPersonId = null;
-  let allDepts = [];
-
-  // ── INIT ──
-  async function init() {
-    await fetchCsrfToken();
-    await loadPersonnel();
-    generateConditionList();
-    loadDepartments();
-  }
-
-  async function fetchCsrfToken() {
-    try {
-      const res = await fetch('/csrf-token', { redirect: 'manual' });
-      // A redirect means the session expired and Flask is sending us to /login
-      if (res.type === 'opaqueredirect' || res.redirected || res.status === 401) {
-        window.location.href = '/login';
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      csrfToken = (await res.json()).token;
-    } catch(e) {
-      console.error('CSRF fetch failed', e);
-      window.location.href = '/login';
-    }
-  }
-
-  // ── NAVIGATION ──
-  function showPage(name, btn) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.getElementById('page-' + name).classList.add('active');
-    if (btn) btn.classList.add('active');
-    if (name === 'audit') loadAuditLog();
-    if (name === 'reports') renderReports();
-    if (name === 'riskReport') renderRiskReport();
-    if (name === 'settings') loadDepartments();
-    if (name === 'visits') renderPersonPicker();
-    if (name === 'medlookup') initMedLookupPage();
-  }
-
-  // ── PERSONNEL ──
-  async function loadPersonnel() {
-    const res = await fetch('/personnel');
-    if (res.status === 401) { window.location.href = '/login'; return; }
-    allData = await res.json();
-    filterData('All');
-    renderPersonPicker();
-  }
-
-  function renderTable(data) {
-    const tbody = document.getElementById('personnelTable');
-    document.getElementById('personnelCountLabel').textContent =
-      data.length ? `${data.length} record${data.length === 1 ? '' : 's'}` : 'No results';
-    if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="empty-title">No records found</div></div></td></tr>`;
-      return;
-    }
-    tbody.innerHTML = data.map(p => {
-      const risk = isHighRisk(p.conditions);
-      return `<tr onclick="openModal(${p.id})">
-        <td class="name-col">${p.name}</td>
-        <td>${p.age || '—'}</td>
-        <td>${p.gender}</td>
-        <td><span class="blood-badge">${p.blood || '—'}</span></td>
-        <td>${p.department}</td>
-        <td>${p.phone || '—'}</td>
-        <td class="conditions-cell">${p.conditions.join(', ') || '—'}</td>
-        <td>${risk ? '<span class="risk-tag high">⚠ High</span>' : '<span class="risk-tag normal">✓ Normal</span>'}</td>
-        <td onclick="event.stopPropagation()" style="white-space:nowrap;">
-          <button class="btn btn-ghost btn-sm" style="margin-right:4px;" onclick="editPersonnel(${p.id})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${p.name.replace(/'/g,"\\'")}')">Del</button>
-        </td>
-      </tr>`;
-    }).join('');
-  }
-
-  let conditionsOverviewChart = null;
-
-  function renderChartEmpty(canvasId, message) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    canvas.style.display = 'none';
-    let empty = parent.querySelector('.chart-empty');
-    if (!empty) {
-      empty = document.createElement('div');
-      empty.className = 'chart-empty';
-      empty.innerHTML = `<div class="chart-empty-icon">📊</div><div class="chart-empty-text">${message}</div>`;
-      parent.appendChild(empty);
-    }
-    empty.style.display = 'flex';
-  }
-
-  function clearChartEmpty(canvasId) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    canvas.style.display = '';
-    const empty = canvas.parentElement.querySelector('.chart-empty');
-    if (empty) empty.style.display = 'none';
-  }
-
-  function processData(data) {
-    // KPI cards use filtered data; charts always reflect full dataset
-    const chartData = allData.length ? allData : data;
-    const total = data.length;
-    const allTotal = chartData.length;
-
-    const bloodFreq = {}, genderFreq = { Male: 0, Female: 0 }, deptFreq = {}, condFreq = {};
-    let highRiskCount = 0;
-
-    chartData.forEach(p => {
-      if (p.blood) bloodFreq[p.blood] = (bloodFreq[p.blood] || 0) + 1;
-      if (p.gender === 'Male' || p.gender === 'Female') genderFreq[p.gender]++;
-      if (p.department) deptFreq[p.department] = (deptFreq[p.department] || 0) + 1;
-      if (isHighRisk(p.conditions)) highRiskCount++;
-      p.conditions.forEach(c => condFreq[c] = (condFreq[c] || 0) + 1);
-    });
-
-    const mostCommonBlood = allTotal && Object.keys(bloodFreq).length
-      ? Object.entries(bloodFreq).reduce((a,b) => b[1]>a[1]?b:a)[0] : '—';
-
-    // KPI cards
-    document.getElementById('totalRecords').textContent = total || '—';
-    document.getElementById('commonBloodType').textContent = mostCommonBlood;
-    document.getElementById('malePercent').textContent = allTotal ? ((genderFreq.Male/allTotal)*100).toFixed(1)+'%' : '—';
-    document.getElementById('femalePercent').textContent = allTotal ? ((genderFreq.Female/allTotal)*100).toFixed(1)+'%' : '—';
-    document.getElementById('highRiskCount').textContent = highRiskCount || '0';
-    document.getElementById('highRiskPct').textContent = allTotal ? `${((highRiskCount/allTotal)*100).toFixed(1)}% of total` : 'Of total personnel';
-
-    if (bloodChart) bloodChart.destroy();
-    if (genderChart) genderChart.destroy();
-    if (deptChart) deptChart.destroy();
-    if (riskChart) riskChart.destroy();
-    if (conditionsOverviewChart) conditionsOverviewChart.destroy();
-
-    const cf = { family:'Figtree', size:11 }, tc = 'rgba(240,237,232,0.4)', gc = 'rgba(255,255,255,0.04)';
-    const tooltipDefaults = { backgroundColor:'#162019', titleColor:'#f0ede8', bodyColor:'rgba(240,237,232,0.7)' };
-
-    // Blood type chart
-    if (!Object.keys(bloodFreq).length) {
-      renderChartEmpty('bloodTypeChart', 'No blood type data yet');
-    } else {
-      clearChartEmpty('bloodTypeChart');
-      const btLabels = Object.keys(bloodFreq).sort();
-      bloodChart = new Chart(document.getElementById('bloodTypeChart'), {
-        type:'bar',
-        data:{ labels:btLabels, datasets:[{ label:'Count', data:btLabels.map(l=>bloodFreq[l]), backgroundColor:'rgba(232,200,74,0.75)', borderColor:'rgba(232,200,74,1)', borderWidth:1, borderRadius:5 }] },
-        options:{ animation:{duration:600}, plugins:{ legend:{display:false}, tooltip:{...tooltipDefaults} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{beginAtZero:true,ticks:{stepSize:1,color:tc,font:cf},grid:{color:gc}} } }
-      });
-    }
-
-    // Gender chart
-    if (!genderFreq.Male && !genderFreq.Female) {
-      renderChartEmpty('genderChart', 'No gender data yet');
-    } else {
-      clearChartEmpty('genderChart');
-      genderChart = new Chart(document.getElementById('genderChart'), {
-        type:'doughnut',
-        data:{ labels:['Male','Female'], datasets:[{ data:[genderFreq.Male,genderFreq.Female], backgroundColor:['rgba(91,164,212,0.85)','rgba(212,126,176,0.85)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:6 }] },
-        options:{ animation:{duration:600}, plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{...tooltipDefaults} }, cutout:'68%' }
-      });
-    }
-
-    // Dept chart
-    const depts = Object.keys(deptFreq).sort((a,b) => deptFreq[b]-deptFreq[a]);
-    if (!depts.length) {
-      renderChartEmpty('deptChart', 'No department data yet');
-    } else {
-      clearChartEmpty('deptChart');
-      const palette = ['rgba(232,200,74,0.8)','rgba(91,164,212,0.8)','rgba(212,126,176,0.8)','rgba(78,201,122,0.8)','rgba(255,165,80,0.8)','rgba(150,120,210,0.8)','rgba(100,200,180,0.8)','rgba(220,140,100,0.8)'];
-      deptChart = new Chart(document.getElementById('deptChart'), {
-        type:'bar',
-        data:{ labels:depts, datasets:[{ label:'Personnel', data:depts.map(d=>deptFreq[d]), backgroundColor:depts.map((_,i)=>palette[i%palette.length]), borderRadius:5 }] },
-        options:{ animation:{duration:600}, plugins:{ legend:{display:false}, tooltip:{...tooltipDefaults} }, scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{beginAtZero:true,ticks:{stepSize:1,color:tc,font:cf},grid:{color:gc}} } }
-      });
-    }
-
-    // Risk chart
-    if (!allTotal) {
-      renderChartEmpty('riskChart', 'No data yet');
-    } else {
-      clearChartEmpty('riskChart');
-      riskChart = new Chart(document.getElementById('riskChart'), {
-        type:'doughnut',
-        data:{ labels:['High Risk','Normal'], datasets:[{ data:[highRiskCount, allTotal-highRiskCount], backgroundColor:['rgba(224,85,85,0.85)','rgba(78,201,122,0.85)'], borderColor:['#111a15','#111a15'], borderWidth:3, hoverOffset:6 }] },
-        options:{ animation:{duration:600}, plugins:{ legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}}, tooltip:{...tooltipDefaults} }, cutout:'68%' }
-      });
-    }
-
-    // Top Conditions chart (always uses full dataset)
-    const topConds = Object.entries(condFreq).sort((a,b)=>b[1]-a[1]).slice(0, 12);
-    if (!topConds.length) {
-      renderChartEmpty('conditionsOverviewChart', 'No condition data recorded yet');
-    } else {
-      clearChartEmpty('conditionsOverviewChart');
-      const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-      const condColors = topConds.map(([c]) => HIGH_RISK_SET.has(c) ? 'rgba(224,85,85,0.8)' : 'rgba(91,164,212,0.75)');
-      conditionsOverviewChart = new Chart(document.getElementById('conditionsOverviewChart'), {
-        type:'bar',
-        data:{ labels:topConds.map(([c])=>c), datasets:[{ label:'Personnel', data:topConds.map(([,n])=>n), backgroundColor:condColors, borderRadius:5 }] },
-        options:{
-          animation:{duration:700},
-          plugins:{
-            legend:{display:false},
-            tooltip:{
-              ...tooltipDefaults,
-              callbacks:{ label: ctx => ` ${ctx.parsed.y} personnel` }
-            }
-          },
-          scales:{ x:{ticks:{color:tc,font:cf},grid:{color:gc}}, y:{beginAtZero:true,ticks:{stepSize:1,color:tc,font:cf},grid:{color:gc}} }
+
+def person_params(d):
+    """Extract and normalise personnel fields from a request payload."""
+    return (
+        d.get('name', ''),
+        d.get('age'),
+        d.get('gender', ''),
+        d.get('blood', ''),
+        d.get('department', ''),
+        d.get('phone', ''),
+        d.get('address', ''),
+        '|'.join(d.get('conditions', [])),
+    )
+
+
+def csv_response(rows, headers, filename):
+    """Build a CSV download response from a list of rows."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return Response(
+        buf.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
+def audit(action, detail=''):
+    """Write an entry to the audit log."""
+    try:
+        with get_db() as conn:
+            conn.cursor().execute(
+                'INSERT INTO audit_log (username, action, detail, ip) VALUES (%s, %s, %s, %s)',
+                (session.get('user', 'system'), action, detail, request.remote_addr),
+            )
+    except Exception as e:
+        print(f'[audit] Failed to write audit log ({action}): {e}', file=sys.stderr)
+
+# ── INPUT VALIDATION ─────────────────────────────────────────────────────────
+
+FIELD_LIMITS = {
+    'name':       256,
+    'gender':      16,
+    'blood':        8,
+    'department':  128,
+    'phone':        32,
+    'address':     512,
+    'conditions': 1024,
+}
+VALID_GENDERS     = {'Male', 'Female', ''}
+VALID_BLOOD_TYPES = {'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''}
+
+
+def validate_personnel(d: dict) -> str | None:
+    """Return an error string if the payload is invalid, else None."""
+    name = d.get('name', '').strip()
+    if not name:
+        return 'Name is required.'
+    for field, limit in FIELD_LIMITS.items():
+        val = d.get(field, '')
+        if isinstance(val, str) and len(val) > limit:
+            return f'Field "{field}" exceeds maximum length of {limit} characters.'
+    age = d.get('age')
+    if age is not None:
+        try:
+            age_int = int(age)
+            if not (0 < age_int < 150):
+                return 'Age must be between 1 and 149.'
+        except (TypeError, ValueError):
+            return 'Age must be a number.'
+    if d.get('gender', '') not in VALID_GENDERS:
+        return 'Invalid gender value.'
+    if d.get('blood', '') not in VALID_BLOOD_TYPES:
+        return 'Invalid blood type.'
+    conditions = d.get('conditions', [])
+    if not isinstance(conditions, list):
+        return 'Conditions must be a list.'
+    if len(conditions) > 30:
+        return 'Too many conditions (max 30).'
+    return None
+
+# ── RATE LIMITER ──────────────────────────────────────────────────────────────
+
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_rate_lock = Lock()
+LOGIN_MAX_ATTEMPTS = 10
+LOGIN_WINDOW_SECS  = 300  # 5 minutes
+
+
+def is_rate_limited(ip: str) -> bool:
+    """True if this IP has exceeded the login attempt limit."""
+    now = time.time()
+    with _rate_lock:
+        attempts = _login_attempts[ip]
+        _login_attempts[ip] = [t for t in attempts if now - t < LOGIN_WINDOW_SECS]
+        if len(_login_attempts[ip]) >= LOGIN_MAX_ATTEMPTS:
+            return True
+        _login_attempts[ip].append(now)
+        return False
+
+# ── AUTH / CSRF DECORATORS ────────────────────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def csrf_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('X-CSRF-Token') or (request.json or {}).get('_csrf')
+        if not token or token != session.get('csrf_token'):
+            return jsonify({'error': 'Invalid CSRF token'}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
+def get_csrf_token():
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_hex(32)
+    return session['csrf_token']
+
+# ── AUTH ROUTES ───────────────────────────────────────────────────────────────
+
+@app.route('/')
+@login_required
+def index():
+    return render_template('index.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        ip = request.remote_addr
+        if is_rate_limited(ip):
+            return jsonify({'success': False, 'error': 'Too many login attempts. Please wait 5 minutes.'}), 429
+        data = request.json or {}
+        if data.get('username') == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, data.get('password', '')):
+            session['user'] = data['username']
+            audit('LOGIN', f'Admin logged in from {request.remote_addr}')
+            return jsonify({'success': True})
+        audit('LOGIN_FAIL', f'Failed login attempt for "{data.get("username")}"')
+        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+    return render_template('login.html')
+
+
+@app.route('/logout', methods=['POST'])
+@csrf_required
+def logout():
+    audit('LOGOUT')
+    session.clear()
+    return jsonify({'success': True})
+
+
+@app.route('/csrf-token')
+@login_required
+def csrf_token():
+    return jsonify({'token': get_csrf_token()})
+
+# ── PERSONNEL ─────────────────────────────────────────────────────────────────
+
+@app.route('/personnel')
+@login_required
+def get_personnel():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+        return jsonify([row_to_person(r) for r in c.fetchall()])
+
+
+@app.route('/personnel/add', methods=['POST'])
+@login_required
+@csrf_required
+def add_personnel():
+    d = request.json or {}
+    err = validate_personnel(d)
+    if err:
+        return jsonify({'error': err}), 400
+    with get_db() as conn:
+        conn.cursor().execute(
+            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
+            person_params(d),
+        )
+    audit('ADD_PERSONNEL', d.get('name', ''))
+    return jsonify({'message': 'Personnel added successfully!'})
+
+
+@app.route('/personnel/update/<int:pid>', methods=['PUT'])
+@login_required
+@csrf_required
+def update_personnel(pid):
+    d = request.json or {}
+    err = validate_personnel(d)
+    if err:
+        return jsonify({'error': err}), 400
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id FROM personnel WHERE id = %s', (pid,))
+        if not c.fetchone():
+            return jsonify({'error': 'Not found'}), 404
+        c.execute(
+            '''UPDATE personnel
+               SET name=%s, age=%s, gender=%s, blood=%s,
+                   department=%s, phone=%s, address=%s, conditions=%s
+               WHERE id=%s''',
+            (*person_params(d), pid),
+        )
+    audit('UPDATE_PERSONNEL', f'id={pid} name={d.get("name", "")}')
+    return jsonify({'message': 'Updated successfully!'})
+
+
+@app.route('/personnel/delete/<int:pid>', methods=['DELETE'])
+@login_required
+@csrf_required
+def delete_personnel(pid):
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name FROM personnel WHERE id = %s', (pid,))
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        c.execute('DELETE FROM personnel WHERE id = %s', (pid,))
+    audit('DELETE_PERSONNEL', f'id={pid} name={row[0]}')
+    return jsonify({'message': 'Deleted successfully!'})
+
+
+@app.route('/upload', methods=['POST'])
+@login_required
+@csrf_required
+def upload():
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    try:
+        content = file.read().decode('utf-8')
+    except UnicodeDecodeError:
+        return jsonify({'error': 'File must be UTF-8 encoded'}), 400
+
+    reader = csv.DictReader(io.StringIO(content))
+    records = []
+    for i, row in enumerate(reader, start=2):
+        raw_conditions = row.get('conditions', '')
+        cond_list = [c.strip() for c in raw_conditions.split('|') if c.strip()] if raw_conditions else []
+        d = {
+            'name':       row.get('name', '').strip(),
+            'age':        row.get('age') or None,
+            'gender':     row.get('gender', ''),
+            'blood':      row.get('blood', ''),
+            'department': row.get('department', ''),
+            'phone':      row.get('phone', ''),
+            'address':    row.get('address', ''),
+            'conditions': cond_list,
         }
-      });
+        err = validate_personnel(d)
+        if err:
+            return jsonify({'error': f'Row {i}: {err}'}), 400
+        records.append((
+            d['name'], d['age'], d['gender'], d['blood'],
+            d['department'], d['phone'], d['address'], raw_conditions,
+        ))
+
+    if not records:
+        return jsonify({'error': 'CSV file contains no data rows'}), 400
+
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('DELETE FROM personnel')
+        psycopg2.extras.execute_batch(
+            c,
+            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
+            records,
+        )
+
+    audit('UPLOAD_CSV', f'{len(records)} records')
+    return jsonify({'message': f'{len(records)} records uploaded successfully!'})
+
+# ── VISITS ────────────────────────────────────────────────────────────────────
+
+@app.route('/personnel/<int:pid>/visits')
+@login_required
+def get_visits(pid):
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT id, visit_date, reason, notes, created_at FROM visits WHERE personnel_id = %s ORDER BY visit_date DESC',
+            (pid,),
+        )
+        return jsonify([
+            {'id': r[0], 'visit_date': str(r[1]), 'reason': r[2], 'notes': r[3], 'created_at': str(r[4])}
+            for r in c.fetchall()
+        ])
+
+
+@app.route('/personnel/<int:pid>/visits/add', methods=['POST'])
+@login_required
+@csrf_required
+def add_visit(pid):
+    d = request.json or {}
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id FROM personnel WHERE id = %s', (pid,))
+        if not c.fetchone():
+            return jsonify({'error': 'Personnel not found'}), 404
+        c.execute(
+            'INSERT INTO visits (personnel_id, visit_date, reason, notes) VALUES (%s, %s, %s, %s)',
+            (pid, d.get('visit_date'), d.get('reason', ''), d.get('notes', '')),
+        )
+    audit('ADD_VISIT', f'personnel_id={pid}')
+    return jsonify({'message': 'Visit recorded!'})
+
+
+@app.route('/visits/delete/<int:vid>', methods=['DELETE'])
+@login_required
+@csrf_required
+def delete_visit(vid):
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id FROM visits WHERE id = %s', (vid,))
+        if not c.fetchone():
+            return jsonify({'error': 'Visit not found'}), 404
+        c.execute('DELETE FROM visits WHERE id = %s', (vid,))
+    audit('DELETE_VISIT', f'visit_id={vid}')
+    return jsonify({'message': 'Visit deleted!'})
+
+# ── DEPARTMENTS ───────────────────────────────────────────────────────────────
+
+@app.route('/departments')
+@login_required
+def get_departments():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, name FROM departments ORDER BY name')
+        return jsonify([{'id': r[0], 'name': r[1]} for r in c.fetchall()])
+
+
+@app.route('/departments/add', methods=['POST'])
+@login_required
+@csrf_required
+def add_department():
+    name = (request.json or {}).get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+    try:
+        with get_db() as conn:
+            conn.cursor().execute('INSERT INTO departments (name) VALUES (%s)', (name,))
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({'error': 'Department already exists'}), 409
+    audit('ADD_DEPT', name)
+    return jsonify({'message': f'Department "{name}" added!'})
+
+
+@app.route('/departments/delete/<int:did>', methods=['DELETE'])
+@login_required
+@csrf_required
+def delete_department(did):
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name FROM departments WHERE id = %s', (did,))
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        c.execute('DELETE FROM departments WHERE id = %s', (did,))
+    audit('DELETE_DEPT', row[0])
+    return jsonify({'message': 'Department deleted!'})
+
+# ── AUDIT LOG ─────────────────────────────────────────────────────────────────
+
+@app.route('/audit-log')
+@login_required
+def get_audit_log():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT id, username, action, detail, ip, created_at FROM audit_log ORDER BY created_at DESC LIMIT 200'
+        )
+        return jsonify([
+            {'id': r[0], 'username': r[1], 'action': r[2], 'detail': r[3], 'ip': r[4], 'created_at': str(r[5])}
+            for r in c.fetchall()
+        ])
+
+# ── EXPORT ────────────────────────────────────────────────────────────────────
+
+@app.route('/export/personnel')
+@login_required
+def export_personnel():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+        rows = c.fetchall()
+    audit('EXPORT_CSV', f'{len(rows)} records')
+    return csv_response(rows, ['id', 'name', 'age', 'gender', 'blood', 'department', 'phone', 'address', 'conditions'], 'personnel_export.csv')
+
+
+@app.route('/export/visits')
+@login_required
+def export_visits():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT v.id, p.name, v.visit_date, v.reason, v.notes
+            FROM visits v
+            JOIN personnel p ON p.id = v.personnel_id
+            ORDER BY v.visit_date DESC
+        ''')
+        rows = c.fetchall()
+    audit('EXPORT_VISITS_CSV', f'{len(rows)} visits')
+    return csv_response(rows, ['visit_id', 'personnel_name', 'visit_date', 'reason', 'notes'], 'visits_export.csv')
+
+# ── PDF EXPORT ────────────────────────────────────────────────────────────────
+
+@app.route('/personnel/<int:pid>/pdf')
+@login_required
+def export_personnel_pdf(pid):
+    if not REPORTLAB_AVAILABLE:
+        return jsonify({'error': 'reportlab is not installed on the server. Run: pip install reportlab'}), 500
+
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel WHERE id = %s', (pid,))
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': 'Personnel not found'}), 404
+        p = row_to_person(row)
+
+        c.execute(
+            'SELECT visit_date, reason, notes FROM visits WHERE personnel_id = %s ORDER BY visit_date DESC LIMIT 10',
+            (pid,)
+        )
+        visits = c.fetchall()
+
+    audit('EXPORT_PDF', f'id={pid} name={p["name"]}')
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm
+    )
+
+    GREEN       = colors.HexColor('#1a7a3c')
+    GREEN_LIGHT = colors.HexColor('#e8f5ee')
+    GOLD        = colors.HexColor('#d4b84a')
+    DARK        = colors.HexColor('#111111')
+    GREY        = colors.HexColor('#555555')
+    LIGHT_GREY  = colors.HexColor('#f6f7f6')
+    BORDER      = colors.HexColor('#e0e0e0')
+    RED_BG      = colors.HexColor('#fdecea')
+    RED_TEXT    = colors.HexColor('#c0392b')
+
+    styles = getSampleStyleSheet()
+
+    def style(name, **kw):
+        return ParagraphStyle(name, parent=styles['Normal'], **kw)
+
+    title_style    = style('Title',    fontSize=20, textColor=DARK,  fontName='Helvetica-Bold', spaceAfter=2)
+    dept_style     = style('Dept',     fontSize=11, textColor=GREY,  fontName='Helvetica')
+    label_style    = style('Label',    fontSize=8,  textColor=GREY,  fontName='Helvetica-Bold')
+    value_style    = style('Value',    fontSize=12, textColor=DARK,  fontName='Helvetica-Bold')
+    value_sm       = style('ValueSm',  fontSize=11, textColor=DARK,  fontName='Helvetica')
+    section_style  = style('Section',  fontSize=8,  textColor=GREY,  fontName='Helvetica-Bold', spaceBefore=14, spaceAfter=6)
+    footer_style   = style('Footer',   fontSize=8,  textColor=GREY,  fontName='Helvetica', alignment=TA_CENTER)
+    visit_date_s   = style('VDate',    fontSize=8,  textColor=GREEN, fontName='Helvetica-Bold')
+    visit_reason_s = style('VReason',  fontSize=11, textColor=DARK,  fontName='Helvetica-Bold')
+    visit_notes_s  = style('VNotes',   fontSize=10, textColor=GREY,  fontName='Helvetica')
+
+    initials = ''.join(w[0] for w in p['name'].split() if w)[:2].upper()
+
+    story = []
+    page_w = A4[0] - 4*cm
+
+    name_dept_combined = style('NameDept', fontSize=11, textColor=GREY, fontName='Helvetica', leading=28, leftIndent=10)
+    name_para = Paragraph(
+        f'<font name="Helvetica-Bold" size="20" color="#111111">{p["name"]}</font><br/>'
+        f'<font name="Helvetica" size="11" color="#555555">{p["department"]} Department</font>',
+        name_dept_combined
+    )
+
+    logo_combined = style('LogoCombined', fontSize=9, textColor=GREY, fontName='Helvetica', alignment=TA_RIGHT, leading=20)
+    logo_para = Paragraph(
+        f'<font name="Helvetica-Bold" size="13" color="#1a7a3c">MMSU Medical</font><br/>'
+        f'<font name="Helvetica" size="9" color="#555555">Health Records System</font>',
+        logo_combined
+    )
+
+    header_data = [[
+        Paragraph(f'<font color="#d4b84a"><b>{initials}</b></font>',
+                  style('Av', fontSize=22, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=GOLD)),
+        name_para,
+        logo_para,
+    ]]
+    header_table = Table(header_data, colWidths=[2*cm, 10*cm, 5*cm])
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0),(0,0), GREEN),
+        ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
+        ('ALIGN',         (0,0),(0,0), 'CENTER'),
+        ('ALIGN',         (2,0),(2,0), 'RIGHT'),
+        ('TOPPADDING',    (0,0),(-1,-1), 14),
+        ('BOTTOMPADDING', (0,0),(-1,-1), 14),
+        ('LEFTPADDING',   (0,0),(0,0), 0),
+        ('RIGHTPADDING',  (0,0),(0,0), 0),
+        ('LEFTPADDING',   (2,0),(2,0), 0),
+        ('RIGHTPADDING',  (2,0),(2,0), 0),
+    ]))
+    story.append(header_table)
+    story.append(HRFlowable(width='100%', thickness=2, color=GREEN, spaceAfter=12, spaceBefore=10))
+
+    def info_cell(label, value, blood=False):
+        val_color = GOLD if blood else DARK
+        return [
+            Paragraph(label, label_style),
+            Paragraph(str(value) if value else '—', style('VC', fontSize=12, textColor=val_color, fontName='Helvetica-Bold')),
+        ]
+
+    age_val   = f'{p["age"]} yrs' if p.get('age') else '—'
+    grid_data = [
+        [info_cell('GENDER', p.get('gender') or '—'),  info_cell('BLOOD TYPE', p.get('blood') or '—', blood=True)],
+        [info_cell('AGE',    age_val),                  info_cell('PHONE', p.get('phone') or '—')],
+    ]
+
+    def make_cell(items):
+        tbl = Table([[i] for i in items], colWidths=[(page_w/2 - 0.3*cm)])
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND',     (0,0),(-1,-1), LIGHT_GREY),
+            ('BOX',            (0,0),(-1,-1), 0.5, BORDER),
+            ('TOPPADDING',     (0,0),(-1,-1), 8),
+            ('BOTTOMPADDING',  (0,0),(-1,-1), 8),
+            ('LEFTPADDING',    (0,0),(-1,-1), 12),
+            ('RIGHTPADDING',   (0,0),(-1,-1), 12),
+        ]))
+        return tbl
+
+    grid_table_data = [
+        [make_cell(grid_data[0][0]), make_cell(grid_data[0][1])],
+        [make_cell(grid_data[1][0]), make_cell(grid_data[1][1])],
+    ]
+    grid_table = Table(grid_table_data, colWidths=[page_w/2 - 0.15*cm, page_w/2 - 0.15*cm], hAlign='LEFT')
+    grid_table.setStyle(TableStyle([
+        ('VALIGN',       (0,0),(-1,-1), 'TOP'),
+        ('LEFTPADDING',  (0,0),(-1,-1), 0),
+        ('RIGHTPADDING', (0,0),(-1,-1), 0),
+        ('TOPPADDING',   (0,0),(-1,-1), 3),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 3),
+        ('INNERGRID',    (0,0),(-1,-1), 0, colors.white),
+        ('BOX',          (0,0),(-1,-1), 0, colors.white),
+    ]))
+    story.append(grid_table)
+    story.append(Spacer(1, 6))
+
+    addr_cell = Table([
+        [Paragraph('ADDRESS', label_style)],
+        [Paragraph(p.get('address') or '—', value_sm)],
+    ], colWidths=[page_w])
+    addr_cell.setStyle(TableStyle([
+        ('BACKGROUND',   (0,0),(-1,-1), LIGHT_GREY),
+        ('BOX',          (0,0),(-1,-1), 0.5, BORDER),
+        ('TOPPADDING',   (0,0),(-1,-1), 8),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 8),
+        ('LEFTPADDING',  (0,0),(-1,-1), 12),
+        ('RIGHTPADDING', (0,0),(-1,-1), 12),
+    ]))
+    story.append(addr_cell)
+
+    story.append(Paragraph('RECORDED CONDITIONS', section_style))
+    HIGH_RISK = ['Hypertension','Diabetes','Asthma','Heart Disease','Tuberculosis','Cancer','HIV/AIDS','Epilepsy']
+    if p['conditions']:
+        cond_cells = []
+        for cond in p['conditions']:
+            is_high = cond in HIGH_RISK
+            bg      = RED_BG   if is_high else LIGHT_GREY
+            txt     = RED_TEXT if is_high else DARK
+            border  = colors.HexColor('#f5c6c6') if is_high else BORDER
+            cell = Table([[Paragraph(cond, style('Pill', fontSize=10, textColor=txt, fontName='Helvetica-Bold'))]],
+                         colWidths=[len(cond)*6 + 24])
+            cell.setStyle(TableStyle([
+                ('BACKGROUND',   (0,0),(-1,-1), bg),
+                ('BOX',          (0,0),(-1,-1), 0.5, border),
+                ('TOPPADDING',   (0,0),(-1,-1), 4),
+                ('BOTTOMPADDING',(0,0),(-1,-1), 4),
+                ('LEFTPADDING',  (0,0),(-1,-1), 10),
+                ('RIGHTPADDING', (0,0),(-1,-1), 10),
+            ]))
+            cond_cells.append(cell)
+
+        MAX_ROW_W = page_w
+        rows, row_cells, row_widths, row_w = [], [], [], 0
+        for cell, cond in zip(cond_cells, p['conditions']):
+            cell_w = len(cond) * 6 + 24
+            if row_cells and row_w + cell_w > MAX_ROW_W:
+                rows.append((row_cells, row_widths))
+                row_cells, row_widths, row_w = [], [], 0
+            row_cells.append(cell)
+            row_widths.append(cell_w)
+            row_w += cell_w + 4
+        if row_cells:
+            rows.append((row_cells, row_widths))
+
+        for r_cells, r_widths in rows:
+            pills_table = Table([r_cells], colWidths=r_widths, hAlign='LEFT')
+            pills_table.setStyle(TableStyle([
+                ('LEFTPADDING',   (0,0),(-1,-1), 0),
+                ('RIGHTPADDING',  (0,0),(-1,-1), 4),
+                ('TOPPADDING',    (0,0),(-1,-1), 0),
+                ('BOTTOMPADDING', (0,0),(-1,-1), 4),
+            ]))
+            story.append(pills_table)
+    else:
+        story.append(Paragraph('No conditions recorded.', style('NoCond', fontSize=11, textColor=GREY, fontName='Helvetica')))
+
+    if visits:
+        story.append(Paragraph('RECENT VISITS', section_style))
+        for vdate, reason, notes in visits:
+            visit_data = [
+                [Paragraph(str(vdate), visit_date_s)],
+                [Paragraph(reason or 'General Visit', visit_reason_s)],
+            ]
+            if notes:
+                visit_data.append([Paragraph(notes, visit_notes_s)])
+            vt = Table(visit_data, colWidths=[page_w - 0.3*cm])
+            vt.setStyle(TableStyle([
+                ('BACKGROUND',   (0,0),(-1,-1), LIGHT_GREY),
+                ('BOX',          (0,0),(-1,-1), 0.5, BORDER),
+                ('TOPPADDING',   (0,0),(-1,-1), 6),
+                ('BOTTOMPADDING',(0,0),(-1,-1), 6),
+                ('LEFTPADDING',  (0,0),(-1,-1), 12),
+                ('RIGHTPADDING', (0,0),(-1,-1), 12),
+            ]))
+            story.append(vt)
+            story.append(Spacer(1, 5))
+
+    story.append(Spacer(1, 16))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=8))
+    now_str = datetime.now().strftime('%B %d, %Y at %I:%M %p')
+    story.append(Paragraph(f'Generated on {now_str}  -  MMSU Medical Health Records  -  Confidential', footer_style))
+
+    doc.build(story)
+    buf.seek(0)
+    safe_name = p['name'].replace(' ', '_')
+    return Response(
+        buf.getvalue(),
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename={safe_name}_medical_record.pdf'}
+    )
+
+# ── GROQ AI PROXY ─────────────────────────────────────────────────────────────
+
+_groq_client = None
+_groq_lock   = Lock()
+
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        with _groq_lock:
+            if _groq_client is None:
+                try:
+                    from groq import Groq
+                except ImportError:
+                    return None
+                api_key = os.environ.get('GROQ_API_KEY', '').strip()
+                if not api_key:
+                    return None
+                _groq_client = Groq(api_key=api_key)
+    return _groq_client
+
+
+@app.route('/ai/models')
+@login_required
+def ai_models():
+    """Return the configured Groq model for debugging."""
+    api_key = os.environ.get('GROQ_API_KEY', '').strip()
+    if not api_key:
+        return jsonify({'error': 'GROQ_API_KEY not set'}), 500
+    return jsonify({'model': 'llama-3.1-8b-instant', 'provider': 'Groq', 'status': 'configured'})
+
+
+@app.route('/ai/suggest', methods=['POST'])
+@login_required
+@csrf_required
+def ai_suggest():
+    """Proxy Groq API calls so the API key is never exposed to the browser."""
+    client = get_groq_client()
+    if client is None:
+        try:
+            import groq  # noqa: F401
+        except ImportError:
+            return jsonify({'error': 'groq package not installed. Add groq to requirements.txt and redeploy.'}), 500
+        return jsonify({'error': 'GROQ_API_KEY is not configured on the server. Add it in your Railway environment variables.'}), 500
+
+    payload  = request.json or {}
+    messages = payload.get('messages', [])
+    if not messages:
+        return jsonify({'error': 'No messages provided.'}), 400
+
+    prompt_text = messages[0].get('content', '')
+
+    try:
+        chat_completion = client.chat.completions.create(
+            model='llama-3.1-8b-instant',
+            messages=[
+                {'role': 'system', 'content': 'You are a clinical assistant. You MUST respond with valid JSON only. No explanation, no markdown, no extra text -- just the raw JSON object.'},
+                {'role': 'user',   'content': prompt_text},
+            ],
+            max_tokens=1024,
+            temperature=0.3,
+            response_format={'type': 'json_object'},
+        )
+        text = chat_completion.choices[0].message.content
+        app.logger.debug('[ai_suggest] RAW MODEL OUTPUT: %s', text[:500])
+
+        if not text:
+            return jsonify({'error': 'Empty response from Groq model.'}), 502
+
+        return jsonify({'content': [{'text': text}]})
+
+    except Exception as e:
+        print(f'[ai_suggest] Groq API error: {e}', file=sys.stderr)
+        return jsonify({'error': str(e)}), 500
+
+# ── PDF / EXCEL REPORTS ───────────────────────────────────────────────────────
+
+def _report_colors():
+    """Shared color palette for all reports."""
+    from reportlab.lib import colors
+    return {
+        'GREEN':      colors.HexColor('#1a7a3c'),
+        'GREEN_LIGHT':colors.HexColor('#e8f5ee'),
+        'GOLD':       colors.HexColor('#d4b84a'),
+        'DARK':       colors.HexColor('#111111'),
+        'GREY':       colors.HexColor('#555555'),
+        'LIGHT_GREY': colors.HexColor('#f6f7f6'),
+        'BORDER':     colors.HexColor('#dde0dd'),
+        'RED_BG':     colors.HexColor('#fdecea'),
+        'RED_TEXT':   colors.HexColor('#c0392b'),
+        'WHITE':      colors.white,
     }
 
-    renderTable(data);
-  }
-
-  // ── MULTI-CONDITION FILTER SYSTEM ──
-
-  function buildConditionSidebar(filterQuery = '') {
-    // Collect all conditions from data, sorted by frequency
-    const freq = {};
-    allData.forEach(p => p.conditions.forEach(c => freq[c] = (freq[c] || 0) + 1));
-    let conditions = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([c]) => c);
-    if (filterQuery) {
-      const q = filterQuery.toLowerCase();
-      conditions = conditions.filter(c => c.toLowerCase().includes(q));
-    }
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-    const container = document.getElementById('condBtnList');
-    if (!container) return;
-    if (!conditions.length) {
-      container.innerHTML = `<div style="padding:8px 12px;font-size:11.5px;color:var(--text-3);">No conditions found</div>`;
-      return;
-    }
-    container.innerHTML = conditions.map(c => {
-      const isActive = activeConditions.has(c);
-      const isHigh = HIGH_RISK_SET.has(c);
-      const count = freq[c];
-      return `<button class="cond-btn ${isActive ? 'active' : ''}" data-cond="${c}" onclick="toggleCondition('${c}')">
-        <div class="cond-check">
-          <svg class="cond-check-tick" viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#06090a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <span style="flex:1;${isHigh ? 'color:var(--danger);' : ''}">${c}</span>
-        <span style="font-size:10px;color:var(--text-3);flex-shrink:0;">${count}</span>
-      </button>`;
-    }).join('');
-  }
-
-  function toggleCondition(cond) {
-    if (activeConditions.has(cond)) {
-      activeConditions.delete(cond);
-    } else {
-      activeConditions.add(cond);
-    }
-    applyConditionFilter();
-    buildConditionSidebar(document.getElementById('condSidebarSearch')?.value || '');
-    updateConditionTagBar();
-  }
-
-  function updateConditionTagBar() {
-    const bar = document.getElementById('multiCondBar');
-    const tagsEl = document.getElementById('multiCondTags');
-    const clearBtn = document.getElementById('condClearAll');
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-
-    if (!activeConditions.size) {
-      if (bar) bar.style.display = 'none';
-      if (clearBtn) clearBtn.style.display = 'none';
-      return;
-    }
-    if (bar) bar.style.display = 'block';
-    if (clearBtn) clearBtn.style.display = '';
-
-    tagsEl.innerHTML = [...activeConditions].map(c => {
-      const cls = HIGH_RISK_SET.has(c) ? 'danger' : '';
-      return `<span class="multi-cond-tag ${cls}">${c}<button onclick="toggleCondition('${c}')" title="Remove">×</button></span>`;
-    }).join('');
-  }
-
-  function setCondLogic(logic) {
-    conditionLogic = logic;
-    document.getElementById('logicBtnOR').classList.toggle('active', logic === 'OR');
-    document.getElementById('logicBtnAND').classList.toggle('active', logic === 'AND');
-    document.getElementById('condLogicHint').textContent = logic === 'OR' ? 'match any' : 'match all';
-    applyConditionFilter();
-  }
-
-  function applyConditionFilter() {
-    if (!activeConditions.size) {
-      activeCondition = 'All';
-      filteredData = allData;
-    } else {
-      activeCondition = [...activeConditions].join(', ');
-      filteredData = allData.filter(p => {
-        if (conditionLogic === 'AND') return [...activeConditions].every(c => p.conditions.includes(c));
-        return [...activeConditions].some(c => p.conditions.includes(c));
-      });
-    }
-
-    // Update badge
-    const badge = document.getElementById('filterBadge');
-    if (badge) {
-      if (!activeConditions.size) {
-        badge.textContent = 'All';
-      } else if (activeConditions.size === 1) {
-        badge.textContent = [...activeConditions][0];
-      } else {
-        badge.textContent = `${activeConditions.size} conditions`;
-      }
-    }
-
-    // Update subheading
-    const label = document.getElementById('activeFilterLabel');
-    if (label) {
-      if (!activeConditions.size) {
-        label.textContent = `All personnel — ${allData.length} records`;
-      } else {
-        const logic = conditionLogic === 'OR' ? 'any of' : 'all of';
-        label.textContent = `Showing ${logic}: ${[...activeConditions].join(', ')}`;
-      }
-    }
-
-    // Update medicine panel — show if single condition selected
-    const panel = document.getElementById('medPanel');
-    if (activeConditions.size === 1) {
-      const cond = [...activeConditions][0];
-      if (MEDICINES[cond]) {
-        document.getElementById('medPanelCondition').textContent = cond;
-        document.getElementById('medGrid').innerHTML = MEDICINES[cond].map(m =>
-          `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn?`<div class="med-warn">⚠ ${m.warn}</div>`:''}</div>`).join('');
-        panel.classList.add('visible');
-      } else { panel.classList.remove('visible'); }
-    } else {
-      panel.classList.remove('visible');
-    }
-
-    pagedData = filteredData;
-    currentPage = 1;
-    processData(filteredData);
-    applyAllFilters();
-  }
-
-  function clearConditionFilters() {
-    activeConditions.clear();
-    document.getElementById('condSidebarSearch').value = '';
-    applyConditionFilter();
-    buildConditionSidebar();
-    updateConditionTagBar();
-  }
-
-  function searchConditionSidebar(q) {
-    buildConditionSidebar(q);
-  }
-
-  // Legacy compat — kept so existing calls don't break
-  function filterData(condition) {
-    if (condition === 'All') {
-      clearConditionFilters();
-    } else {
-      activeConditions.clear();
-      activeConditions.add(condition);
-      applyConditionFilter();
-      buildConditionSidebar();
-      updateConditionTagBar();
-    }
-  }
-
-  function searchTable(q) {
-    applyAllFilters();
-  }
-
-  function searchCondition(q) {
-    searchConditionSidebar(q);
-  }
-
-  function generateConditionList() {
-    buildConditionSidebar();
-  }
-
-
-  // ── MODAL ──
-  function openModal(id) {
-    const p = allData.find(x => x.id === id);
-    if (!p) return;
-    currentPersonnelId = id;
-    document.getElementById('modalAvatar').textContent = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    document.getElementById('modalName').textContent = p.name;
-    document.getElementById('modalDept').textContent = p.department + ' Department';
-    document.getElementById('modalGender').textContent = p.gender;
-    document.getElementById('modalBlood').textContent = p.blood || '—';
-    document.getElementById('modalAge').textContent = p.age ? p.age + ' yrs' : '—';
-    document.getElementById('modalPhone').textContent = p.phone || '—';
-    document.getElementById('modalAddress').textContent = p.address || '—';
-    document.getElementById('modalConditions').innerHTML = p.conditions.length
-      ? p.conditions.map(c => `<span class="pill ${HIGH_RISK.includes(c)?'high':''}">${c}</span>`).join('')
-      : '<span style="color:var(--text-3);font-size:13px;">No conditions recorded</span>';
-    // Reset AI treatment panel
-    document.getElementById('aiPlaceholder').style.display = 'block';
-    document.getElementById('aiLoading').style.display = 'none';
-    document.getElementById('aiResults').style.display = 'none';
-    document.getElementById('aiError').style.display = 'none';
-    document.getElementById('aiSuggestBtn').disabled = p.conditions.length === 0;
-    // Reset AI risk panel
-    document.getElementById('aiRiskPlaceholder').style.display = 'block';
-    document.getElementById('aiRiskLoading').style.display = 'none';
-    document.getElementById('aiRiskResults').style.display = 'none';
-    document.getElementById('aiRiskError').style.display = 'none';
-    document.getElementById('aiRiskBtn').disabled = false;
-    document.getElementById('modalOverlay').classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeModal(e) { if (e.target === document.getElementById('modalOverlay')) closeModalDirect(); }
-  function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('open'); document.body.style.overflow = ''; }
-  function closeAddModal(e) { if (e.target === document.getElementById('addPersonnelOverlay')) document.getElementById('addPersonnelOverlay').classList.remove('open'); }
-  function closeVisitModal(e) { if (e.target === document.getElementById('addVisitOverlay')) document.getElementById('addVisitOverlay').classList.remove('open'); }
-
-  // ── ADD / EDIT PERSONNEL ──
-  function openAddPersonnelModal() {
-    document.getElementById('editPersonnelId').value = '';
-    document.getElementById('addPersonnelTitle').textContent = 'Add Personnel';
-    document.getElementById('savePersonnelBtn').textContent = 'Add Personnel';
-    ['pName','pAge','pPhone','pAddress','pConditions'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('pGender').value = '';
-    document.getElementById('pBlood').value = '';
-    document.getElementById('pDept').value = '';
-    populateDeptSelect();
-    document.getElementById('addPersonnelOverlay').classList.add('open');
-  }
-
-  function editPersonnel(id) {
-    const p = allData.find(x => x.id === id);
-    if (!p) return;
-    closeModalDirect();
-    document.getElementById('editPersonnelId').value = id;
-    document.getElementById('addPersonnelTitle').textContent = 'Edit Personnel';
-    document.getElementById('savePersonnelBtn').textContent = 'Save Changes';
-    document.getElementById('pName').value = p.name || '';
-    document.getElementById('pAge').value = p.age || '';
-    document.getElementById('pGender').value = p.gender || '';
-    document.getElementById('pBlood').value = p.blood || '';
-    document.getElementById('pPhone').value = p.phone || '';
-    document.getElementById('pAddress').value = p.address || '';
-    document.getElementById('pConditions').value = p.conditions.join(', ');
-    populateDeptSelect(p.department);
-    document.getElementById('addPersonnelOverlay').classList.add('open');
-  }
-
-  function populateDeptSelect(selected='') {
-    const sel = document.getElementById('pDept');
-    sel.innerHTML = '<option value="">Select…</option>' + allDepts.map(d => `<option value="${d.name}" ${d.name===selected?'selected':''}>${d.name}</option>`).join('');
-  }
-
-  async function savePersonnel() {
-    const editId = document.getElementById('editPersonnelId').value;
-    const body = {
-      name: document.getElementById('pName').value.trim(),
-      age: parseInt(document.getElementById('pAge').value) || null,
-      gender: document.getElementById('pGender').value,
-      blood: document.getElementById('pBlood').value,
-      department: document.getElementById('pDept').value,
-      phone: document.getElementById('pPhone').value.trim(),
-      address: document.getElementById('pAddress').value.trim(),
-      conditions: document.getElementById('pConditions').value.split(',').map(s=>s.trim()).filter(Boolean)
-    };
-    if (!body.name) { showToast('Name is required', true); return; }
-    const url = editId ? `/personnel/update/${editId}` : '/personnel/add';
-    const method = editId ? 'PUT' : 'POST';
-    const res = await fetch(url, { method, headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
-    const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) { document.getElementById('addPersonnelOverlay').classList.remove('open'); await loadPersonnel(); }
-  }
-
-  function confirmDelete(id, name) {
-    closeModalDirect();
-    document.getElementById('confirmIcon').textContent = '🗑️';
-    document.getElementById('confirmTitle').textContent = 'Delete Personnel?';
-    document.getElementById('confirmBody').innerHTML = `This will permanently delete <strong>${name}</strong> and all their visit records. This cannot be undone.`;
-    document.getElementById('confirmOkBtn').onclick = () => deletePersonnel(id);
-    document.getElementById('confirmOverlay').classList.add('open');
-  }
-
-  async function deletePersonnel(id) {
-    document.getElementById('confirmOverlay').classList.remove('open');
-    const res = await fetch(`/personnel/delete/${id}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken} });
-    const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) await loadPersonnel();
-  }
-
-  // ── VISITS ──
-  function renderPersonPicker(filter='') {
-    const container = document.getElementById('personPicker');
-    const list = filter ? allData.filter(p => p.name.toLowerCase().includes(filter.toLowerCase())) : allData;
-    container.innerHTML = list.map(p =>
-      `<button onclick="selectPerson(${p.id})" style="width:100%;text-align:left;padding:10px 12px;border-radius:8px;border:none;background:${currentVisitPersonId===p.id?'var(--accent-dim)':'transparent'};color:${currentVisitPersonId===p.id?'var(--accent)':'var(--text-2)'};font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;margin-bottom:4px;transition:all .12s;" onmouseover="if(${p.id}!==${currentVisitPersonId})this.style.background='var(--border)'" onmouseout="if(${p.id}!==${currentVisitPersonId})this.style.background='transparent'">
-        <div style="font-weight:500;color:${currentVisitPersonId===p.id?'var(--accent)':'var(--text)'};">${p.name}</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${p.department}</div>
-      </button>`
-    ).join('');
-  }
-
-  function filterPersonPicker(q) { renderPersonPicker(q); }
-
-  async function selectPerson(id) {
-    currentVisitPersonId = id;
-    const p = allData.find(x => x.id === id);
-    renderPersonPicker();
-    document.getElementById('visitPlaceholder').style.display = 'none';
-    document.getElementById('visitPanel').style.display = 'block';
-    document.getElementById('visitPersonName').textContent = p ? p.name : '';
-    await loadVisits(id);
-  }
-
-  async function loadVisits(id) {
-    const res = await fetch(`/personnel/${id}/visits`);
-    const visits = await res.json();
-    const container = document.getElementById('visitsList');
-    if (!visits.length) {
-      container.innerHTML = `<div class="empty-state" style="padding:30px;"><div class="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></div><div class="empty-title">No visits recorded</div><div class="empty-sub">Click "Add Visit" to record a clinic visit</div></div>`;
-      return;
-    }
-    container.innerHTML = visits.map(v =>
-      `<div class="visit-item">
-        <div style="flex:1;">
-          <div class="visit-date">${v.visit_date}</div>
-          <div class="visit-reason">${v.reason || 'General Visit'}</div>
-          ${v.notes ? `<div class="visit-notes">${v.notes}</div>` : ''}
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="deleteVisit(${v.id})">Delete</button>
-      </div>`
-    ).join('');
-  }
-
-  function openAddVisitModal() {
-    document.getElementById('vDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('vReason').value = '';
-    document.getElementById('vNotes').value = '';
-    document.getElementById('addVisitOverlay').classList.add('open');
-  }
-
-  async function saveVisit() {
-    const body = { visit_date: document.getElementById('vDate').value, reason: document.getElementById('vReason').value.trim(), notes: document.getElementById('vNotes').value.trim() };
-    if (!body.visit_date) { showToast('Visit date is required', true); return; }
-    const res = await fetch(`/personnel/${currentVisitPersonId}/visits/add`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
-    const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) { document.getElementById('addVisitOverlay').classList.remove('open'); await loadVisits(currentVisitPersonId); }
-  }
-
-  async function deleteVisit(vid) {
-    if (!confirm('Delete this visit record?')) return;
-    const res = await fetch(`/visits/delete/${vid}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken} });
-    const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) await loadVisits(currentVisitPersonId);
-  }
-
-  // ── REPORTS ──
-  async function renderReports() {
-    const tc = 'rgba(240,237,232,0.4)', gc = 'rgba(255,255,255,0.04)', cf = { family:'Figtree', size:11 };
-    const total = allData.length;
-    const highRisk = allData.filter(p => isHighRisk(p.conditions)).length;
-    document.getElementById('rpt-total').textContent = total;
-    document.getElementById('rpt-normal').textContent = total - highRisk;
-    document.getElementById('rpt-highrisk').textContent = highRisk;
-
-    // Visit count (non-blocking - runs in background)
-    document.getElementById('rpt-visits').textContent = '…';
-    (async () => {
-      try {
-        let visitCount = 0;
-        await Promise.all(allData.map(async p => {
-          const r = await fetch(`/personnel/${p.id}/visits`);
-          const v = await r.json();
-          visitCount += v.length;
-        }));
-        document.getElementById('rpt-visits').textContent = visitCount;
-      } catch(e) { document.getElementById('rpt-visits').textContent = '—'; }
-    })();
-
-    // Conditions bar chart
-    const condFreq = {};
-    allData.forEach(p => p.conditions.forEach(c => condFreq[c] = (condFreq[c]||0)+1));
-    const top = Object.entries(condFreq).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    const maxVal = top[0]?.[1] || 1;
-    document.getElementById('conditionsReport').innerHTML = top.map(([c,n]) =>
-      `<div class="conditions-bar"><div class="cbar-label"><span>${c}</span><span>${n}</span></div><div class="cbar-track"><div class="cbar-fill" style="width:${(n/maxVal*100).toFixed(1)}%"></div></div></div>`
-    ).join('');
-
-    // Age chart
-    const ageGroups = {'<30':0,'30-39':0,'40-49':0,'50-59':0,'60+':0};
-    allData.forEach(p => {
-      const age = parseInt(p.age);
-      if (!age || isNaN(age) || age <= 0) return;
-      if (age < 30) ageGroups['<30']++;
-      else if (age < 40) ageGroups['30-39']++;
-      else if (age < 50) ageGroups['40-49']++;
-      else if (age < 60) ageGroups['50-59']++;
-      else ageGroups['60+']++;
-    });
-    try { if (ageChart) { ageChart.destroy(); ageChart = null; } } catch(e) {}
-    const tcA = 'rgba(240,237,232,0.4)', gcA = 'rgba(255,255,255,0.04)', cfA = {family:'Figtree',size:11};
-    const ageCanvas = document.getElementById('ageChart');
-    if (ageCanvas) {
-      ageChart = new Chart(ageCanvas, { type:'bar', data:{ labels:Object.keys(ageGroups), datasets:[{ label:'Count', data:Object.values(ageGroups), backgroundColor:'rgba(91,164,212,0.7)', borderRadius:4 }] }, options:{ plugins:{legend:{display:false},tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'}}, scales:{x:{ticks:{color:tcA,font:cfA},grid:{color:gcA}},y:{beginAtZero:true,ticks:{stepSize:1,color:tcA,font:cfA},grid:{color:gcA}}} } });
-    }
-
-    // Dept risk chart
-    const depts = [...new Set(allData.map(p=>p.department))].filter(Boolean);
-    const normalCounts = depts.map(d => allData.filter(p=>p.department===d && !isHighRisk(p.conditions)).length);
-    const highCounts = depts.map(d => allData.filter(p=>p.department===d && isHighRisk(p.conditions)).length);
-    if (deptRiskChart) deptRiskChart.destroy();
-    deptRiskChart = new Chart(document.getElementById('deptRiskChart'), { type:'bar', data:{ labels:depts, datasets:[{ label:'Normal', data:normalCounts, backgroundColor:'rgba(78,201,122,0.7)', borderRadius:4 },{ label:'High Risk', data:highCounts, backgroundColor:'rgba(224,85,85,0.7)', borderRadius:4 }] }, options:{ plugins:{legend:{labels:{color:tc,font:cf,boxWidth:10,padding:16}},tooltip:{backgroundColor:'#162019',titleColor:'#f0ede8',bodyColor:'rgba(240,237,232,0.7)'}}, scales:{x:{ticks:{color:tc,font:cf},grid:{color:gc}},y:{ticks:{color:tc,font:cf},grid:{color:gc}}} } });
-
-    // Populate AI summary dept dropdown
-    const aiDeptSel = document.getElementById('aiSummaryDeptSelect');
-    if (aiDeptSel) {
-      const deptNames = [...new Set(allData.map(p => p.department).filter(Boolean))].sort();
-      aiDeptSel.innerHTML = '<option value="all">All Departments</option>' +
-        deptNames.map(d => `<option value="${d}">${d}</option>`).join('');
-    }
-
-    // Load trend analytics
-    loadTrendData();
-  }
-
-  // ── TREND ANALYTICS ──
-  let visitTrendChartInst = null;
-  let trendPeriod = '6m'; // '6m' | '12m' | 'all'
-  let _allVisitsCache = null; // cache so refresh doesn't re-fetch everything
-
-  function setTrendPeriod(period, btn) {
-    trendPeriod = period;
-    document.querySelectorAll('.trend-period-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderTrendCharts(_allVisitsCache);
-  }
-
-  async function loadTrendData() {
-    if (!allData.length) return;
-
-    // Show loaders
-    ['trendVisitLoading','trendReasonsLoading','trendDeptLoading'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'flex';
-    });
-    const canvas = document.getElementById('visitTrendChart');
-    if (canvas) canvas.style.display = 'none';
-    ['trendReasonsList','trendDeptList','trendVisitInsight'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-
-    try {
-      // Fetch all visits in parallel
-      const allVisits = [];
-      await Promise.all(allData.map(async p => {
-        try {
-          const r = await fetch(`/personnel/${p.id}/visits`);
-          const vs = await r.json();
-          vs.forEach(v => allVisits.push({ ...v, department: p.department, name: p.name }));
-        } catch(e) {}
-      }));
-      _allVisitsCache = allVisits;
-      renderTrendCharts(allVisits);
-    } catch(e) {
-      ['trendVisitLoading','trendReasonsLoading','trendDeptLoading'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.style.display = 'flex'; el.innerHTML = '<span style="color:var(--danger);font-size:12px;">Failed to load data</span>'; }
-      });
-    }
-  }
-
-  function renderTrendCharts(allVisits) {
-    if (!allVisits) return;
-
-    const now = new Date();
-    let cutoff = null;
-    if (trendPeriod === '6m') cutoff = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    else if (trendPeriod === '12m') cutoff = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-
-    const filtered = cutoff
-      ? allVisits.filter(v => new Date(v.visit_date) >= cutoff)
-      : allVisits;
-
-    // ── 1. Monthly visit volume line chart ──
-    const monthMap = {};
-    filtered.forEach(v => {
-      const d = new Date(v.visit_date);
-      if (isNaN(d)) return;
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      monthMap[key] = (monthMap[key] || 0) + 1;
-    });
-
-    // Fill in missing months in range
-    const sortedKeys = Object.keys(monthMap).sort();
-    let monthLabels = [], monthCounts = [];
-
-    if (sortedKeys.length >= 2) {
-      const start = new Date(sortedKeys[0] + '-01');
-      const end   = new Date(sortedKeys[sortedKeys.length-1] + '-01');
-      const cur   = new Date(start);
-      while (cur <= end) {
-        const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-        const label = cur.toLocaleDateString('en-PH', { month:'short', year:'2-digit' });
-        monthLabels.push(label);
-        monthCounts.push(monthMap[key] || 0);
-        cur.setMonth(cur.getMonth() + 1);
-      }
-    } else if (sortedKeys.length === 1) {
-      const d = new Date(sortedKeys[0] + '-01');
-      monthLabels = [d.toLocaleDateString('en-PH', { month:'short', year:'2-digit' })];
-      monthCounts = [monthMap[sortedKeys[0]]];
-    }
-
-    // Stats
-    const totalV  = filtered.length;
-    const avgV    = monthCounts.length ? Math.round(totalV / monthCounts.length) : 0;
-    const peakIdx = monthCounts.indexOf(Math.max(...monthCounts, 0));
-    const peakLbl = monthLabels[peakIdx] || '—';
-    const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const thisMonthCount = monthMap[thisMonthKey] || 0;
-
-    document.getElementById('trendTotalVisits').textContent = totalV;
-    document.getElementById('trendAvgVisits').textContent   = avgV;
-    document.getElementById('trendPeakMonth').textContent   = peakLbl;
-    document.getElementById('trendThisMonth').textContent   = thisMonthCount;
-
-    document.getElementById('trendVisitLoading').style.display = 'none';
-
-    if (monthLabels.length === 0) {
-      document.getElementById('visitTrendChart').style.display = 'none';
-      document.getElementById('trendVisitInsight').style.display = 'none';
-    } else {
-      const canvas = document.getElementById('visitTrendChart');
-      canvas.style.display = 'block';
-
-      const tc = 'rgba(240,237,232,0.35)', gc = 'rgba(255,255,255,0.04)', cf = { family:'Figtree', size:10 };
-      if (visitTrendChartInst) { visitTrendChartInst.destroy(); visitTrendChartInst = null; }
-
-      visitTrendChartInst = new Chart(canvas, {
-        type: 'line',
-        data: {
-          labels: monthLabels,
-          datasets: [{
-            label: 'Visits',
-            data: monthCounts,
-            borderColor: 'rgba(80,150,200,0.9)',
-            backgroundColor: 'rgba(80,150,200,0.08)',
-            borderWidth: 2,
-            pointRadius: monthLabels.length > 18 ? 2 : 4,
-            pointBackgroundColor: 'rgba(80,150,200,1)',
-            tension: 0.35,
-            fill: true,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: { backgroundColor:'#162019', titleColor:'#f0ede8', bodyColor:'rgba(240,237,232,0.7)', padding:10 }
-          },
-          scales: {
-            x: { ticks:{ color:tc, font:cf, maxRotation:45 }, grid:{ color:gc } },
-            y: { beginAtZero:true, ticks:{ color:tc, font:cf, stepSize:1 }, grid:{ color:gc } }
-          }
-        }
-      });
-
-      // Insight
-      const lastTwo = monthCounts.slice(-2);
-      let insightText = '';
-      if (lastTwo.length === 2 && lastTwo[0] > 0) {
-        const change = lastTwo[1] - lastTwo[0];
-        const pct    = Math.abs(Math.round((change / lastTwo[0]) * 100));
-        if (change > 0)      insightText = `Visit volume is up ${pct}% compared to last month — the clinic is getting busier.`;
-        else if (change < 0) insightText = `Visit volume dropped ${pct}% from last month. Could reflect seasonal patterns or improved health outcomes.`;
-        else                 insightText = `Visit volume held steady compared to last month.`;
-      } else if (totalV === 0) {
-        insightText = 'No visits recorded in this period yet.';
-      } else {
-        insightText = `${totalV} visit${totalV !== 1 ? 's' : ''} recorded in this period across ${allData.length} personnel.`;
-      }
-      document.getElementById('trendVisitInsightText').textContent = insightText;
-      document.getElementById('trendVisitInsight').style.display = 'flex';
-    }
-
-    // ── 2. Visit reasons breakdown ──
-    const reasonMap = {};
-    filtered.forEach(v => {
-      const r = (v.reason || 'General Visit').trim() || 'General Visit';
-      // Normalize common variants
-      const normalized = r.length > 40 ? r.slice(0,38) + '…' : r;
-      reasonMap[normalized] = (reasonMap[normalized] || 0) + 1;
-    });
-
-    document.getElementById('trendReasonsLoading').style.display = 'none';
-    const reasonsList = document.getElementById('trendReasonsList');
-    reasonsList.style.display = 'block';
-
-    const topReasons = Object.entries(reasonMap).sort((a,b) => b[1]-a[1]).slice(0, 7);
-    if (!topReasons.length) {
-      reasonsList.innerHTML = '<div class="trend-empty"><div class="trend-empty-icon">📋</div><div class="trend-empty-text">No visit data in this period</div></div>';
-    } else {
-      const maxR = topReasons[0][1];
-      const colors = ['rgba(80,150,200,0.8)','rgba(212,184,74,0.8)','rgba(78,201,122,0.8)','rgba(196,110,160,0.8)','rgba(224,85,85,0.8)','rgba(80,150,200,0.5)','rgba(212,184,74,0.5)'];
-      reasonsList.innerHTML = topReasons.map(([r, n], i) => `
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-2);margin-bottom:4px;">
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${r}</span>
-            <span style="font-weight:600;color:var(--text);flex-shrink:0;">${n}</span>
-          </div>
-          <div style="height:5px;background:var(--border);border-radius:10px;overflow:hidden;">
-            <div style="height:100%;width:${(n/maxR*100).toFixed(1)}%;background:${colors[i % colors.length]};border-radius:10px;transition:width .6s ease;"></div>
-          </div>
-        </div>`).join('');
-    }
-
-    // ── 3. Visits by department ──
-    const deptVisitMap = {};
-    filtered.forEach(v => {
-      const d = v.department || 'Unknown';
-      deptVisitMap[d] = (deptVisitMap[d] || 0) + 1;
-    });
-
-    document.getElementById('trendDeptLoading').style.display = 'none';
-    const deptList = document.getElementById('trendDeptList');
-    deptList.style.display = 'block';
-
-    const topDepts = Object.entries(deptVisitMap).sort((a,b) => b[1]-a[1]).slice(0, 7);
-    if (!topDepts.length) {
-      deptList.innerHTML = '<div class="trend-empty"><div class="trend-empty-icon">🏢</div><div class="trend-empty-text">No department visit data</div></div>';
-    } else {
-      const maxD = topDepts[0][1];
-      deptList.innerHTML = topDepts.map(([d, n], i) => `
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-2);margin-bottom:4px;">
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${d}</span>
-            <span style="font-weight:600;color:var(--text);flex-shrink:0;">${n} visit${n !== 1 ? 's' : ''}</span>
-          </div>
-          <div style="height:5px;background:var(--border);border-radius:10px;overflow:hidden;">
-            <div style="height:100%;width:${(n/maxD*100).toFixed(1)}%;background:rgba(80,150,200,${0.85 - i*0.1});border-radius:10px;transition:width .6s ease;"></div>
-          </div>
-        </div>`).join('');
-    }
-  }
-
-  // ── AI DEPARTMENT HEALTH SUMMARY ──
-  async function runAIDeptSummary() {
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-    const selectedDept = document.getElementById('aiSummaryDeptSelect')?.value || 'all';
-    const btn         = document.getElementById('aiSummaryBtn');
-    const placeholder = document.getElementById('aiSummaryPlaceholder');
-    const loading     = document.getElementById('aiSummaryLoading');
-    const results     = document.getElementById('aiSummaryResults');
-    const errorBox    = document.getElementById('aiSummaryError');
-    const copyBtn     = document.getElementById('aiSummaryCopyBtn');
-
-    if (!allData.length) { showToast('No personnel data to analyze', true); return; }
-
-    const data = selectedDept === 'all' ? allData : allData.filter(p => p.department === selectedDept);
-    if (!data.length) { showToast('No personnel in selected department', true); return; }
-
-    const total = data.length;
-    const highRiskCount = data.filter(p => isHighRisk(p.conditions)).length;
-    const riskRate = ((highRiskCount / total) * 100).toFixed(1);
-
-    const condFreq = {};
-    data.forEach(p => p.conditions.forEach(c => condFreq[c] = (condFreq[c]||0)+1));
-    const topConditions = Object.entries(condFreq).sort((a,b)=>b[1]-a[1]).slice(0,8);
-
-    const deptBreakdown = {};
-    if (selectedDept === 'all') {
-      data.forEach(p => {
-        if (!p.department) return;
-        if (!deptBreakdown[p.department]) deptBreakdown[p.department] = { total:0, highRisk:0 };
-        deptBreakdown[p.department].total++;
-        if (isHighRisk(p.conditions)) deptBreakdown[p.department].highRisk++;
-      });
-    }
-
-    const ageGroups = {'Under 30':0,'30-39':0,'40-49':0,'50-59':0,'60 and above':0};
-    data.forEach(p => {
-      const age = parseInt(p.age);
-      if (!age || isNaN(age)) return;
-      if (age < 30) ageGroups['Under 30']++;
-      else if (age < 40) ageGroups['30-39']++;
-      else if (age < 50) ageGroups['40-49']++;
-      else if (age < 60) ageGroups['50-59']++;
-      else ageGroups['60 and above']++;
-    });
-
-    const genderCount = { Male: data.filter(p=>p.gender==='Male').length, Female: data.filter(p=>p.gender==='Female').length };
-    const deptSummaryLines = selectedDept === 'all'
-      ? Object.entries(deptBreakdown).map(([d,v]) => `  - ${d}: ${v.total} total, ${v.highRisk} high-risk (${v.total ? ((v.highRisk/v.total)*100).toFixed(0) : 0}%)`)
-      : [];
-
-    const prompt = `You are a health analyst for MMSU (Mariano Marcos State University) Medical Health Records System in the Philippines. Analyze the following personnel health data and generate a concise, professional department health summary report.
-
-SCOPE: ${selectedDept === 'all' ? 'All Departments Combined' : `Department: ${selectedDept}`}
-TOTAL PERSONNEL: ${total}
-GENDER: ${genderCount.Male} Male, ${genderCount.Female} Female
-HIGH-RISK PERSONNEL: ${highRiskCount} (${riskRate}%)
-AGE DISTRIBUTION: ${Object.entries(ageGroups).map(([k,v])=>`${k}: ${v}`).join(', ')}
-TOP CONDITIONS: ${topConditions.map(([c,n])=>`${c} (${n} personnel)`).join(', ')}
-${selectedDept === 'all' && deptSummaryLines.length ? `\nDEPARTMENT BREAKDOWN:\n${deptSummaryLines.join('\n')}` : ''}
-HIGH-RISK CONDITIONS PRESENT: ${topConditions.filter(([c])=>HIGH_RISK_SET.has(c)).map(([c,n])=>`${c} (${n})`).join(', ') || 'None recorded'}
-
-Respond ONLY with a valid JSON object (no markdown, no backticks):
-{
-  "overall_status": "Critical" | "Concerning" | "Moderate" | "Good",
-  "status_color": "danger" | "warn" | "safe",
-  "executive_summary": "2-3 sentence overall health status narrative",
-  "key_findings": [
-    { "title": "short finding title", "detail": "1-2 sentence explanation", "severity": "high" | "medium" | "low" }
-  ],
-  "risk_analysis": "2-3 sentences about the risk profile, age and gender factors",
-  "recommendations": ["Actionable recommendation string (start with a verb)"]
-}
-Limit key_findings to 4. Limit recommendations to 4.`;
-
-    placeholder.style.display = 'none';
-    results.style.display     = 'none';
-    errorBox.style.display    = 'none';
-    copyBtn.style.display     = 'none';
-    loading.style.display     = 'block';
-    btn.disabled = true;
-    document.getElementById('aiSummaryLoadingText').textContent =
-      selectedDept === 'all' ? 'Analyzing all department health data…' : `Analyzing ${selectedDept} health data…`;
-
-    try {
-      const res = await fetch('/ai/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
-      }
-      const apiData = await res.json();
-      const raw = apiData.content?.[0]?.text || '';
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON in response');
-      const parsed = JSON.parse(jsonMatch[0]);
-
-      loading.style.display = 'none';
-      results.style.display = 'block';
-      copyBtn.style.display = '';
-
-      document.getElementById('aiSummaryScope').textContent =
-        selectedDept === 'all' ? 'All Departments' : selectedDept;
-      document.getElementById('aiSummaryTimestamp').textContent =
-        'Generated ' + new Date().toLocaleString('en-PH', { dateStyle:'medium', timeStyle:'short' });
-
-      const bannerColors = {
-        danger: { bg:'var(--danger-bg)', border:'rgba(217,85,85,0.25)', text:'var(--danger)', icon:'⚠️' },
-        warn:   { bg:'rgba(232,200,74,0.08)', border:'rgba(232,200,74,0.25)', text:'var(--accent)', icon:'⚡' },
-        safe:   { bg:'var(--safe-bg)', border:'rgba(78,201,122,0.25)', text:'var(--safe)', icon:'✅' },
-      };
-      const bc = bannerColors[parsed.status_color] || bannerColors.warn;
-      const banner = document.getElementById('aiSummaryBanner');
-      banner.style.background  = bc.bg;
-      banner.style.borderColor = bc.border;
-      banner.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px;">
-        <span style="font-size:18px;flex-shrink:0;">${bc.icon}</span>
-        <div>
-          <div style="font-size:11px;font-weight:700;color:${bc.text};text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;">Overall Status: ${parsed.overall_status}</div>
-          <div style="font-size:13px;color:var(--text);line-height:1.65;">${parsed.executive_summary}</div>
-        </div>
-      </div>`;
-
-      const severityColor = { high:'var(--danger)', medium:'var(--accent)', low:'var(--safe)' };
-      const findings = (parsed.key_findings || []).slice(0,4);
-      const findingCards = findings.map(f => `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="width:7px;height:7px;border-radius:50%;background:${severityColor[f.severity]||'var(--accent)'};flex-shrink:0;"></span>
-            <span style="font-size:11px;font-weight:700;color:${severityColor[f.severity]||'var(--accent)'};text-transform:uppercase;letter-spacing:.07em;">${f.severity||'medium'}</span>
-          </div>
-          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">${f.title}</div>
-          <div style="font-size:12px;color:var(--text-2);line-height:1.6;">${f.detail}</div>
-        </div>`).join('');
-      const riskCard = parsed.risk_analysis ? `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;${findings.length%2===0?'grid-column:1/-1;':''}">
-          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Risk Profile Analysis</div>
-          <div style="font-size:12.5px;color:var(--text-2);line-height:1.65;">${parsed.risk_analysis}</div>
-        </div>` : '';
-      document.getElementById('aiSummarySectionGrid').innerHTML = findingCards + riskCard;
-
-      const recs = parsed.recommendations || [];
-      if (recs.length) {
-        document.getElementById('aiSummaryRecsBox').style.display = 'block';
-        document.getElementById('aiSummaryRecs').innerHTML = recs.map((r,i) =>
-          `<div style="display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text-2);line-height:1.6;">
-            <span style="background:rgba(232,200,74,0.15);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px;">${i+1}</span>
-            ${r}
-          </div>`).join('');
-      } else {
-        document.getElementById('aiSummaryRecsBox').style.display = 'none';
-      }
-
-      window._aiSummaryText = [
-        'MMSU Medical — Department Health Summary',
-        `Scope: ${selectedDept === 'all' ? 'All Departments' : selectedDept}`,
-        `Generated: ${new Date().toLocaleString()}`,
-        `Overall Status: ${parsed.overall_status}`, '',
-        parsed.executive_summary, '',
-        'KEY FINDINGS:',
-        ...findings.map((f,i) => `${i+1}. [${(f.severity||'').toUpperCase()}] ${f.title}: ${f.detail}`), '',
-        'RISK ANALYSIS:', parsed.risk_analysis || '', '',
-        'RECOMMENDATIONS:',
-        ...recs.map((r,i) => `${i+1}. ${r}`),
-      ].join('\n');
-
-    } catch(err) {
-      loading.style.display  = 'none';
-      errorBox.style.display = 'block';
-      document.getElementById('aiSummaryErrorMsg').textContent = 'Error: ' + (err.message || 'Something went wrong.');
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  function copyAISummary() {
-    if (!window._aiSummaryText) return;
-    navigator.clipboard.writeText(window._aiSummaryText)
-      .then(() => showToast('Summary copied to clipboard'))
-      .catch(() => showToast('Could not copy to clipboard', true));
-  }
-  async function loadDepartments() {
-    const res = await fetch('/departments');
-    allDepts = await res.json();
-    const container = document.getElementById('deptList');
-    if (!container) return;
-    container.innerHTML = allDepts.length ? allDepts.map(d =>
-      `<div class="dept-item"><span class="dept-name">${d.name}</span><button class="btn btn-danger btn-sm" onclick="deleteDepartment(${d.id},'${d.name}')">Remove</button></div>`
-    ).join('') : '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No departments added yet.</div>';
-  }
-
-  async function addDepartment() {
-    const name = document.getElementById('newDeptName').value.trim();
-    if (!name) { showToast('Enter a department name', true); return; }
-    const res = await fetch('/departments/add', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify({name}) });
-    const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) { document.getElementById('newDeptName').value = ''; await loadDepartments(); }
-  }
-
-  async function deleteDepartment(id, name) {
-    if (!confirm(`Remove department "${name}"?`)) return;
-    const res = await fetch(`/departments/delete/${id}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken} });
-    const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) await loadDepartments();
-  }
-
-  // ── AUDIT LOG ──
-  async function loadAuditLog() {
-    const res = await fetch('/audit-log');
-    const logs = await res.json();
-    document.getElementById('auditCountLabel').textContent = `${logs.length} entries (last 200)`;
-    const iconMap = { LOGIN:'🟢', LOGIN_FAIL:'🔴', LOGOUT:'🔵', ADD_PERSONNEL:'✨', UPDATE_PERSONNEL:'✏️', DELETE_PERSONNEL:'🗑️', ADD_VISIT:'📅', DELETE_VISIT:'🗑️', ADD_DEPT:'🏢', DELETE_DEPT:'🗑️', EXPORT_CSV:'📤', EXPORT_VISITS_CSV:'📤', UPLOAD_CSV:'📥' };
-    const classMap = { LOGIN:'login', LOGIN_FAIL:'delete', LOGOUT:'logout', ADD_PERSONNEL:'add', UPDATE_PERSONNEL:'add', DELETE_PERSONNEL:'delete', ADD_VISIT:'add', DELETE_VISIT:'delete', EXPORT_CSV:'export', UPLOAD_CSV:'export' };
-    document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
-      `<div class="audit-item">
-        <div class="audit-icon ${classMap[l.action]||'other'}">${iconMap[l.action]||'📋'}</div>
-        <div style="flex:1;">
-          <div class="audit-action">${l.action.replace(/_/g,' ')}</div>
-          <div class="audit-detail">${l.detail || ''} ${l.ip ? `· IP: ${l.ip}` : ''}</div>
-        </div>
-        <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
-      </div>`
-    ).join('') : '<div class="empty-state" style="padding:40px;"><div class="empty-title">No activity yet</div></div>';
-  }
-
-  // ── EXPORT ──
-  function exportPersonnel() { window.location.href = '/export/personnel'; }
-  function exportVisits() { window.location.href = '/export/visits'; }
-
-  // ── CSV UPLOAD ──
-  let pendingUploadFile = null;
-  function requestUpload(file) {
-    if (!file) return;
-    document.getElementById('csvFileName').textContent = file.name;
-    pendingUploadFile = file;
-    document.getElementById('confirmIcon').textContent = '⚠️';
-    document.getElementById('confirmTitle').textContent = 'Replace all records?';
-    document.getElementById('confirmBody').innerHTML = `Uploading <strong>${file.name}</strong> will <strong style="color:var(--danger);">permanently delete</strong> all existing personnel records and replace them with the file contents. This cannot be undone.`;
-    document.getElementById('confirmOkBtn').onclick = confirmUpload;
-    document.getElementById('confirmOverlay').classList.add('open');
-  }
-  async function confirmUpload() {
-    document.getElementById('confirmOverlay').classList.remove('open');
-    if (!pendingUploadFile) return;
-    const formData = new FormData();
-    formData.append('file', pendingUploadFile);
-    pendingUploadFile = null;
-    const res = await fetch('/upload', { method:'POST', headers:{'X-CSRF-Token':csrfToken}, body:formData });
-    const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) await loadPersonnel();
-  }
-
-  // ── LOGOUT ──
-  async function handleLogout() {
-    if (!confirm('Sign out of MMSU Medical Dashboard?')) return;
-    await fetch('/logout', { method:'POST', headers:{'X-CSRF-Token':csrfToken,'Content-Type':'application/json'} });
-    window.location.href = '/login';
-  }
-
-  // ── TOAST ──
-  function showToast(msg, isError=false) {
-    const t = document.getElementById('toast');
-    document.getElementById('toastMsg').textContent = msg;
-    t.classList.toggle('error', isError);
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3500);
-  }
-
-  // ── HEALTH RISK REPORT ──
-  function renderRiskReport() {
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-    const MODERATE_SET = new Set(['Hypertension','Diabetes','Obesity','Migraine','Arthritis','Gout','Anemia','Asthma','Mental Health','Allergies','Thyroid Disorder']);
-
-    const sortVal   = document.getElementById('riskSortSelect')?.value  || 'risk_desc';
-    const filterLvl = document.getElementById('riskFilterLevel')?.value || 'all';
-
-    // Build per-dept data
-    const deptMap = {};
-    allData.forEach(p => {
-      if (!p.department) return;
-      if (!deptMap[p.department]) deptMap[p.department] = { total: 0, highRisk: [], normal: 0, condFreq: {} };
-      const entry = deptMap[p.department];
-      entry.total++;
-      if (isHighRisk(p.conditions)) {
-        entry.highRisk.push(p);
-      } else {
-        entry.normal++;
-      }
-      p.conditions.forEach(c => { entry.condFreq[c] = (entry.condFreq[c] || 0) + 1; });
-    });
-
-    // Global stats
-    const totalPersonnel = allData.length;
-    const totalHighRisk  = allData.filter(p => isHighRisk(p.conditions)).length;
-    const deptsAffected  = Object.values(deptMap).filter(d => d.highRisk.length > 0).length;
-    const riskRate       = totalPersonnel ? ((totalHighRisk / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
-
-    // Top high-risk condition across all data
-    const globalCondFreq = {};
-    allData.forEach(p => p.conditions.filter(c => HIGH_RISK_SET.has(c)).forEach(c => {
-      globalCondFreq[c] = (globalCondFreq[c] || 0) + 1;
-    }));
-    const topCondEntries = Object.entries(globalCondFreq).sort((a,b) => b[1]-a[1]);
-    const topCond = topCondEntries[0]?.[0] || '—';
-
-    // Hero stats
-    document.getElementById('rr-totalHighRisk').textContent  = totalHighRisk;
-    document.getElementById('rr-deptAffected').textContent   = deptsAffected;
-    document.getElementById('rr-riskRate').textContent       = riskRate;
-    document.getElementById('rr-topCondition').textContent   = topCond;
-    document.getElementById('riskReportGenDate').textContent =
-      'Generated ' + new Date().toLocaleString('en-PH', { dateStyle:'medium', timeStyle:'short' });
-
-    // Condition summary bars (high-risk conditions only)
-    const condSummaryMax = topCondEntries[0]?.[1] || 1;
-    document.getElementById('riskConditionList').innerHTML = topCondEntries.length
-      ? topCondEntries.slice(0, 10).map(([c, n]) => {
-          const pct = totalPersonnel ? ((n / totalPersonnel) * 100).toFixed(1) : 0;
-          const cls = HIGH_RISK_SET.has(c) ? 'danger' : 'warn';
-          return `<div class="risk-condition-row">
-            <div class="risk-condition-name ${cls}">${c}</div>
-            <div class="risk-cond-bar-track">
-              <div class="risk-cond-bar-fill ${cls}" style="width:${(n/condSummaryMax*100).toFixed(1)}%"></div>
-            </div>
-            <div class="risk-condition-count">${n}</div>
-            <div class="risk-condition-pct">${pct}%</div>
-          </div>`;
-        }).join('')
-      : '<div style="padding:16px 0;font-size:12.5px;color:var(--text-3);">No high-risk conditions recorded yet.</div>';
-
-    // Build dept array + sort
-    let deptArr = Object.entries(deptMap).map(([name, d]) => ({
-      name,
-      total: d.total,
-      highRiskCount: d.highRisk.length,
-      highRiskPct: d.total ? (d.highRisk.length / d.total) * 100 : 0,
-      persons: d.highRisk,
-      condFreq: d.condFreq,
-    }));
-
-    // Filter
-    if (filterLvl === 'critical')  deptArr = deptArr.filter(d => d.highRiskPct >= 50);
-    if (filterLvl === 'moderate')  deptArr = deptArr.filter(d => d.highRiskPct >= 20 && d.highRiskPct < 50);
-    if (filterLvl === 'low')       deptArr = deptArr.filter(d => d.highRiskPct < 20);
-
-    // Sort
-    if (sortVal === 'risk_desc')   deptArr.sort((a,b) => b.highRiskPct - a.highRiskPct);
-    if (sortVal === 'risk_asc')    deptArr.sort((a,b) => a.highRiskPct - b.highRiskPct);
-    if (sortVal === 'count_desc')  deptArr.sort((a,b) => b.total - a.total);
-    if (sortVal === 'alpha')       deptArr.sort((a,b) => a.name.localeCompare(b.name));
-
-    document.getElementById('riskDeptSubtitle').textContent =
-      `${deptArr.length} department${deptArr.length !== 1 ? 's' : ''} shown`;
-
-    const grid = document.getElementById('riskDeptGrid');
-
-    if (!deptArr.length) {
-      grid.innerHTML = `<div class="risk-empty" style="grid-column:1/-1;"><div class="risk-empty-icon">✅</div><div style="font-size:13px;color:var(--text-2);">No departments match the current filter.</div></div>`;
-      return;
-    }
-
-    grid.innerHTML = deptArr.map(d => {
-      const level  = d.highRiskPct >= 50 ? 'critical' : d.highRiskPct >= 20 ? 'moderate' : 'low';
-      const label  = level === 'critical' ? '⚠ Critical' : level === 'moderate' ? '◈ Moderate' : '✓ Low Risk';
-      const fillW  = d.highRiskPct.toFixed(1);
-
-      // Top conditions in this dept (high+moderate only)
-      const condChips = Object.entries(d.condFreq)
-        .filter(([c]) => HIGH_RISK_SET.has(c) || MODERATE_SET.has(c))
-        .sort((a,b) => b[1]-a[1])
-        .slice(0, 6)
-        .map(([c, n]) => {
-          const cls = HIGH_RISK_SET.has(c) ? 'danger' : 'warn';
-          return `<span class="risk-cond-chip ${cls}">${c} (${n})</span>`;
-        }).join('');
-
-      // High-risk persons pills (up to 6 shown, rest counted)
-      const shown = d.persons.slice(0, 6);
-      const extra = d.persons.length - shown.length;
-      const personPills = shown.map(p =>
-        `<span class="risk-person-pill" onclick="openModal(${p.id})" title="View ${p.name}"><span class="risk-person-pill-dot"></span>${p.name}</span>`
-      ).join('') + (extra > 0 ? `<span class="risk-person-pill" style="cursor:default;opacity:.6;">+${extra} more</span>` : '');
-
-      return `<div class="risk-dept-card ${level === 'critical' ? 'critical' : ''}">
-        <div class="risk-dept-header">
-          <div>
-            <div class="risk-dept-name">${d.name}</div>
-            <div class="risk-dept-total">${d.total} personnel total · ${d.highRiskCount} high risk</div>
-          </div>
-          <span class="risk-dept-badge ${level}">${label}</span>
-        </div>
-        <div class="risk-dept-body">
-          <div class="risk-dept-progress">
-            <div class="risk-dept-progress-row">
-              <span>High Risk Rate</span>
-              <span style="font-weight:600;color:${level==='low'?'var(--safe)':level==='moderate'?'var(--accent)':'var(--danger)'};">${fillW}%</span>
-            </div>
-            <div class="risk-dept-track">
-              <div class="risk-dept-fill ${level}" style="width:${fillW}%;"></div>
-            </div>
-          </div>
-          ${d.highRiskCount > 0 ? `
-          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:7px;">High-Risk Personnel</div>
-          <div class="risk-dept-persons">${personPills}</div>
-          ` : `<div style="font-size:12px;color:var(--safe);padding:6px 0;">✓ No high-risk personnel in this department.</div>`}
-          ${condChips ? `
-          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:6px;margin-top:6px;">Recorded Conditions</div>
-          <div class="risk-dept-conditions">${condChips}</div>
-          ` : ''}
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  function exportRiskReportCSV() {
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-    const highRiskPersonnel = allData.filter(p => isHighRisk(p.conditions));
-    if (!highRiskPersonnel.length) { showToast('No high-risk personnel to export', true); return; }
-    const headers = ['Name','Age','Gender','Blood Type','Department','Phone','High-Risk Conditions','All Conditions'];
-    const rows = highRiskPersonnel.map(p => {
-      const hrConds = p.conditions.filter(c => HIGH_RISK_SET.has(c)).join('; ');
-      return [
-        `"${p.name}"`, p.age || '', p.gender || '', p.blood || '',
-        `"${p.department}"`, p.phone || '',
-        `"${hrConds}"`, `"${p.conditions.join('; ')}"`
-      ].join(',');
-    });
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `MMSU_HealthRiskReport_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Risk report exported as CSV');
-  }
-
-  // ── HELPERS ──
-  const HIGH_RISK = ['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus'];
-  function isHighRisk(conditions) { return conditions.some(c => HIGH_RISK.includes(c)); }
-
-  const allConditionsList = ['Hypertension','Diabetes','Asthma','Heart Disease','Allergies','Obesity','Tuberculosis','Anemia','Cancer','Arthritis','Covid-19','Mental Health','Liver Disease','Kidney Disease','Migraine','Ulcer','Gastritis','Hepatitis','Thyroid Disorder','Pneumonia','HIV/AIDS','Dengue','Stroke','Bronchitis','Epilepsy','Glaucoma','Cyst','Scoliosis','Gallstones','Sinusitis','Tonsillitis','Lupus','GERD','Psoriasis','Vertigo','Gout','Hernia'];
-
-  const MEDICINES = {
-    'Hypertension':[{name:'Amlodipine',desc:'Calcium channel blocker for blood pressure control.',warn:''},{name:'Losartan',desc:'ARB for hypertension and kidney protection.',warn:''},{name:'Hydrochlorothiazide',desc:'Diuretic for mild hypertension.',warn:''}],
-    'Diabetes':[{name:'Metformin',desc:'First-line oral medication for type 2 diabetes.',warn:''},{name:'Glimepiride',desc:'Sulfonylurea stimulating insulin secretion.',warn:''},{name:'Insulin',desc:'Required for type 1 or advanced type 2.',warn:'Requires monitoring.'}],
-    'Asthma':[{name:'Salbutamol Inhaler',desc:'Short-acting bronchodilator for acute attacks.',warn:''},{name:'Budesonide Inhaler',desc:'Inhaled corticosteroid for long-term control.',warn:''}],
-    'Heart Disease':[{name:'Aspirin',desc:'Antiplatelet therapy for clot prevention.',warn:''},{name:'Atorvastatin',desc:'Reduces LDL cholesterol and inflammation.',warn:''},{name:'Bisoprolol',desc:'Beta-blocker to reduce heart rate and workload.',warn:'Specialist required.'}],
-    'Allergies':[{name:'Cetirizine',desc:'Non-drowsy antihistamine for daily use.',warn:''},{name:'Loratadine',desc:'Long-acting antihistamine tablet.',warn:''}],
-    'Obesity':[{name:'Orlistat',desc:'Lipase inhibitor reducing dietary fat absorption.',warn:''},{name:'Diet & Exercise',desc:'Primary intervention for weight management.',warn:''}],
-    'Tuberculosis':[{name:'Rifampicin',desc:'Key antibiotic in TB regimen.',warn:'DOT required.'},{name:'Isoniazid',desc:'Bactericidal agent against TB.',warn:'Monitor liver function.'}],
-    'Anemia':[{name:'Ferrous Sulfate',desc:'Iron supplementation for iron-deficiency anemia.',warn:''},{name:'Folic Acid',desc:'Supports red blood cell production.',warn:''}],
-    'Cancer':[{name:'Chemotherapy',desc:'Cytotoxic drug therapy for cancer.',warn:'Specialist required.'},{name:'Palliative Care',desc:'Supportive care to improve quality of life.',warn:''}],
-    'Arthritis':[{name:'Naproxen',desc:'NSAID for joint pain and inflammation.',warn:''},{name:'Methotrexate',desc:'DMARD for rheumatoid arthritis.',warn:'Specialist required.'}],
-    'Mental Health':[{name:'Sertraline',desc:'SSRI antidepressant for anxiety and depression.',warn:''},{name:'Counseling',desc:'Cognitive behavioral therapy recommended.',warn:''}],
-    'Liver Disease':[{name:'Silymarin',desc:'Hepatoprotective agent from milk thistle.',warn:''},{name:'Ursodeoxycholic Acid',desc:'Bile acid for cholestatic liver disease.',warn:'Specialist required.'}],
-    'Kidney Disease':[{name:'Amlodipine',desc:'Controls BP to protect kidney function.',warn:''},{name:'Erythropoietin',desc:'For anemia in chronic kidney disease.',warn:'Specialist required.'}],
-    'Migraine':[{name:'Sumatriptan',desc:'Triptan for acute migraine attacks.',warn:''},{name:'Topiramate',desc:'Preventive therapy for frequent migraines.',warn:''}],
-    'Ulcer':[{name:'Omeprazole',desc:'Proton pump inhibitor reducing stomach acid.',warn:''},{name:'Amoxicillin',desc:'Antibiotic for H. pylori eradication.',warn:''}],
-    'Gastritis':[{name:'Pantoprazole',desc:'PPI for gastric acid reduction.',warn:''},{name:'Antacids',desc:'Quick relief from gastric discomfort.',warn:''}],
-    'Thyroid Disorder':[{name:'Levothyroxine',desc:'Synthetic T4 for hypothyroidism.',warn:''},{name:'Methimazole',desc:'Antithyroid drug for hyperthyroidism.',warn:''}],
-    'Bronchitis':[{name:'Salbutamol',desc:'Bronchodilator for airway relief.',warn:''},{name:'Amoxicillin',desc:'Antibiotic if bacterial cause suspected.',warn:''}],
-    'Stroke':[{name:'Aspirin',desc:'Antiplatelet therapy post-ischemic stroke.',warn:''},{name:'Clopidogrel',desc:'Alternative antiplatelet for stroke prevention.',warn:'Specialist required.'}],
-    'Gout':[{name:'Allopurinol',desc:'Reduces uric acid production.',warn:''},{name:'Colchicine',desc:'Anti-inflammatory for acute gout attacks.',warn:''}],
-    'GERD':[{name:'Omeprazole',desc:'Proton pump inhibitor for GERD.',warn:''},{name:'Domperidone',desc:'Prokinetic agent for reflux symptoms.',warn:''}]
-  };
-
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModalDirect(); document.getElementById('addPersonnelOverlay').classList.remove('open'); document.getElementById('addVisitOverlay').classList.remove('open'); document.getElementById('confirmOverlay').classList.remove('open'); } });
-
-  // ── MEDICINE LOOKUP PAGE ──
-  function initMedLookupPage() {} // dropdown removed, nothing to init
-
-  function onMedLookupInput(val) {
-    const dd = document.getElementById('medLookupDropdown');
-    const q = val.trim().toLowerCase();
-    if (!q) {
-      dd.style.display = 'none';
-      clearMedLookup();
-      return;
-    }
-    // Autocomplete for known conditions
-    const matches = allConditionsList.filter(c => c.toLowerCase().includes(q));
-    if (matches.length) {
-      dd.style.display = 'block';
-      dd.innerHTML = matches.map(c =>
-        `<button onclick="selectMedLookup('${c}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:transparent;color:var(--text-2);font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;transition:background .1s;" onmouseover="this.style.background='var(--border)';this.style.color='var(--text)';" onmouseout="this.style.background='transparent';this.style.color='var(--text-2)';">${c}</button>`
-      ).join('');
-    } else {
-      dd.style.display = 'none';
-    }
-    // Show static meds if exact match, otherwise just hide placeholder
-    const cond = val.trim();
-    document.getElementById('medLookupPlaceholder').style.display = 'none';
-    if (MEDICINES[cond] && MEDICINES[cond].length) {
-      document.getElementById('medLookupConditionLabel').textContent = cond;
-      document.getElementById('medLookupCards').innerHTML = MEDICINES[cond].map(m =>
-        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn ? `<div class="med-warn">⚠ ${m.warn}</div>` : ''}</div>`
-      ).join('');
-      document.getElementById('medLookupResult').style.display = 'block';
-    } else {
-      document.getElementById('medLookupResult').style.display = 'none';
-    }
-  }
-
-  function selectMedLookup(cond) {
-    document.getElementById('medLookupInput').value = cond;
-    document.getElementById('medLookupDropdown').style.display = 'none';
-    onMedLookupInput(cond);
-  }
-
-  function clearMedLookup() {
-    document.getElementById('medLookupInput').value = '';
-    document.getElementById('medLookupDropdown').style.display = 'none';
-    document.getElementById('medLookupResult').style.display = 'none';
-    document.getElementById('aiMedLookupSection').style.display = 'none';
-    document.getElementById('medLookupPlaceholder').style.display = '';
-  }
-
-  async function runAIMedLookup() {
-    const cond = document.getElementById('medLookupInput').value.trim();
-    if (!cond) { showToast('Please type a condition first', true); return; }
-
-    const aiSection = document.getElementById('aiMedLookupSection');
-    const loading   = document.getElementById('aiMedLookupLoading');
-    const results   = document.getElementById('aiMedLookupResults');
-    const error     = document.getElementById('aiMedLookupError');
-    const btn       = document.getElementById('aiMedLookupBtn');
-
-    // Show static meds if available (safe — doesn't touch aiSection)
-    if (MEDICINES[cond] && MEDICINES[cond].length) {
-      document.getElementById('medLookupConditionLabel').textContent = cond;
-      document.getElementById('medLookupCards').innerHTML = MEDICINES[cond].map(m =>
-        `<div class="med-card"><div class="med-name">${m.name}</div><div class="med-desc">${m.desc}</div>${m.warn ? `<div class="med-warn">⚠ ${m.warn}</div>` : ''}</div>`
-      ).join('');
-      document.getElementById('medLookupResult').style.display = 'block';
-    } else {
-      document.getElementById('medLookupResult').style.display = 'none';
-    }
-
-    document.getElementById('medLookupPlaceholder').style.display = 'none';
-    document.getElementById('medLookupDropdown').style.display = 'none';
-    aiSection.style.display = 'block';
-    loading.style.display = 'block';
-    results.style.display = 'none';
-    error.style.display = 'none';
-    btn.disabled = true;
-    document.getElementById('aiMedLookupCondLabel').textContent = cond;
-
-    const prompt = `You are a clinical pharmacology reference assistant for a university health clinic in the Philippines.
-
-Condition: ${cond}
-
-Task: Provide a concise clinical overview and treatment suggestions for this condition.
-
-Respond ONLY with a valid JSON object (no markdown, no extra text):
-{
-  "overview": "2-3 sentence clinical description of the condition and its management approach",
-  "suggestions": [
-    {
-      "medicine": "medicine name",
-      "dosage": "typical dosage and frequency",
-      "description": "1-2 sentence rationale and mechanism",
-      "warning": "key warning or empty string"
-    }
-  ],
-  "important_note": "any critical clinical note for this condition, or empty string"
+HIGH_RISK_CONDITIONS = {
+    'Hypertension','Diabetes','Asthma','Heart Disease',
+    'Tuberculosis','Cancer','HIV/AIDS','Epilepsy'
 }
 
-Limit to 4 medicine suggestions. Focus on medicines commonly available in the Philippines.`;
+def _report_header_footer(canvas_obj, doc, title, subtitle=''):
+    """Draws page header + footer on every page."""
+    if not REPORTLAB_AVAILABLE:
+        return
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    C = _report_colors()
+    w, h = doc.pagesize
+    # Header bar
+    canvas_obj.setFillColor(C['GREEN'])
+    canvas_obj.rect(0, h - 2.2*cm, w, 2.2*cm, fill=1, stroke=0)
+    canvas_obj.setFillColor(C['GOLD'])
+    canvas_obj.setFont('Helvetica-Bold', 13)
+    canvas_obj.drawString(1.8*cm, h - 1.3*cm, 'MMSU Medical · Health Records System')
+    canvas_obj.setFillColor(colors.white)
+    canvas_obj.setFont('Helvetica', 9)
+    canvas_obj.drawRightString(w - 1.8*cm, h - 1.3*cm, title)
+    if subtitle:
+        canvas_obj.setFont('Helvetica', 8)
+        canvas_obj.drawRightString(w - 1.8*cm, h - 1.85*cm, subtitle)
+    # Footer
+    canvas_obj.setFillColor(C['BORDER'])
+    canvas_obj.rect(0, 0, w, 1.1*cm, fill=1, stroke=0)
+    canvas_obj.setFillColor(C['GREY'])
+    canvas_obj.setFont('Helvetica', 7.5)
+    now_str = datetime.now().strftime('%B %d, %Y at %I:%M %p')
+    canvas_obj.drawString(1.8*cm, 0.38*cm, f'Generated: {now_str}  ·  Confidential — For Clinic Use Only')
+    canvas_obj.drawRightString(w - 1.8*cm, 0.38*cm, f'Page {canvas_obj.getPageNumber()}')
 
-    try {
-      const res = await fetch('/ai/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
-      });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
-      }
+def _style(styles, name, **kw):
+    from reportlab.lib.styles import ParagraphStyle
+    return ParagraphStyle(name, parent=styles['Normal'], **kw)
 
-      const data = await res.json();
-      const raw = data.content?.[0]?.text || '';
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found in response');
-      const parsed = JSON.parse(jsonMatch[0]);
 
-      document.getElementById('aiMedLookupOverviewText').textContent = parsed.overview || '';
+def _section_title(text, styles):
+    from reportlab.platypus import Paragraph
+    from reportlab.lib import colors
+    C = _report_colors()
+    s = _style(styles, f'ST_{text[:8]}',
+               fontSize=8, fontName='Helvetica-Bold',
+               textColor=C['GREY'], spaceBefore=14, spaceAfter=5,
+               textTransform='uppercase', letterSpacing=1.2)
+    return Paragraph(text, s)
 
-      document.getElementById('aiMedLookupGrid').innerHTML = parsed.suggestions.map(s =>
-        `<div class="modal-med-card">
-          <div class="modal-med-name">${s.medicine}</div>
-          ${s.dosage ? `<div style="font-size:10px;font-weight:600;color:var(--accent);margin:3px 0 4px;text-transform:uppercase;letter-spacing:.06em;">${s.dosage}</div>` : ''}
-          <div class="modal-med-desc">${s.description}</div>
-          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${s.warning}</div>` : ''}
-        </div>`
-      ).join('');
 
-      const noteBox = document.getElementById('aiMedLookupNote');
-      if (parsed.important_note) {
-        document.getElementById('aiMedLookupNoteText').textContent = parsed.important_note;
-        noteBox.style.display = 'block';
-      } else {
-        noteBox.style.display = 'none';
-      }
+def _make_table(data, col_widths, stripe=True):
+    """Generic styled table."""
+    from reportlab.platypus import Table, TableStyle
+    from reportlab.lib import colors
+    C = _report_colors()
+    tbl = Table(data, colWidths=col_widths, repeatRows=1)
+    cmds = [
+        ('BACKGROUND',    (0,0), (-1,0), C['GREEN']),
+        ('TEXTCOLOR',     (0,0), (-1,0), colors.white),
+        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0), (-1,-1), 8.5),
+        ('ROWBACKGROUNDS',(0,1), (-1,-1), [C['WHITE'], C['LIGHT_GREY']] if stripe else [C['WHITE']]),
+        ('GRID',          (0,0), (-1,-1), 0.35, C['BORDER']),
+        ('TOPPADDING',    (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING',   (0,0), (-1,-1), 8),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 8),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+    ]
+    tbl.setStyle(TableStyle(cmds))
+    return tbl
 
-      loading.style.display = 'none';
-      results.style.display = 'block';
 
-    } catch(e) {
-      loading.style.display = 'none';
-      let msg = e.message;
-      try { const j = JSON.parse(e.message); msg = j.error || msg; } catch(_) {}
-      document.getElementById('aiMedLookupErrorMsg').textContent = msg;
-      error.style.display = 'block';
-    } finally {
-      btn.disabled = false;
+# ── 1. MONTHLY MEDICAL REPORT ─────────────────────────────────────────────────
+
+@app.route('/reports/monthly')
+@login_required
+def report_monthly():
+    if not REPORTLAB_AVAILABLE:
+        return jsonify({'error': 'reportlab not installed'}), 500
+
+    year  = request.args.get('year',  datetime.now().year,  type=int)
+    month = request.args.get('month', datetime.now().month, type=int)
+
+    with get_db() as conn:
+        c = conn.cursor()
+        # Visits this month
+        c.execute('''
+            SELECT v.visit_date, p.name, p.department, v.reason, v.notes
+            FROM visits v JOIN personnel p ON p.id = v.personnel_id
+            WHERE EXTRACT(YEAR FROM v.visit_date)=%s AND EXTRACT(MONTH FROM v.visit_date)=%s
+            ORDER BY v.visit_date, p.name
+        ''', (year, month))
+        visits = c.fetchall()
+
+        # All personnel stats
+        c.execute('SELECT id, name, age, gender, blood, department, conditions FROM personnel')
+        personnel = [{'id':r[0],'name':r[1],'age':r[2],'gender':r[3],'blood':r[4],'dept':r[5],'conds':r[6].split('|') if r[6] else []} for r in c.fetchall()]
+
+        # Top reasons this month
+        c.execute('''
+            SELECT COALESCE(NULLIF(reason,''),'General Visit') AS r, COUNT(*) n
+            FROM visits
+            WHERE EXTRACT(YEAR FROM visit_date)=%s AND EXTRACT(MONTH FROM visit_date)=%s
+            GROUP BY r ORDER BY n DESC LIMIT 8
+        ''', (year, month))
+        top_reasons = c.fetchall()
+
+        # Department visit counts
+        c.execute('''
+            SELECT p.department, COUNT(*) n
+            FROM visits v JOIN personnel p ON p.id=v.personnel_id
+            WHERE EXTRACT(YEAR FROM v.visit_date)=%s AND EXTRACT(MONTH FROM v.visit_date)=%s
+            GROUP BY p.department ORDER BY n DESC
+        ''', (year, month))
+        dept_visits = c.fetchall()
+
+    month_name = datetime(year, month, 1).strftime('%B %Y')
+    total_p    = len(personnel)
+    high_risk  = sum(1 for p in personnel if any(c in HIGH_RISK_CONDITIONS for c in p['conds']))
+
+    import calendar
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    C  = _report_colors()
+    styles = getSampleStyleSheet()
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=1.8*cm, rightMargin=1.8*cm,
+                            topMargin=2.8*cm,  bottomMargin=1.8*cm)
+
+    def header_footer(canvas_obj, d):
+        _report_header_footer(canvas_obj, d, 'Monthly Medical Report', month_name)
+
+    story = []
+    # Title block
+    story.append(Paragraph(f'Monthly Medical Report', _style(styles,'RT', fontSize=20, fontName='Helvetica-Bold', textColor=C['DARK'], spaceAfter=2)))
+    story.append(Paragraph(month_name, _style(styles,'RS', fontSize=13, textColor=C['GREY'], spaceAfter=16)))
+    story.append(HRFlowable(width='100%', thickness=1.5, color=C['GREEN'], spaceAfter=14))
+
+    # KPI row
+    kpi_data = [['Total Personnel','High Risk','Visits This Month','Departments'],
+                [str(total_p), str(high_risk), str(len(visits)), str(len(dept_visits))]]
+    kpi_tbl = _make_table(kpi_data, [None]*4)
+    story.append(kpi_tbl)
+    story.append(Spacer(1, 14))
+
+    # Top visit reasons
+    if top_reasons:
+        story.append(_section_title('Top Visit Reasons This Month', styles))
+        rdata = [['Reason','Visit Count']] + [[r, str(n)] for r,n in top_reasons]
+        pw = A4[0] - 3.6*cm
+        story.append(_make_table(rdata, [pw*0.75, pw*0.25]))
+        story.append(Spacer(1, 12))
+
+    # Dept visit breakdown
+    if dept_visits:
+        story.append(_section_title('Visits by Department', styles))
+        ddata = [['Department','Visits']] + [[d or '—', str(n)] for d,n in dept_visits]
+        pw = A4[0] - 3.6*cm
+        story.append(_make_table(ddata, [pw*0.75, pw*0.25]))
+        story.append(Spacer(1, 12))
+
+    # Visit log
+    story.append(_section_title(f'Full Visit Log — {month_name}', styles))
+    if visits:
+        pw = A4[0] - 3.6*cm
+        vdata = [['Date','Personnel','Department','Reason','Notes']]
+        for vdate, name, dept, reason, notes in visits:
+            vdata.append([str(vdate), name, dept or '—', reason or 'General Visit', (notes or '')[:60]])
+        story.append(_make_table(vdata, [pw*0.11, pw*0.2, pw*0.18, pw*0.27, pw*0.24]))
+    else:
+        story.append(Paragraph('No visits recorded for this month.', _style(styles,'NV', fontSize=11, textColor=C['GREY'])))
+
+    doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
+    buf.seek(0)
+    fname = f'monthly_report_{year}_{month:02d}.pdf'
+    audit('REPORT_MONTHLY', f'{month_name}')
+    return Response(buf.getvalue(), mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename={fname}'})
+
+
+# ── 2. YEARLY SUMMARY REPORT ──────────────────────────────────────────────────
+
+@app.route('/reports/yearly')
+@login_required
+def report_yearly():
+    if not REPORTLAB_AVAILABLE:
+        return jsonify({'error': 'reportlab not installed'}), 500
+
+    year = request.args.get('year', datetime.now().year, type=int)
+
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name, age, gender, blood, department, conditions FROM personnel')
+        personnel = [{'name':r[0],'age':r[1],'gender':r[2],'blood':r[3],'dept':r[4],
+                      'conds':r[5].split('|') if r[5] else []} for r in c.fetchall()]
+
+        # Visits per month
+        c.execute('''
+            SELECT EXTRACT(MONTH FROM visit_date)::int AS m, COUNT(*) n
+            FROM visits WHERE EXTRACT(YEAR FROM visit_date)=%s
+            GROUP BY m ORDER BY m
+        ''', (year,))
+        visits_by_month = {r[0]: r[1] for r in c.fetchall()}
+
+        # Total visits
+        c.execute('SELECT COUNT(*) FROM visits WHERE EXTRACT(YEAR FROM visit_date)=%s', (year,))
+        total_visits = c.fetchone()[0]
+
+        # Top conditions
+        c.execute('''
+            SELECT COALESCE(NULLIF(reason,''),'General Visit'), COUNT(*)
+            FROM visits WHERE EXTRACT(YEAR FROM visit_date)=%s
+            GROUP BY 1 ORDER BY 2 DESC LIMIT 10
+        ''', (year,))
+        top_reasons = c.fetchall()
+
+        # Dept breakdown
+        c.execute('''
+            SELECT p.department, COUNT(DISTINCT p.id) personnel,
+                   SUM(CASE WHEN v.id IS NOT NULL THEN 1 ELSE 0 END) visits
+            FROM personnel p LEFT JOIN visits v ON v.personnel_id=p.id
+              AND EXTRACT(YEAR FROM v.visit_date)=%s
+            GROUP BY p.department ORDER BY personnel DESC
+        ''', (year,))
+        dept_rows = c.fetchall()
+
+    import calendar
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.lib.pagesizes import A4
+    C  = _report_colors()
+    styles = getSampleStyleSheet()
+
+    total_p   = len(personnel)
+    high_risk = sum(1 for p in personnel if any(c in HIGH_RISK_CONDITIONS for c in p['conds']))
+    male      = sum(1 for p in personnel if p['gender'] == 'Male')
+    female    = sum(1 for p in personnel if p['gender'] == 'Female')
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=1.8*cm, rightMargin=1.8*cm,
+                            topMargin=2.8*cm, bottomMargin=1.8*cm)
+
+    def hf(cv, d): _report_header_footer(cv, d, 'Yearly Summary Report', str(year))
+
+    story = []
+    story.append(Paragraph('Yearly Summary Report', _style(styles,'RT', fontSize=20, fontName='Helvetica-Bold', textColor=C['DARK'], spaceAfter=2)))
+    story.append(Paragraph(str(year), _style(styles,'RS', fontSize=13, textColor=C['GREY'], spaceAfter=16)))
+    story.append(HRFlowable(width='100%', thickness=1.5, color=C['GREEN'], spaceAfter=14))
+
+    pw = A4[0] - 3.6*cm
+    kpi = [['Total Personnel','High Risk','Male','Female','Total Visits'],
+           [str(total_p), str(high_risk), str(male), str(female), str(total_visits)]]
+    story.append(_make_table(kpi, [pw/5]*5))
+    story.append(Spacer(1, 14))
+
+    # Monthly visits table
+    story.append(_section_title('Monthly Visit Volume', styles))
+    MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    mdata = [['Month','Visits']] + [[MONTHS[i], str(visits_by_month.get(i+1, 0))] for i in range(12)]
+    story.append(_make_table(mdata, [pw*0.6, pw*0.4]))
+    story.append(Spacer(1, 12))
+
+    # Department table
+    story.append(_section_title('Department Overview', styles))
+    ddata = [['Department','Personnel','Visits (Year)','High Risk']]
+    for dept, pop, vis in dept_rows:
+        dept_hr = sum(1 for p in personnel if p['dept'] == dept and any(c in HIGH_RISK_CONDITIONS for c in p['conds']))
+        ddata.append([dept or 'Unassigned', str(pop), str(vis or 0), str(dept_hr)])
+    story.append(_make_table(ddata, [pw*0.4, pw*0.2, pw*0.2, pw*0.2]))
+    story.append(Spacer(1, 12))
+
+    # Top reasons
+    if top_reasons:
+        story.append(_section_title('Top 10 Visit Reasons', styles))
+        rdata = [['Reason','Count']] + [[r, str(n)] for r,n in top_reasons]
+        story.append(_make_table(rdata, [pw*0.75, pw*0.25]))
+
+    doc.build(story, onFirstPage=hf, onLaterPages=hf)
+    buf.seek(0)
+    audit('REPORT_YEARLY', str(year))
+    return Response(buf.getvalue(), mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename=yearly_report_{year}.pdf'})
+
+
+# ── 3. DEPARTMENT REPORT ──────────────────────────────────────────────────────
+
+@app.route('/reports/department')
+@login_required
+def report_department():
+    if not REPORTLAB_AVAILABLE:
+        return jsonify({'error': 'reportlab not installed'}), 500
+
+    dept = request.args.get('dept', '')
+
+    with get_db() as conn:
+        c = conn.cursor()
+        if dept:
+            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions FROM personnel WHERE department=%s ORDER BY name', (dept,))
+        else:
+            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions FROM personnel ORDER BY department,name')
+        rows = c.fetchall()
+        personnel = [row_to_person(r) for r in rows]
+
+        c.execute('''
+            SELECT p.department, COUNT(DISTINCT v.id) visits
+            FROM personnel p LEFT JOIN visits v ON v.personnel_id=p.id
+            WHERE (%s='' OR p.department=%s)
+            GROUP BY p.department ORDER BY visits DESC
+        ''', (dept, dept))
+        dept_visit_counts = {r[0]: r[1] for r in c.fetchall()}
+
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.lib.pagesizes import A4
+    C  = _report_colors()
+    styles = getSampleStyleSheet()
+
+    title_str = dept if dept else 'All Departments'
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=1.8*cm, rightMargin=1.8*cm,
+                            topMargin=2.8*cm, bottomMargin=1.8*cm)
+
+    def hf(cv, d): _report_header_footer(cv, d, 'Department Report', title_str)
+
+    story = []
+    story.append(Paragraph('Department Report', _style(styles,'RT', fontSize=20, fontName='Helvetica-Bold', textColor=C['DARK'], spaceAfter=2)))
+    story.append(Paragraph(title_str, _style(styles,'RS', fontSize=13, textColor=C['GREY'], spaceAfter=16)))
+    story.append(HRFlowable(width='100%', thickness=1.5, color=C['GREEN'], spaceAfter=14))
+
+    pw = A4[0] - 3.6*cm
+
+    # Group by department
+    from collections import defaultdict
+    by_dept = defaultdict(list)
+    for p in personnel:
+        by_dept[p['department'] or 'Unassigned'].append(p)
+
+    for dname, members in sorted(by_dept.items()):
+        story.append(_section_title(dname, styles))
+        high = sum(1 for p in members if any(c in HIGH_RISK_CONDITIONS for c in p['conditions']))
+        info = [['Personnel','High Risk','Total Visits'],
+                [str(len(members)), str(high), str(dept_visit_counts.get(dname, 0))]]
+        story.append(_make_table(info, [pw/3]*3))
+        story.append(Spacer(1, 6))
+
+        pdata = [['Name','Age','Gender','Blood','Risk','Conditions']]
+        for p in members:
+            risk = '⚠ High' if any(c in HIGH_RISK_CONDITIONS for c in p['conditions']) else '✓ Normal'
+            conds = ', '.join(p['conditions'][:3]) + ('…' if len(p['conditions'])>3 else '') if p['conditions'] else '—'
+            pdata.append([p['name'], str(p['age'] or '—'), p['gender'], p['blood'] or '—', risk, conds])
+        story.append(_make_table(pdata, [pw*0.22, pw*0.07, pw*0.08, pw*0.08, pw*0.12, pw*0.43]))
+        story.append(Spacer(1, 14))
+
+    doc.build(story, onFirstPage=hf, onLaterPages=hf)
+    buf.seek(0)
+    safe_dept = dept.replace(' ','_') if dept else 'all'
+    audit('REPORT_DEPT', title_str)
+    return Response(buf.getvalue(), mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename=dept_report_{safe_dept}.pdf'})
+
+
+# ── 4. CONSULTATION HISTORY (PDF) ─────────────────────────────────────────────
+
+@app.route('/reports/consultation')
+@login_required
+def report_consultation():
+    if not REPORTLAB_AVAILABLE:
+        return jsonify({'error': 'reportlab not installed'}), 500
+
+    pid  = request.args.get('pid',  type=int)
+    dept = request.args.get('dept', '')
+    from_date = request.args.get('from', '')
+    to_date   = request.args.get('to', '')
+
+    with get_db() as conn:
+        c = conn.cursor()
+        query = '''
+            SELECT v.id, p.name, p.department, p.gender, p.age,
+                   v.visit_date, v.reason, v.notes
+            FROM visits v JOIN personnel p ON p.id = v.personnel_id
+            WHERE 1=1
+        '''
+        params = []
+        if pid:
+            query += ' AND p.id=%s'; params.append(pid)
+        if dept:
+            query += ' AND p.department=%s'; params.append(dept)
+        if from_date:
+            query += ' AND v.visit_date>=%s'; params.append(from_date)
+        if to_date:
+            query += ' AND v.visit_date<=%s'; params.append(to_date)
+        query += ' ORDER BY v.visit_date DESC, p.name'
+        c.execute(query, params)
+        visits = c.fetchall()
+
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.lib.pagesizes import A4
+    C  = _report_colors()
+    styles = getSampleStyleSheet()
+
+    subtitle_parts = []
+    if dept: subtitle_parts.append(dept)
+    if from_date: subtitle_parts.append(f'From {from_date}')
+    if to_date:   subtitle_parts.append(f'To {to_date}')
+    subtitle = ' · '.join(subtitle_parts) if subtitle_parts else 'All Records'
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=1.8*cm, rightMargin=1.8*cm,
+                            topMargin=2.8*cm, bottomMargin=1.8*cm)
+
+    def hf(cv, d): _report_header_footer(cv, d, 'Consultation History', subtitle)
+
+    story = []
+    story.append(Paragraph('Consultation History', _style(styles,'RT', fontSize=20, fontName='Helvetica-Bold', textColor=C['DARK'], spaceAfter=2)))
+    story.append(Paragraph(subtitle, _style(styles,'RS', fontSize=12, textColor=C['GREY'], spaceAfter=16)))
+    story.append(HRFlowable(width='100%', thickness=1.5, color=C['GREEN'], spaceAfter=14))
+
+    pw = A4[0] - 3.6*cm
+    story.append(Paragraph(f'Total consultations: {len(visits)}', _style(styles,'TC', fontSize=11, textColor=C['GREY'], spaceAfter=10)))
+
+    if visits:
+        vdata = [['Date','Personnel','Dept','Age','Gender','Reason','Notes']]
+        for _, name, dept_v, gender, age, vdate, reason, notes in visits:
+            vdata.append([str(vdate), name, dept_v or '—', str(age or '—'), gender or '—',
+                          (reason or 'General Visit')[:35], (notes or '')[:50]])
+        story.append(_make_table(vdata, [pw*0.1, pw*0.17, pw*0.13, pw*0.05, pw*0.07, pw*0.24, pw*0.24]))
+    else:
+        story.append(Paragraph('No consultation records found for the selected filters.', _style(styles,'NR', fontSize=11, textColor=C['GREY'])))
+
+    doc.build(story, onFirstPage=hf, onLaterPages=hf)
+    buf.seek(0)
+    audit('REPORT_CONSULTATION', subtitle)
+    return Response(buf.getvalue(), mimetype='application/pdf',
+                    headers={'Content-Disposition': 'attachment; filename=consultation_history.pdf'})
+
+
+# ── 5. MEDICINE INVENTORY REPORT (EXCEL) ─────────────────────────────────────
+
+@app.route('/reports/medicine-inventory')
+@login_required
+def report_medicine_inventory():
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return jsonify({'error': 'openpyxl not installed. Run: pip install openpyxl'}), 500
+
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name, age, gender, blood, department, conditions FROM personnel')
+        personnel = [{'name':r[0],'age':r[1],'gender':r[2],'blood':r[3],'dept':r[4],
+                      'conds':r[5].split('|') if r[5] else []} for r in c.fetchall()]
+
+    # Count condition occurrences
+    cond_counts = defaultdict(int)
+    cond_dept   = defaultdict(lambda: defaultdict(int))
+    for p in personnel:
+        for cond in p['conds']:
+            if cond:
+                cond_counts[cond] += 1
+                cond_dept[cond][p['dept'] or 'Unassigned'] += 1
+
+    total_p = len(personnel)
+
+    # Medicine suggestions per condition (static, curated)
+    MED_DB = {
+        'Hypertension':   ['Amlodipine 5mg','Losartan 50mg','Hydrochlorothiazide 25mg'],
+        'Diabetes':       ['Metformin 500mg','Glibenclamide 5mg','Insulin (Regular)'],
+        'Asthma':         ['Salbutamol Inhaler','Ipratropium Inhaler','Prednisolone 5mg'],
+        'Heart Disease':  ['Aspirin 81mg','Atorvastatin 40mg','Metoprolol 50mg'],
+        'Tuberculosis':   ['Isoniazid 300mg','Rifampicin 600mg','Pyrazinamide 500mg','Ethambutol 400mg'],
+        'Cancer':         ['(Refer to Oncology)','Ondansetron 4mg','Dexamethasone 4mg'],
+        'HIV/AIDS':       ['(Refer to Infectious Disease)','Cotrimoxazole 960mg'],
+        'Epilepsy':       ['Phenobarbital 30mg','Carbamazepine 200mg','Valproic Acid 500mg'],
     }
-  }
 
-  // ── AI RISK PREDICTION ──
-  async function getAIRiskPrediction() {
-    const p = allData.find(x => x.id === currentPersonnelId);
-    if (!p) return;
-
-    const btn         = document.getElementById('aiRiskBtn');
-    const placeholder = document.getElementById('aiRiskPlaceholder');
-    const loading     = document.getElementById('aiRiskLoading');
-    const results     = document.getElementById('aiRiskResults');
-    const errorBox    = document.getElementById('aiRiskError');
-
-    placeholder.style.display = 'none';
-    loading.style.display     = 'block';
-    results.style.display     = 'none';
-    errorBox.style.display    = 'none';
-    btn.disabled = true;
-
-    const prompt = `You are a health risk assessment AI for a university clinic in the Philippines. Analyze the following patient profile and produce a structured health risk prediction.
-
-Patient profile:
-- Name: ${p.name}
-- Age: ${p.age || 'unknown'} years old
-- Gender: ${p.gender || 'unknown'}
-- Blood type: ${p.blood || 'unknown'}
-- Current conditions: ${p.conditions.length ? p.conditions.join(', ') : 'None recorded'}
-- Department: ${p.department || 'unknown'}
-
-Respond ONLY with a valid JSON object (no markdown, no extra text):
-{
-  "risk_score": <integer 0-100>,
-  "risk_level": "Low" | "Moderate" | "High" | "Critical",
-  "risk_color": "safe" | "warn" | "danger" | "critical",
-  "risk_factors": [
-    { "factor": "factor name", "impact": "low" | "medium" | "high", "detail": "one sentence explanation" }
-  ],
-  "future_outlook": "2-3 sentences about probable health trajectory if no intervention",
-  "conditions_to_monitor": ["condition1", "condition2"],
-  "preventive_actions": ["action1", "action2", "action3"]
-}
-Rules: risk_score 0-24=Low, 25-49=Moderate, 50-74=High, 75-100=Critical. Limit risk_factors to 4, conditions_to_monitor to 4, preventive_actions to 4 (each starting with a verb). Be specific to this patient's profile and consider comorbidity risk.`;
-
-    try {
-      const res = await fetch('/ai/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
-      }
-      const apiData = await res.json();
-      const raw = apiData.content?.[0]?.text || '';
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON in response');
-      const parsed = JSON.parse(jsonMatch[0]);
-
-      loading.style.display = 'none';
-      results.style.display = 'block';
-
-      const scoreColors = {
-        safe:     { bar:'rgba(78,201,122,0.85)',  badge:'background:var(--safe-bg);color:var(--safe);border:1px solid rgba(78,201,122,0.25);' },
-        warn:     { bar:'rgba(232,200,74,0.85)',  badge:'background:rgba(232,200,74,0.1);color:var(--accent);border:1px solid rgba(232,200,74,0.25);' },
-        danger:   { bar:'rgba(217,85,85,0.85)',   badge:'background:var(--danger-bg);color:var(--danger);border:1px solid rgba(217,85,85,0.25);' },
-        critical: { bar:'rgba(180,40,40,0.9)',    badge:'background:rgba(180,40,40,0.15);color:#e05555;border:1px solid rgba(180,40,40,0.3);' },
-      };
-      const sc = scoreColors[parsed.risk_color] || scoreColors.warn;
-
-      const scoreEl = document.getElementById('aiRiskScore');
-      scoreEl.textContent = parsed.risk_score;
-      scoreEl.style.color = sc.bar;
-
-      const badge = document.getElementById('aiRiskBadge');
-      badge.textContent = parsed.risk_level;
-      badge.style.cssText += sc.badge;
-
-      const bar = document.getElementById('aiRiskBar');
-      bar.style.width = '0%';
-      bar.style.background = sc.bar;
-      setTimeout(() => { bar.style.width = parsed.risk_score + '%'; }, 50);
-
-      const impactColor = { high:'var(--danger)', medium:'var(--accent)', low:'var(--safe)' };
-      document.getElementById('aiRiskFactors').innerHTML = (parsed.risk_factors || []).map(f =>
-        `<div style="display:flex;align-items:flex-start;gap:7px;">
-          <span style="margin-top:3px;width:7px;height:7px;border-radius:50%;background:${impactColor[f.impact]||'var(--accent)'};flex-shrink:0;"></span>
-          <div>
-            <div style="font-size:12px;font-weight:600;color:var(--text);">${f.factor}</div>
-            <div style="font-size:11px;color:var(--text-2);line-height:1.5;">${f.detail}</div>
-          </div>
-        </div>`
-      ).join('');
-
-      document.getElementById('aiRiskOutlook').textContent = parsed.future_outlook || '—';
-
-      const condBox = document.getElementById('aiRiskCondBox');
-      if (parsed.conditions_to_monitor?.length) {
-        document.getElementById('aiRiskCondList').innerHTML = parsed.conditions_to_monitor.map(c =>
-          `<span style="padding:3px 10px;background:rgba(217,85,85,0.1);border:1px solid rgba(217,85,85,0.2);border-radius:20px;font-size:11px;color:var(--danger);font-weight:500;">${c}</span>`
-        ).join('');
-        condBox.style.display = 'block';
-      } else { condBox.style.display = 'none'; }
-
-      const actBox = document.getElementById('aiRiskActionsBox');
-      if (parsed.preventive_actions?.length) {
-        document.getElementById('aiRiskActions').innerHTML = parsed.preventive_actions.map((a, i) =>
-          `<div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-2);line-height:1.6;">
-            <span style="background:rgba(78,201,122,0.15);color:var(--safe);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px;">${i+1}</span>
-            ${a}
-          </div>`
-        ).join('');
-        actBox.style.display = 'block';
-      } else { actBox.style.display = 'none'; }
-
-    } catch(err) {
-      loading.style.display  = 'none';
-      errorBox.style.display = 'block';
-      document.getElementById('aiRiskErrorMsg').textContent = 'Error: ' + (err.message || 'Something went wrong.');
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  // Close dropdown when clicking outside
-  document.addEventListener('click', e => {
-    const dd = document.getElementById('medLookupDropdown');
-    if (dd && !e.target.closest('#medLookupInput') && !e.target.closest('#medLookupDropdown')) {
-      dd.style.display = 'none';
-    }
-  });
-
-  // ── MODAL LIVE MEDICINE PREVIEW ──
-  function previewModalMeds(val) {
-    const conditions = val.split(',').map(s => s.trim()).filter(Boolean);
-    const preview = document.getElementById('modalMedPreview');
-    const grid = document.getElementById('modalMedPreviewGrid');
-    const matches = conditions.filter(c => MEDICINES[c]);
-    if (!matches.length) { preview.style.display = 'none'; return; }
-    preview.style.display = 'block';
-    grid.innerHTML = matches.flatMap(c =>
-      MEDICINES[c].slice(0, 2).map(m =>
-        `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
-          <div style="font-size:9.5px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">${c}</div>
-          <div style="font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:3px;">${m.name}</div>
-          <div style="font-size:11px;color:var(--text-2);">${m.desc}</div>
-          ${m.warn ? `<div style="font-size:10.5px;color:var(--danger);margin-top:4px;">⚠ ${m.warn}</div>` : ''}
-        </div>`
-      )
-    ).join('');
-  }
-
-  // ── CLAUDE AI TREATMENT SUGGESTIONS ──
-
-  async function getAISuggestions() {
-    const p = allData.find(x => x.id === currentPersonnelId);
-    if (!p || !p.conditions.length) return;
-
-    document.getElementById('aiPlaceholder').style.display = 'none';
-    document.getElementById('aiLoading').style.display = 'block';
-    document.getElementById('aiResults').style.display = 'none';
-    document.getElementById('aiError').style.display = 'none';
-    document.getElementById('aiSuggestBtn').disabled = true;
-
-    const prompt = `You are a clinical decision support assistant for a university health clinic in the Philippines.
-
-Patient profile:
-- Name: ${p.name}
-- Age: ${p.age || 'unknown'} years old
-- Gender: ${p.gender || 'unknown'}
-- Blood type: ${p.blood || 'unknown'}
-- Diagnosed conditions: ${p.conditions.join(', ')}
-
-Task: Provide treatment suggestions for this specific patient. Consider how their conditions interact with each other and their age/gender.
-
-Respond ONLY with a valid JSON object in this exact format (no markdown, no extra text):
-{
-  "suggestions": [
-    {
-      "condition": "condition name",
-      "medicine": "medicine name",
-      "description": "1-2 sentence clinical rationale specific to this patient",
-      "warning": "any warning or empty string"
-    }
-  ],
-  "interaction_note": "note about drug interactions across conditions, or empty string if none"
-}
-
-Limit to 2 suggestions per condition, max 6 total.`;
-
-    try {
-      const res = await fetch('/ai/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || err.error || `API error ${res.status}`);
-      }
-
-      const data = await res.json();
-      const raw = data.content?.[0]?.text || '';
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found in response');
-      const parsed = JSON.parse(jsonMatch[0]);
-
-      const grid = document.getElementById('aiMedsGrid');
-      grid.innerHTML = parsed.suggestions.map(s =>
-        `<div class="modal-med-card">
-          <div class="modal-med-cond-label">${s.condition}</div>
-          <div class="modal-med-name">${s.medicine}</div>
-          <div class="modal-med-desc">${s.description}</div>
-          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${s.warning}</div>` : ''}
-        </div>`
-      ).join('');
-
-      const interactionBox = document.getElementById('aiInteractionBox');
-      if (parsed.interaction_note) {
-        document.getElementById('aiInteractionText').textContent = parsed.interaction_note;
-        interactionBox.style.display = 'block';
-      } else {
-        interactionBox.style.display = 'none';
-      }
-
-      document.getElementById('aiLoading').style.display = 'none';
-      document.getElementById('aiResults').style.display = 'block';
-
-    } catch(e) {
-      document.getElementById('aiLoading').style.display = 'none';
-      document.getElementById('aiErrorMsg').textContent = `Error: ${e.message}`;
-      document.getElementById('aiError').style.display = 'block';
-    } finally {
-      document.getElementById('aiSuggestBtn').disabled = false;
-    }
-  }
-
-  // ── DOWNLOAD PATIENT PDF ──
-  function downloadPatientPDF() {
-    if (!currentPersonnelId) return;
-    window.location.href = `/personnel/${currentPersonnelId}/pdf`;
-  }
-  init();
-
-  // ══════════════════════════════════════════
-  // UPGRADES: Theme, Sidebar, Date, Filters, Pagination, Visits in Modal, Skeleton, Pills
-  // ══════════════════════════════════════════
-
-  // ── THEME TOGGLE ──
-  function toggleTheme() {
-    const isLight = document.body.classList.toggle('light-mode');
-    document.getElementById('themeToggleBtn').textContent = isLight ? '☀️' : '🌙';
-    localStorage.setItem('mmsu_theme', isLight ? 'light' : 'dark');
-  }
-  (function applyStoredTheme() {
-    const theme = localStorage.getItem('mmsu_theme');
-    if (theme === 'light') {
-      document.body.classList.add('light-mode');
-      const btn = document.getElementById('themeToggleBtn');
-      if (btn) btn.textContent = '☀️';
-    }
-  })();
-
-  // ── MOBILE SIDEBAR ──
-  function toggleSidebar() {
-    const s = document.getElementById('mainSidebar');
-    const b = document.getElementById('sidebarBackdrop');
-    const h = document.getElementById('hamburgerBtn');
-    s.classList.toggle('open');
-    b.classList.toggle('open');
-    h.classList.toggle('open');
-    document.body.style.overflow = s.classList.contains('open') ? 'hidden' : '';
-  }
-  function closeSidebar() {
-    document.getElementById('mainSidebar').classList.remove('open');
-    document.getElementById('sidebarBackdrop').classList.remove('open');
-    document.getElementById('hamburgerBtn').classList.remove('open');
-    document.body.style.overflow = '';
-  }
-  // Close sidebar on nav item click (mobile)
-  document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => { if (window.innerWidth <= 900) closeSidebar(); });
-  });
-  // Close sidebar on Escape key
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && window.innerWidth <= 900) closeSidebar(); });
-
-  // ── DATE DISPLAY ──
-  (function setDate() {
-    const el = document.getElementById('topbarDate');
-    if (!el) return;
-    const d = new Date();
-    const opts = { weekday:'long', year:'numeric', month:'long', day:'numeric' };
-    el.textContent = d.toLocaleDateString('en-PH', opts);
-  })();
-
-  // ── PAGINATION STATE ──
-  let currentPage = 1;
-  const PAGE_SIZE = 25;
-  let pagedData = [];
-
-  // ── ADVANCED FILTERS ──
-  function populateDeptFilter() {
-    const sel = document.getElementById('filterDept');
-    if (!sel) return;
-    const depts = [...new Set(allData.map(p => p.department).filter(Boolean))].sort();
-    sel.innerHTML = '<option value="">All Departments</option>' +
-      depts.map(d => `<option value="${d}">${d}</option>`).join('');
-  }
-
-  function applyAllFilters() {
-    const q = (document.getElementById('tableSearch')?.value || '').toLowerCase();
-    const dept = document.getElementById('filterDept')?.value || '';
-    const gender = document.getElementById('filterGender')?.value || '';
-    const blood = document.getElementById('filterBlood')?.value || '';
-    const risk = document.getElementById('filterRisk')?.value || '';
-    // Base is the condition-filtered set (or all if no conditions selected)
-    const base = activeConditions.size ? filteredData : allData;
-    const result = base.filter(p => {
-      if (q && !p.name.toLowerCase().includes(q) && !(p.department||'').toLowerCase().includes(q)) return false;
-      if (dept && p.department !== dept) return false;
-      if (gender && p.gender !== gender) return false;
-      if (blood && p.blood !== blood) return false;
-      if (risk === 'high' && !isHighRisk(p.conditions)) return false;
-      if (risk === 'normal' && isHighRisk(p.conditions)) return false;
-      return true;
-    });
-    pagedData = result;
-    currentPage = 1;
-    renderPaginatedTable();
-  }
-
-  function clearAdvancedFilters() {
-    ['filterDept','filterGender','filterBlood','filterRisk'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    const ts = document.getElementById('tableSearch');
-    if (ts) ts.value = '';
-    applyAllFilters();
-  }
-
-  // ── PAGINATED TABLE RENDER ──
-  function renderPaginatedTable() {
-    const total = pagedData.length;
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    currentPage = Math.min(currentPage, totalPages);
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageSlice = pagedData.slice(start, start + PAGE_SIZE);
-    renderTable(pageSlice);
-    document.getElementById('personnelCountLabel').textContent =
-      total ? `${total} record${total === 1 ? '' : 's'}` : 'No results';
-    renderPagination(total, totalPages);
-  }
-
-  function renderPagination(total, totalPages) {
-    const bar = document.getElementById('paginationBar');
-    if (!bar) return;
-    if (totalPages <= 1) { bar.innerHTML = ''; return; }
-    const start = (currentPage - 1) * PAGE_SIZE + 1;
-    const end = Math.min(currentPage * PAGE_SIZE, total);
-    let html = `<span class="pag-info">${start}–${end} of ${total}</span>`;
-    html += `<button class="pag-btn" onclick="goPage(1)" ${currentPage===1?'disabled':''}>«</button>`;
-    html += `<button class="pag-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
-    for (let i = Math.max(1,currentPage-2); i <= Math.min(totalPages, currentPage+2); i++) {
-      html += `<button class="pag-btn${i===currentPage?' active':''}" onclick="goPage(${i})">${i}</button>`;
-    }
-    html += `<button class="pag-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
-    html += `<button class="pag-btn" onclick="goPage(${totalPages})" ${currentPage===totalPages?'disabled':''}>»</button>`;
-    bar.innerHTML = html;
-  }
-
-  function goPage(n) { currentPage = n; renderPaginatedTable(); }
-
-  // ── OVERRIDE renderTable TO USE COLORED CONDITION PILLS ──
-  const _origRenderTable = renderTable;
-  window.renderTable = function(data) {
-    const tbody = document.getElementById('personnelTable');
-    document.getElementById('personnelCountLabel').textContent =
-      data.length ? `${data.length} record${data.length === 1 ? '' : 's'}` : 'No results';
-    if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(240,237,232,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="empty-title">No records found</div></div></td></tr>`;
-      return;
-    }
-    const MODERATE = ['Hypertension','Diabetes','Obesity','Migraine','Arthritis','Gout','Anemia','Asthma','Mental Health','Allergies','Thyroid Disorder'];
-    tbody.innerHTML = data.map(p => {
-      const risk = isHighRisk(p.conditions);
-      const pillsHtml = p.conditions.length
-        ? p.conditions.map(c => {
-            let cls = 'cond-pill';
-            if (HIGH_RISK.includes(c)) cls += ' danger';
-            else if (MODERATE.includes(c)) cls += ' warn';
-            return `<span class="${cls}">${c}</span>`;
-          }).join('')
-        : '—';
-      return `<tr onclick="openModal(${p.id})">
-        <td class="name-col">${p.name}</td>
-        <td>${p.age || '—'}</td>
-        <td>${p.gender}</td>
-        <td><span class="blood-badge">${p.blood || '—'}</span></td>
-        <td>${p.department}</td>
-        <td>${p.phone || '—'}</td>
-        <td class="conditions-cell">${pillsHtml}</td>
-        <td>${risk ? '<span class="risk-tag high">⚠ High</span>' : '<span class="risk-tag normal">✓ Normal</span>'}</td>
-        <td onclick="event.stopPropagation()" style="white-space:nowrap;">
-          <button class="btn btn-ghost btn-sm" style="margin-right:4px;" onclick="editPersonnel(${p.id})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${p.name.replace(/'/g,"\'")}')">Del</button>
-        </td>
-      </tr>`;
-    }).join('');
-  };
-
-  // ── SKELETON TABLE LOADER ──
-  function showTableSkeleton() {
-    const tbody = document.getElementById('personnelTable');
-    if (!tbody) return;
-    tbody.innerHTML = Array(6).fill('').map(() =>
-      `<tr class="skeleton-row">
-        <td><div class="skel" style="height:12px;width:120px;"></div></td>
-        <td><div class="skel" style="height:12px;width:28px;"></div></td>
-        <td><div class="skel" style="height:12px;width:44px;"></div></td>
-        <td><div class="skel" style="height:12px;width:36px;"></div></td>
-        <td><div class="skel" style="height:12px;width:80px;"></div></td>
-        <td><div class="skel" style="height:12px;width:90px;"></div></td>
-        <td><div class="skel" style="height:12px;width:130px;"></div></td>
-        <td><div class="skel" style="height:12px;width:54px;"></div></td>
-        <td><div class="skel" style="height:12px;width:70px;"></div></td>
-      </tr>`
-    ).join('');
-  }
-
-  // ── HOOK INTO loadPersonnel TO SHOW SKELETON + POPULATE FILTERS ──
-  const _origLoadPersonnel = loadPersonnel;
-  window.loadPersonnel = async function() {
-    showTableSkeleton();
-    const res = await fetch('/personnel');
-    if (res.status === 401) { window.location.href = '/login'; return; }
-    allData = await res.json();
-    populateDeptFilter();
-    pagedData = allData;
-    filteredData = allData;
-    buildConditionSidebar();
-    filterData('All');
-    renderPersonPicker();
-  };
-
-  // ── HOOK INTO processData TO THEN RENDER PAGINATED TABLE ──
-  const _origProcessData = processData;
-  window.processData = function(data) {
-    _origProcessData(data);
-    pagedData = data;
-    renderPaginatedTable();
-  };
-
-  // ── VISIT HISTORY IN MODAL ──
-  const _origOpenModal = openModal;
-  window.openModal = function(id) {
-    _origOpenModal(id);
-    loadModalVisits(id);
-  };
-
-  async function loadModalVisits(id) {
-    const container = document.getElementById('modalVisitsList');
-    const countEl = document.getElementById('modalVisitsCount');
-    if (!container) return;
-    // Show skeleton
-    container.innerHTML = `<div class="modal-visit-item"><div class="skel" style="height:9px;width:60%;margin-bottom:8px;"></div><div class="skel" style="height:11px;width:80%;margin-bottom:5px;"></div><div class="skel" style="height:9px;width:40%;"></div></div>`;
-    try {
-      const res = await fetch(`/personnel/${id}/visits`);
-      if (!res.ok) throw new Error();
-      const visits = await res.json();
-      if (countEl) countEl.textContent = visits.length ? `${visits.length} visit${visits.length===1?'':'s'}` : '';
-      if (!visits.length) {
-        container.innerHTML = `<div style="font-size:12px;color:var(--text-3);padding:10px 0;">No clinic visits recorded yet.</div>`;
-        return;
-      }
-      // Show up to 3 most recent
-      const recent = visits.slice(0, 3);
-      container.innerHTML = recent.map(v =>
-        `<div class="modal-visit-item">
-          <div class="modal-visit-date">${v.visit_date}</div>
-          <div class="modal-visit-reason">${v.reason || 'General Visit'}</div>
-          ${v.notes ? `<div class="modal-visit-notes">${v.notes}</div>` : ''}
-        </div>`
-      ).join('') + (visits.length > 3 ? `<div style="font-size:11px;color:var(--text-3);padding:6px 2px;">+ ${visits.length - 3} more visit${visits.length-3===1?'':'s'} — see Patient Visits page</div>` : '');
-    } catch(e) {
-      container.innerHTML = `<div style="font-size:12px;color:var(--text-3);padding:8px 0;">Could not load visits.</div>`;
-    }
-  }
-
-  // ── searchTable override → use applyAllFilters ──
-  window.searchTable = function(q) { applyAllFilters(); };
-
-  // ── PRINT REPORT ──
-  async function openPrintReport() {
-    if (!allData.length) { showToast('No data to generate report', true); return; }
-
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
-    const timeStr = now.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
-
-    const total = allData.length;
-    const highRisk = allData.filter(p => isHighRisk(p.conditions)).length;
-    const normal = total - highRisk;
-    const riskRate = total ? ((highRisk / total) * 100).toFixed(1) : '0.0';
-
-    // Condition frequency
-    const condFreq = {};
-    allData.forEach(p => p.conditions.forEach(c => condFreq[c] = (condFreq[c]||0)+1));
-    const topConditions = Object.entries(condFreq).sort((a,b) => b[1]-a[1]).slice(0,10);
-
-    // Top at-risk individuals
-    const topAtRisk = allData
-      .filter(p => isHighRisk(p.conditions))
-      .sort((a,b) => b.conditions.filter(c => HIGH_RISK.includes(c)).length - a.conditions.filter(c => HIGH_RISK.includes(c)).length)
-      .slice(0, 10);
-
-    // Dept breakdown
-    const depts = [...new Set(allData.map(p => p.department).filter(Boolean))].sort();
-    const deptRows = depts.map(d => {
-      const members = allData.filter(p => p.department === d);
-      const hr = members.filter(p => isHighRisk(p.conditions)).length;
-      return { name:d, total:members.length, highRisk:hr, rate: members.length ? ((hr/members.length)*100).toFixed(0) : '0' };
-    }).sort((a,b) => b.highRisk - a.highRisk);
-
-    // Age distribution
-    const ageGroups = {'<30':0,'30–39':0,'40–49':0,'50–59':0,'60+':0};
-    allData.forEach(p => {
-      const age = parseInt(p.age);
-      if (!age || isNaN(age)) return;
-      if (age < 30) ageGroups['<30']++;
-      else if (age < 40) ageGroups['30–39']++;
-      else if (age < 50) ageGroups['40–49']++;
-      else if (age < 60) ageGroups['50–59']++;
-      else ageGroups['60+']++;
-    });
-
-    const condMaxVal = topConditions[0]?.[1] || 1;
-
-    const printWin = window.open('', '_blank', 'width=900,height=700');
-    printWin.document.write(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Health Report — MMSU Clinic · ${dateStr}</title>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body {
-    font-family: 'Figtree', sans-serif;
-    background: #fff;
-    color: #1a1a1a;
-    font-size: 13px;
-    line-height: 1.5;
-    padding: 0;
-  }
-
-  /* ── HEADER ── */
-  .print-header {
-    background: #07110a;
-    color: #f0ede8;
-    padding: 32px 48px 28px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 24px;
-  }
-  .print-header-left {}
-  .print-clinic-label {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .18em;
-    color: #d4b84a;
-    margin-bottom: 6px;
-  }
-  .print-clinic-name {
-    font-family: 'Instrument Serif', serif;
-    font-size: 24px;
-    color: #f0ede8;
-    line-height: 1.1;
-    margin-bottom: 4px;
-  }
-  .print-clinic-sub {
-    font-size: 11px;
-    color: rgba(240,237,232,0.45);
-  }
-  .print-header-right {
-    text-align: right;
-    flex-shrink: 0;
-  }
-  .print-report-title {
-    font-family: 'Instrument Serif', serif;
-    font-size: 14px;
-    color: #d4b84a;
-    font-style: italic;
-    margin-bottom: 4px;
-  }
-  .print-report-date {
-    font-size: 11px;
-    color: rgba(240,237,232,0.55);
-  }
-  .print-confidential {
-    margin-top: 8px;
-    display: inline-block;
-    padding: 3px 9px;
-    border: 1px solid rgba(212,184,74,0.3);
-    border-radius: 20px;
-    font-size: 9px;
-    color: rgba(212,184,74,0.7);
-    text-transform: uppercase;
-    letter-spacing: .12em;
-  }
-
-  /* ── BODY ── */
-  .print-body { padding: 36px 48px; }
-
-  /* ── KPI ROW ── */
-  .kpi-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 32px;
-  }
-  .kpi-box {
-    border: 1.5px solid #e8e4dc;
-    border-radius: 10px;
-    padding: 18px 20px;
-    position: relative;
-  }
-  .kpi-box-label {
-    font-size: 8.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .12em;
-    color: #888;
-    margin-bottom: 8px;
-  }
-  .kpi-box-val {
-    font-family: 'Instrument Serif', serif;
-    font-size: 34px;
-    color: #1a1a1a;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-  .kpi-box-val.danger { color: #c0392b; }
-  .kpi-box-val.safe { color: #1e7e45; }
-  .kpi-box-sub {
-    font-size: 10px;
-    color: #999;
-  }
-  .kpi-box.highlight-danger { border-color: #f5c6c6; background: #fffafa; }
-  .kpi-box.highlight-safe   { border-color: #b8e8c9; background: #f8fff9; }
-
-  /* ── SECTION HEADERS ── */
-  .section-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 14px;
-    padding-bottom: 10px;
-    border-bottom: 1.5px solid #eee;
-  }
-  .section-label {
-    font-size: 8.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .14em;
-    color: #b8a040;
-  }
-  .section-title {
-    font-family: 'Instrument Serif', serif;
-    font-size: 16px;
-    color: #1a1a1a;
-  }
-  .section-block { margin-bottom: 30px; }
-
-  /* ── CONDITIONS BARS ── */
-  .cond-list { display: flex; flex-direction: column; gap: 9px; }
-  .cond-row { display: flex; align-items: center; gap: 12px; }
-  .cond-rank {
-    font-size: 10px;
-    font-weight: 700;
-    color: #bbb;
-    width: 18px;
-    flex-shrink: 0;
-    text-align: right;
-  }
-  .cond-name {
-    width: 170px;
-    flex-shrink: 0;
-    font-size: 12px;
-    color: #222;
-    font-weight: 500;
-  }
-  .cond-name.high-risk { color: #c0392b; font-weight: 600; }
-  .cond-track {
-    flex: 1;
-    height: 8px;
-    background: #f0ede8;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .cond-fill {
-    height: 100%;
-    background: #07110a;
-    border-radius: 4px;
-  }
-  .cond-fill.high-risk { background: #c0392b; }
-  .cond-count {
-    width: 28px;
-    text-align: right;
-    font-size: 12px;
-    font-weight: 600;
-    color: #444;
-    flex-shrink: 0;
-  }
-  .cond-pct {
-    width: 38px;
-    text-align: right;
-    font-size: 10px;
-    color: #999;
-    flex-shrink: 0;
-  }
-
-  /* ── TWO COLUMN LAYOUT ── */
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
-
-  /* ── AGE TABLE ── */
-  .age-table { width: 100%; border-collapse: collapse; }
-  .age-table th {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .11em;
-    color: #999;
-    border-bottom: 1.5px solid #eee;
-    padding: 6px 10px;
-    text-align: left;
-  }
-  .age-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #f5f3ef;
-    font-size: 12px;
-    color: #333;
-  }
-  .age-bar-cell { width: 100px; }
-  .age-bar-wrap { background: #f0ede8; border-radius: 3px; height: 6px; overflow: hidden; }
-  .age-bar-fill { height: 100%; background: #2c5f3a; border-radius: 3px; }
-
-  /* ── DEPT TABLE ── */
-  .dept-table { width: 100%; border-collapse: collapse; }
-  .dept-table th {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .11em;
-    color: #999;
-    border-bottom: 1.5px solid #eee;
-    padding: 7px 12px;
-    text-align: left;
-  }
-  .dept-table td { padding: 9px 12px; border-bottom: 1px solid #f5f3ef; font-size: 12px; color: #333; }
-  .dept-table tr:last-child td { border-bottom: none; }
-  .risk-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 700;
-  }
-  .risk-badge.critical { background: #fde8e8; color: #c0392b; }
-  .risk-badge.moderate { background: #fef3cd; color: #b8860b; }
-  .risk-badge.low      { background: #e8f5ee; color: #1e7e45; }
-
-  /* ── AT-RISK TABLE ── */
-  .atrisk-table { width: 100%; border-collapse: collapse; }
-  .atrisk-table th {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .11em;
-    color: #999;
-    border-bottom: 1.5px solid #eee;
-    padding: 7px 12px;
-    text-align: left;
-  }
-  .atrisk-table td { padding: 9px 12px; border-bottom: 1px solid #f5f3ef; font-size: 12px; color: #333; vertical-align: top; }
-  .atrisk-table tr:last-child td { border-bottom: none; }
-  .pill-sm {
-    display: inline-block;
-    padding: 1px 7px;
-    border-radius: 10px;
-    font-size: 9.5px;
-    font-weight: 600;
-    background: #fde8e8;
-    color: #c0392b;
-    margin: 1px 2px 1px 0;
-  }
-  .pill-normal {
-    display: inline-block;
-    padding: 1px 7px;
-    border-radius: 10px;
-    font-size: 9.5px;
-    background: #f0ede8;
-    color: #666;
-    margin: 1px 2px 1px 0;
-  }
-
-  /* ── FOOTER ── */
-  .print-footer {
-    margin-top: 20px;
-    padding: 16px 48px;
-    border-top: 1.5px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .print-footer-note { font-size: 10px; color: #aaa; }
-  .print-footer-pg   { font-size: 10px; color: #bbb; }
-
-  /* ── PRINT ACTIONS ── */
-  .print-actions {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    background: #07110a;
-    padding: 12px 48px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    z-index: 999;
-    gap: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-  }
-  .print-actions-label {
-    font-size: 12px;
-    color: rgba(240,237,232,0.55);
-    font-family: 'Figtree', sans-serif;
-  }
-  .print-actions-left { display: flex; align-items: center; gap: 12px; }
-  .pa-btn {
-    font-family: 'Figtree', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 7px 18px;
-    border-radius: 7px;
-    border: none;
-    cursor: pointer;
-    transition: all .15s;
-  }
-  .pa-btn.primary { background: #d4b84a; color: #06090a; }
-  .pa-btn.primary:hover { background: #e8d080; }
-  .pa-btn.ghost  { background: transparent; color: rgba(240,237,232,0.65); border: 1px solid rgba(255,255,255,0.12); }
-  .pa-btn.ghost:hover { background: rgba(255,255,255,0.06); color: #f0ede8; }
-
-  .print-wrap { padding-top: 60px; }
-
-  @media print {
-    .print-actions { display: none !important; }
-    .print-wrap { padding-top: 0; }
-    body { background: #fff; }
-    @page { margin: 0; size: A4; }
-  }
-</style>
-</head>
-<body>
-
-<!-- ── ACTIONS BAR ── -->
-<div class="print-actions">
-  <div class="print-actions-left">
-    <span style="font-family:'Instrument Serif',serif;font-size:15px;color:#d4b84a;">MMSU Health Records</span>
-    <span class="print-actions-label">· Clinic Health Report · ${dateStr}</span>
-  </div>
-  <div style="display:flex;gap:8px;">
-    <button class="pa-btn ghost" onclick="window.close()">✕ Close</button>
-    <button class="pa-btn primary" onclick="window.print()">
-      🖨 Print / Save PDF
-    </button>
-  </div>
-</div>
-
-<div class="print-wrap">
-
-<!-- ── HEADER ── -->
-<div class="print-header">
-  <div class="print-header-left">
-    <div class="print-clinic-label">Mariano Marcos State University</div>
-    <div class="print-clinic-name">MMSU Health Records<br><em style="font-style:italic;color:#d4b84a;">Clinic System</em></div>
-    <div class="print-clinic-sub">University Health Services · Personnel Health Management</div>
-  </div>
-  <div class="print-header-right">
-    <div class="print-report-title">Analytics &amp; Health Report</div>
-    <div class="print-report-date">Generated: ${dateStr} at ${timeStr}</div>
-    <div class="print-confidential">Confidential — For Clinic Use Only</div>
-  </div>
-</div>
-
-<!-- ── BODY ── -->
-<div class="print-body">
-
-  <!-- KPI ROW -->
-  <div class="kpi-row">
-    <div class="kpi-box">
-      <div class="kpi-box-label">Total Personnel</div>
-      <div class="kpi-box-val">${total}</div>
-      <div class="kpi-box-sub">Registered in system</div>
-    </div>
-    <div class="kpi-box highlight-safe">
-      <div class="kpi-box-label">Normal Risk</div>
-      <div class="kpi-box-val safe">${normal}</div>
-      <div class="kpi-box-sub">${total ? (100 - parseFloat(riskRate)).toFixed(1) : '0.0'}% of personnel</div>
-    </div>
-    <div class="kpi-box highlight-danger">
-      <div class="kpi-box-label">High Risk</div>
-      <div class="kpi-box-val danger">${highRisk}</div>
-      <div class="kpi-box-sub">${riskRate}% of personnel</div>
-    </div>
-    <div class="kpi-box">
-      <div class="kpi-box-label">Departments</div>
-      <div class="kpi-box-val">${depts.length}</div>
-      <div class="kpi-box-sub">Active departments</div>
-    </div>
-  </div>
-
-  <!-- MOST COMMON CONDITIONS -->
-  <div class="section-block">
-    <div class="section-head">
-      <div>
-        <div class="section-label">Disease Prevalence</div>
-        <div class="section-title">Most Common Conditions</div>
-      </div>
-    </div>
-    <div class="cond-list">
-      ${topConditions.map(([c,n], i) => {
-        const isHR = HIGH_RISK.includes(c);
-        const pct = ((n / total) * 100).toFixed(1);
-        const barW = ((n / condMaxVal) * 100).toFixed(1);
-        return `<div class="cond-row">
-          <div class="cond-rank">${i+1}</div>
-          <div class="cond-name ${isHR ? 'high-risk' : ''}">${c}${isHR ? ' ⚠' : ''}</div>
-          <div class="cond-track"><div class="cond-fill ${isHR ? 'high-risk' : ''}" style="width:${barW}%"></div></div>
-          <div class="cond-count">${n}</div>
-          <div class="cond-pct">${pct}%</div>
-        </div>`;
-      }).join('')}
-    </div>
-    <div style="margin-top:10px;font-size:10px;color:#aaa;">⚠ indicates a high-risk condition · Count = number of personnel affected · % = share of total personnel</div>
-  </div>
-
-  <!-- AGE DIST + DEPT OVERVIEW -->
-  <div class="two-col">
-    <!-- Age Distribution -->
-    <div class="section-block" style="margin-bottom:0;">
-      <div class="section-head">
-        <div>
-          <div class="section-label">Demographics</div>
-          <div class="section-title">Age Distribution</div>
-        </div>
-      </div>
-      ${(() => {
-        const maxAge = Math.max(...Object.values(ageGroups), 1);
-        return `<table class="age-table">
-          <thead><tr><th>Age Group</th><th>Count</th><th class="age-bar-cell"></th><th>Share</th></tr></thead>
-          <tbody>
-            ${Object.entries(ageGroups).map(([g,n]) => `<tr>
-              <td style="font-weight:500;">${g}</td>
-              <td>${n}</td>
-              <td><div class="age-bar-wrap"><div class="age-bar-fill" style="width:${((n/maxAge)*100).toFixed(0)}%"></div></div></td>
-              <td style="color:#888;">${total ? ((n/total)*100).toFixed(1) : 0}%</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>`;
-      })()}
-    </div>
-
-    <!-- Dept Health Overview -->
-    <div class="section-block" style="margin-bottom:0;">
-      <div class="section-head">
-        <div>
-          <div class="section-label">By Department</div>
-          <div class="section-title">Department Health Overview</div>
-        </div>
-      </div>
-      <table class="dept-table">
-        <thead><tr><th>Department</th><th>Total</th><th>High Risk</th><th>Risk Rate</th></tr></thead>
-        <tbody>
-          ${deptRows.slice(0, 10).map(d => {
-            const rate = parseInt(d.rate);
-            const badgeCls = rate >= 50 ? 'critical' : rate >= 20 ? 'moderate' : 'low';
-            return `<tr>
-              <td style="font-weight:500;">${d.name}</td>
-              <td>${d.total}</td>
-              <td style="color:${d.highRisk > 0 ? '#c0392b' : '#1e7e45'};font-weight:600;">${d.highRisk}</td>
-              <td><span class="risk-badge ${badgeCls}">${d.rate}%</span></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- TOP AT-RISK INDIVIDUALS -->
-  <div class="section-block">
-    <div class="section-head">
-      <div>
-        <div class="section-label">Priority Monitoring</div>
-        <div class="section-title">Top At-Risk Personnel</div>
-      </div>
-    </div>
-    ${topAtRisk.length ? `
-    <table class="atrisk-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Name</th>
-          <th>Department</th>
-          <th>Age</th>
-          <th>Gender</th>
-          <th>Conditions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${topAtRisk.map((p, i) => `<tr>
-          <td style="color:#bbb;font-weight:700;">${i+1}</td>
-          <td style="font-weight:600;">${p.name}</td>
-          <td style="color:#666;">${p.department || '—'}</td>
-          <td>${p.age || '—'}</td>
-          <td>${p.gender || '—'}</td>
-          <td>${p.conditions.map(c => `<span class="${HIGH_RISK.includes(c) ? 'pill-sm' : 'pill-normal'}">${c}</span>`).join('')}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-    <div style="margin-top:10px;font-size:10px;color:#aaa;">Red tags indicate high-risk conditions requiring priority medical attention.</div>
-    ` : `<div style="font-size:13px;color:#aaa;padding:16px 0;">No high-risk personnel on record.</div>`}
-  </div>
-
-</div><!-- /print-body -->
-
-<!-- FOOTER -->
-<div class="print-footer">
-  <div class="print-footer-note">⚕ MMSU Health Records System · This report is auto-generated and intended for authorized clinic personnel only.</div>
-  <div class="print-footer-pg">Report Date: ${dateStr}</div>
-</div>
-
-</div><!-- /print-wrap -->
-</body>
-</html>`);
-    printWin.document.close();
-  }
-
-  // ── PDF / EXCEL REPORTS ──────────────────────────────────────────────────────
-
-  function initReportControls() {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-
-    // Populate year selects (5 years back)
-    ['rpt-month-year','rpt-year-year'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.innerHTML = '';
-      for (let y = currentYear; y >= currentYear - 5; y--) {
-        el.innerHTML += `<option value="${y}">${y}</option>`;
-      }
-    });
-
-    // Set current month
-    const mm = document.getElementById('rpt-month-month');
-    if (mm) mm.value = currentMonth;
-
-    // Populate dept selects from loaded allData
-    ['rpt-dept-select','rpt-consult-dept'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const first = el.options[0];
-      el.innerHTML = '';
-      el.appendChild(first);
-      const depts = [...new Set((window.allData||[]).map(p => p.department).filter(Boolean))].sort();
-      depts.forEach(d => { el.innerHTML += `<option value="${d}">${d}</option>`; });
-    });
-
-    // Default date range for consultation: last 3 months
-    const toDate   = new Date();
-    const fromDate = new Date(); fromDate.setMonth(fromDate.getMonth() - 3);
-    const fmt = d => d.toISOString().split('T')[0];
-    const cf = document.getElementById('rpt-consult-from');
-    const ct = document.getElementById('rpt-consult-to');
-    if (cf) cf.value = fmt(fromDate);
-    if (ct) ct.value = fmt(toDate);
-  }
-
-  function switchRptTab(name, btn) {
-    document.querySelectorAll('.rpt-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.rpt-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    const panel = document.getElementById(`rpt-panel-${name}`);
-    if (panel) panel.classList.add('active');
-  }
-
-  function downloadReport(type) {
-    let url = '';
-    switch (type) {
-      case 'monthly': {
-        const y = document.getElementById('rpt-month-year').value;
-        const m = document.getElementById('rpt-month-month').value;
-        url = `/reports/monthly?year=${y}&month=${m}`;
-        break;
-      }
-      case 'yearly': {
-        const y = document.getElementById('rpt-year-year').value;
-        url = `/reports/yearly?year=${y}`;
-        break;
-      }
-      case 'department': {
-        const d = encodeURIComponent(document.getElementById('rpt-dept-select').value);
-        url = `/reports/department?dept=${d}`;
-        break;
-      }
-      case 'consultation': {
-        const dept = encodeURIComponent(document.getElementById('rpt-consult-dept').value);
-        const from = document.getElementById('rpt-consult-from').value;
-        const to   = document.getElementById('rpt-consult-to').value;
-        url = `/reports/consultation?dept=${dept}&from=${from}&to=${to}`;
-        break;
-      }
-      case 'medicine':
-        url = '/reports/medicine-inventory';
-        break;
-    }
-    if (url) window.location.href = url;
-  }
-
-  // Hook into showPage to init controls when reports tab is opened
-  const _origShowPage = window.showPage;
-  window.showPage = function(name, btn) {
-    if (typeof _origShowPage === 'function') _origShowPage(name, btn);
-    if (name === 'reports') setTimeout(initReportControls, 100);
-  };
-
-</script>
-</body>
-</html>
+    wb = openpyxl.Workbook()
+
+    # ── colours / helpers ──
+    HDR_FILL  = PatternFill('solid', start_color='1a7a3c')
+    GOLD_FILL = PatternFill('solid', start_color='d4b84a')
+    RISK_FILL = PatternFill('solid', start_color='fdecea')
+    ALT_FILL  = PatternFill('solid', start_color='f6f7f6')
+    WHITE     = PatternFill('solid', start_color='FFFFFF')
+    thin      = Side(style='thin', color='DDDDDD')
+    bdr       = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def hdr_cell(ws, row, col, text, bold=True, color='FFFFFF'):
+        c = ws.cell(row=row, column=col, value=text)
+        c.font      = Font(bold=bold, color=color, name='Arial', size=9)
+        c.fill      = HDR_FILL
+        c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        c.border    = bdr
+        return c
+
+    def data_cell(ws, row, col, value, bold=False, fill=None, align='left', color='111111'):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font      = Font(bold=bold, name='Arial', size=9, color=color)
+        c.fill      = fill or WHITE
+        c.alignment = Alignment(horizontal=align, vertical='center', wrap_text=True)
+        c.border    = bdr
+        return c
+
+    # ── SHEET 1: Condition Inventory ──────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = 'Condition Inventory'
+    ws1.row_dimensions[1].height = 30
+    ws1.freeze_panes = 'A2'
+
+    headers1 = ['Condition','Affected','% of Personnel','Risk Level','Suggested Medicines']
+    col_w1   = [28, 12, 16, 14, 55]
+    for i, (h, w) in enumerate(zip(headers1, col_w1), 1):
+        hdr_cell(ws1, 1, i, h)
+        ws1.column_dimensions[get_column_letter(i)].width = w
+
+    sorted_conds = sorted(cond_counts.items(), key=lambda x: -x[1])
+    for r, (cond, cnt) in enumerate(sorted_conds, 2):
+        is_hr  = cond in HIGH_RISK_CONDITIONS
+        fill   = RISK_FILL if is_hr else (ALT_FILL if r%2==0 else WHITE)
+        pct    = cnt / total_p * 100 if total_p else 0
+        meds   = ', '.join(MED_DB.get(cond, ['See clinical guidelines']))
+        data_cell(ws1, r, 1, cond, bold=is_hr, fill=fill, color='c0392b' if is_hr else '111111')
+        data_cell(ws1, r, 2, cnt, align='center', fill=fill)
+        data_cell(ws1, r, 3, f'{pct:.1f}%', align='center', fill=fill)
+        data_cell(ws1, r, 4, '⚠ High Risk' if is_hr else 'Standard', align='center', fill=fill,
+                  color='c0392b' if is_hr else '1a7a3c', bold=is_hr)
+        data_cell(ws1, r, 5, meds, fill=fill)
+
+    ws1.auto_filter.ref = f'A1:E{len(sorted_conds)+1}'
+
+    # ── SHEET 2: Department Breakdown ─────────────────────────────────────────
+    ws2 = wb.create_sheet('By Department')
+    ws2.freeze_panes = 'A2'
+    ws2.row_dimensions[1].height = 30
+
+    # Gather all conditions per dept
+    dept_cond: dict = defaultdict(lambda: defaultdict(int))
+    dept_total: dict = defaultdict(int)
+    for p in personnel:
+        d = p['dept'] or 'Unassigned'
+        dept_total[d] += 1
+        for cond in p['conds']:
+            if cond:
+                dept_cond[d][cond] += 1
+
+    # Unique conditions seen
+    all_conds_sorted = sorted(cond_counts.keys())
+    h2 = ['Department','Total Personnel'] + all_conds_sorted
+    cw2 = [24, 16] + [max(len(c)//1.5, 10) for c in all_conds_sorted]
+    for i, (h, w) in enumerate(zip(h2, cw2), 1):
+        hdr_cell(ws2, 1, i, h)
+        ws2.column_dimensions[get_column_letter(i)].width = w
+
+    for r, (dept_name, tot) in enumerate(sorted(dept_total.items()), 2):
+        fill = ALT_FILL if r%2==0 else WHITE
+        data_cell(ws2, r, 1, dept_name, bold=True, fill=fill)
+        data_cell(ws2, r, 2, tot, align='center', fill=fill)
+        for ci, cond in enumerate(all_conds_sorted, 3):
+            val = dept_cond[dept_name].get(cond, 0)
+            is_hr = cond in HIGH_RISK_CONDITIONS
+            cf = RISK_FILL if (val > 0 and is_hr) else fill
+            data_cell(ws2, r, ci, val if val else '', align='center', fill=cf,
+                      color='c0392b' if (val > 0 and is_hr) else '555555')
+
+    ws2.auto_filter.ref = f'A1:{get_column_letter(len(h2))}1'
+
+    # ── SHEET 3: Medicine Needs Estimate ──────────────────────────────────────
+    ws3 = wb.create_sheet('Medicine Needs')
+    ws3.freeze_panes = 'A2'
+    ws3.row_dimensions[1].height = 30
+
+    h3 = ['Medicine','For Condition','Risk Level','Patients Affected','Est. Monthly Units','Notes']
+    cw3 = [32, 20, 14, 16, 18, 40]
+    for i, (h, w) in enumerate(zip(h3, cw3), 1):
+        hdr_cell(ws3, 1, i, h)
+        ws3.column_dimensions[get_column_letter(i)].width = w
+
+    r = 2
+    for cond, meds in MED_DB.items():
+        affected = cond_counts.get(cond, 0)
+        if affected == 0:
+            continue
+        is_hr = cond in HIGH_RISK_CONDITIONS
+        for med in meds:
+            fill = RISK_FILL if is_hr else (ALT_FILL if r%2==0 else WHITE)
+            monthly = affected * 30  # rough 1 unit/day estimate
+            data_cell(ws3, r, 1, med, bold=True, fill=fill)
+            data_cell(ws3, r, 2, cond, fill=fill)
+            data_cell(ws3, r, 3, '⚠ High Risk' if is_hr else 'Standard', align='center', fill=fill,
+                      color='c0392b' if is_hr else '1a7a3c', bold=is_hr)
+            data_cell(ws3, r, 4, affected, align='center', fill=fill)
+            data_cell(ws3, r, 5, monthly, align='center', fill=fill)
+            data_cell(ws3, r, 6, 'Estimate only — consult pharmacist for actual procurement.', fill=fill,
+                      color='888888')
+            r += 1
+
+    # ── SHEET 4: Summary Dashboard ────────────────────────────────────────────
+    ws4 = wb.create_sheet('Summary')
+    ws4.sheet_view.showGridLines = False
+    ws4.column_dimensions['A'].width = 28
+    ws4.column_dimensions['B'].width = 18
+
+    def title_cell(ws, row, col, text, size=14):
+        c = ws.cell(row=row, column=col, value=text)
+        c.font = Font(bold=True, name='Arial', size=size, color='1a7a3c')
+        c.alignment = Alignment(vertical='center')
+
+    title_cell(ws4, 1, 1, 'MMSU Medical — Medicine Inventory Report', 14)
+    ws4.cell(row=2, column=1, value=f'Generated: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}').font = Font(name='Arial', size=9, color='888888')
+
+    summary_rows = [
+        ('', ''),
+        ('KPI', 'Value'),
+        ('Total Personnel', total_p),
+        ('Unique Conditions Tracked', len(cond_counts)),
+        ('High-Risk Conditions', sum(1 for c in cond_counts if c in HIGH_RISK_CONDITIONS)),
+        ('Personnel with ≥1 Condition', sum(1 for p in personnel if p['conds'])),
+        ('Personnel — High Risk', sum(1 for p in personnel if any(c in HIGH_RISK_CONDITIONS for c in p['conds']))),
+        ('Most Common Condition', sorted_conds[0][0] if sorted_conds else '—'),
+        ('Least Common Condition', sorted_conds[-1][0] if sorted_conds else '—'),
+    ]
+    for sr, (label, val) in enumerate(summary_rows, 4):
+        if label == 'KPI':
+            hdr_cell(ws4, sr, 1, label); hdr_cell(ws4, sr, 2, 'Value')
+        else:
+            fill = ALT_FILL if sr%2==0 else WHITE
+            data_cell(ws4, sr, 1, label, bold=True, fill=fill)
+            data_cell(ws4, sr, 2, val, align='center', fill=fill)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    audit('REPORT_MEDICINE_INVENTORY', f'{len(cond_counts)} conditions')
+    return Response(buf.getvalue(),
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition': 'attachment; filename=medicine_inventory_report.xlsx'})
+
+# ── ENTRYPOINT ────────────────────────────────────────────────────────────────
+
+if __name__ == '__main__':
+    app.run(
+        host='0.0.0.0',
+        port=int(os.environ.get('PORT', 5000)),
+        debug=os.environ.get('FLASK_ENV') != 'production',
+    )
