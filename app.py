@@ -340,10 +340,125 @@ def csrf_token():
 @app.route('/personnel')
 @login_required
 def get_personnel():
+    """
+    Returns all personnel (used by charts, reports, condition sidebar).
+    For the paginated table use GET /personnel/search instead.
+    """
     with get_db() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY name')
         return jsonify([row_to_person(r) for r in c.fetchall()])
+
+
+@app.route('/personnel/search')
+@login_required
+def search_personnel():
+    """
+    Server-side filtered + paginated personnel list for the table view.
+
+    Query params:
+      q        – name/department text search (optional)
+      dept     – exact department filter (optional)
+      gender   – Male | Female (optional)
+      blood    – blood type e.g. A+ (optional)
+      risk     – 'high' | 'normal' (optional)
+      page     – 1-based page number (default 1)
+      per_page – rows per page (default 25, max 100)
+    """
+    HIGH_RISK_CONDITIONS = {
+        'Cancer', 'Heart Disease', 'Tuberculosis', 'HIV/AIDS', 'Epilepsy',
+        'Chronic Kidney Disease', 'Stroke', 'Hepatitis B', 'Hepatitis C',
+    }
+
+    q        = request.args.get('q', '').strip()
+    dept     = request.args.get('dept', '').strip()
+    gender   = request.args.get('gender', '').strip()
+    blood    = request.args.get('blood', '').strip()
+    risk     = request.args.get('risk', '').strip()   # 'high' | 'normal' | ''
+    conds_raw = request.args.get('conditions', '').strip()   # comma-separated
+    logic    = request.args.get('logic', 'OR').upper()       # 'AND' | 'OR'
+
+    try:
+        page     = max(1, int(request.args.get('page', 1)))
+        per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+    except ValueError:
+        return jsonify({'error': 'Invalid page or per_page parameter'}), 400
+
+    # ── Build WHERE clause ────────────────────────────────────────────────────
+    wheres, params = [], []
+
+    if q:
+        wheres.append('(LOWER(name) LIKE %s OR LOWER(department) LIKE %s)')
+        like = f'%{q.lower()}%'
+        params += [like, like]
+
+    if dept:
+        wheres.append('department = %s')
+        params.append(dept)
+
+    if gender:
+        wheres.append('gender = %s')
+        params.append(gender)
+
+    if blood:
+        wheres.append('blood = %s')
+        params.append(blood)
+
+    where_sql = ('WHERE ' + ' AND '.join(wheres)) if wheres else ''
+
+    with get_db() as conn:
+        c = conn.cursor()
+
+        # Total count (before risk/condition filter which needs Python)
+        c.execute(f'SELECT COUNT(*) FROM personnel {where_sql}', params)
+        db_total = c.fetchone()[0]
+
+        # Fetch matching rows — if risk/condition filters are active we over-fetch
+        # and filter in Python; otherwise we use DB-level LIMIT/OFFSET.
+        needs_python_filter = bool(risk or conds_raw)
+
+        if needs_python_filter:
+            c.execute(
+                f'SELECT id, name, age, gender, blood, department, phone, address, conditions '
+                f'FROM personnel {where_sql} ORDER BY name',
+                params,
+            )
+            rows = [row_to_person(r) for r in c.fetchall()]
+
+            # Condition filter
+            if conds_raw:
+                cond_list = [c2.strip() for c2 in conds_raw.split(',') if c2.strip()]
+                if logic == 'AND':
+                    rows = [p for p in rows if all(c2 in p['conditions'] for c2 in cond_list)]
+                else:
+                    rows = [p for p in rows if any(c2 in p['conditions'] for c2 in cond_list)]
+
+            # Risk filter
+            if risk == 'high':
+                rows = [p for p in rows if any(c2 in HIGH_RISK_CONDITIONS for c2 in p['conditions'])]
+            elif risk == 'normal':
+                rows = [p for p in rows if not any(c2 in HIGH_RISK_CONDITIONS for c2 in p['conditions'])]
+
+            total = len(rows)
+            start = (page - 1) * per_page
+            page_rows = rows[start:start + per_page]
+        else:
+            total = db_total
+            offset = (page - 1) * per_page
+            c.execute(
+                f'SELECT id, name, age, gender, blood, department, phone, address, conditions '
+                f'FROM personnel {where_sql} ORDER BY name LIMIT %s OFFSET %s',
+                params + [per_page, offset],
+            )
+            page_rows = [row_to_person(r) for r in c.fetchall()]
+
+    return jsonify({
+        'data':       page_rows,
+        'total':      total,
+        'page':       page,
+        'per_page':   per_page,
+        'total_pages': max(1, -(-total // per_page)),  # ceiling division
+    })
 
 
 @app.route('/personnel/add', methods=['POST'])

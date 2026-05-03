@@ -2021,9 +2021,7 @@
       panel.classList.remove('visible');
     }
 
-    pagedData = filteredData;
     currentPage = 1;
-    processData(filteredData);
     applyAllFilters();
   }
 
@@ -3459,7 +3457,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
   const PAGE_SIZE = 25;
   let pagedData = [];
 
-  // ── ADVANCED FILTERS ──
+  // ── ADVANCED FILTERS (server-side) ──
   function populateDeptFilter() {
     const sel = document.getElementById('filterDept');
     if (!sel) return;
@@ -3468,27 +3466,48 @@ Limit to 2 suggestions per condition, max 6 total.`;
       depts.map(d => `<option value="${d}">${d}</option>`).join('');
   }
 
+  // Debounce so we don't hammer the server on every keystroke
+  let _filterTimer = null;
   function applyAllFilters() {
-    const q = (document.getElementById('tableSearch')?.value || '').toLowerCase();
-    const dept = document.getElementById('filterDept')?.value || '';
-    const gender = document.getElementById('filterGender')?.value || '';
-    const blood = document.getElementById('filterBlood')?.value || '';
-    const risk = document.getElementById('filterRisk')?.value || '';
-    // Base is the condition-filtered set (or all if no conditions selected)
-    const base = activeConditions.size ? filteredData : allData;
-    const result = base.filter(p => {
-      if (q && !p.name.toLowerCase().includes(q) && !(p.department||'').toLowerCase().includes(q)) return false;
-      if (dept && p.department !== dept) return false;
-      if (gender && p.gender !== gender) return false;
-      if (blood && p.blood !== blood) return false;
-      if (risk === 'high' && !isHighRisk(p.conditions)) return false;
-      if (risk === 'normal' && isHighRisk(p.conditions)) return false;
-      return true;
-    });
-    pagedData = result;
+    clearTimeout(_filterTimer);
     currentPage = 1;
-    renderPaginatedTable();
+    _filterTimer = setTimeout(_doServerSearch, 220);
   }
+
+  async function _doServerSearch() {
+    const q      = (document.getElementById('tableSearch')?.value || '').trim();
+    const dept   = document.getElementById('filterDept')?.value   || '';
+    const gender = document.getElementById('filterGender')?.value || '';
+    const blood  = document.getElementById('filterBlood')?.value  || '';
+    const risk   = document.getElementById('filterRisk')?.value   || '';
+    const conds  = activeConditions.size ? [...activeConditions].join(',') : '';
+    const logic  = conditionLogic || 'OR';
+
+    const params = new URLSearchParams({ page: currentPage, per_page: PAGE_SIZE });
+    if (q)      params.set('q', q);
+    if (dept)   params.set('dept', dept);
+    if (gender) params.set('gender', gender);
+    if (blood)  params.set('blood', blood);
+    if (risk)   params.set('risk', risk);
+    if (conds)  { params.set('conditions', conds); params.set('logic', logic); }
+
+    showTableSkeleton();
+    try {
+      const res = await fetch('/personnel/search?' + params.toString());
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      const json = await res.json();
+      _serverTotal      = json.total;
+      _serverTotalPages = json.total_pages;
+      renderTable(json.data);
+      document.getElementById('personnelCountLabel').textContent =
+        json.total ? `${json.total} record${json.total === 1 ? '' : 's'}` : 'No results';
+      renderPagination(json.total, json.total_pages);
+    } catch(e) {
+      showTableSkeleton(false);
+    }
+  }
+
+  let _serverTotal = 0, _serverTotalPages = 1;
 
   function clearAdvancedFilters() {
     ['filterDept','filterGender','filterBlood','filterRisk'].forEach(id => {
@@ -3497,20 +3516,13 @@ Limit to 2 suggestions per condition, max 6 total.`;
     });
     const ts = document.getElementById('tableSearch');
     if (ts) ts.value = '';
+    currentPage = 1;
     applyAllFilters();
   }
 
-  // ── PAGINATED TABLE RENDER ──
+  // ── PAGINATED TABLE RENDER (server-driven) ──
   function renderPaginatedTable() {
-    const total = pagedData.length;
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    currentPage = Math.min(currentPage, totalPages);
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageSlice = pagedData.slice(start, start + PAGE_SIZE);
-    renderTable(pageSlice);
-    document.getElementById('personnelCountLabel').textContent =
-      total ? `${total} record${total === 1 ? '' : 's'}` : 'No results';
-    renderPagination(total, totalPages);
+    applyAllFilters();
   }
 
   function renderPagination(total, totalPages) {
@@ -3518,7 +3530,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     if (!bar) return;
     if (totalPages <= 1) { bar.innerHTML = ''; return; }
     const start = (currentPage - 1) * PAGE_SIZE + 1;
-    const end = Math.min(currentPage * PAGE_SIZE, total);
+    const end   = Math.min(currentPage * PAGE_SIZE, total);
     let html = `<span class="pag-info">${start}–${end} of ${total}</span>`;
     html += `<button class="pag-btn" onclick="goPage(1)" ${currentPage===1?'disabled':''}>«</button>`;
     html += `<button class="pag-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
@@ -3530,7 +3542,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     bar.innerHTML = html;
   }
 
-  function goPage(n) { currentPage = n; renderPaginatedTable(); }
+  function goPage(n) { currentPage = n; _doServerSearch(); }
 
   // ── OVERRIDE renderTable TO USE COLORED CONDITION PILLS ──
   const _origRenderTable = renderTable;
@@ -3593,24 +3605,20 @@ Limit to 2 suggestions per condition, max 6 total.`;
   const _origLoadPersonnel = loadPersonnel;
   window.loadPersonnel = async function() {
     showTableSkeleton();
+    // Load full dataset for charts, reports, condition sidebar, person picker
     const res = await fetch('/personnel');
     if (res.status === 401) { window.location.href = '/login'; return; }
     allData = await res.json();
-    populateDeptFilter();
-    pagedData = allData;
     filteredData = allData;
+    populateDeptFilter();
     buildConditionSidebar();
-    filterData('All');
     renderPersonPicker();
+    // Load first page of the table from the server
+    currentPage = 1;
+    await _doServerSearch();
   };
 
-  // ── HOOK INTO processData TO THEN RENDER PAGINATED TABLE ──
-  const _origProcessData = processData;
-  window.processData = function(data) {
-    _origProcessData(data);
-    pagedData = data;
-    renderPaginatedTable();
-  };
+  // processData is used by the overview charts — keep it as-is, table is now server-driven
 
   // ── VISIT HISTORY IN MODAL ──
   const _origOpenModal = openModal;
