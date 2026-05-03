@@ -157,9 +157,9 @@
     textarea.form-input{resize:vertical;min-height:80px;}
 
     /* ── MODAL ── */
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;padding:12px;box-sizing:border-box;}
     .modal-overlay.open{opacity:1;pointer-events:all;}
-    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:90vw;max-height:88vh;overflow-y:auto;padding:28px;position:relative;transform:scale(.97) translateY(8px);transition:transform .2s ease;box-shadow:0 40px 100px rgba(0,0,0,.7);}
+    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:calc(100vw - 24px);max-height:min(88vh, calc(100dvh - 24px));overflow-y:auto;overscroll-behavior:contain;padding:28px;position:relative;transform:scale(.97) translateY(8px);transition:transform .2s ease;box-shadow:0 40px 100px rgba(0,0,0,.7);}
     .modal-overlay.open .modal{transform:scale(1) translateY(0);}
     .modal::-webkit-scrollbar{width:3px;}
     .modal::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
@@ -350,7 +350,7 @@
       .topbar-right{gap:6px;}
       .btn{padding:7px 12px;font-size:12px;}
       .btn-sm{padding:5px 10px;font-size:11px;}
-      .modal{padding:18px 14px;max-width:96vw;border-radius:12px;}
+      .modal{padding:16px 14px;max-width:calc(100vw - 16px);max-height:min(85vh, calc(100dvh - 80px));border-radius:14px;}
       .modal-grid{grid-template-columns:1fr;}
       .modal-meds-grid{grid-template-columns:1fr;}
       .form-grid{grid-template-columns:1fr;}
@@ -3610,8 +3610,6 @@ Limit to 2 suggestions per condition, max 6 total.`;
     if (res.status === 401) { window.location.href = '/login'; return; }
     allData = await res.json();
     filteredData = allData;
-    // ── Populate overview KPI cards + charts ──
-    processData(allData);
     populateDeptFilter();
     buildConditionSidebar();
     renderPersonPicker();
