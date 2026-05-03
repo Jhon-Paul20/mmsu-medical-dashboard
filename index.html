@@ -3610,6 +3610,8 @@ Limit to 2 suggestions per condition, max 6 total.`;
     if (res.status === 401) { window.location.href = '/login'; return; }
     allData = await res.json();
     filteredData = allData;
+    // ── Populate overview KPI cards + charts ──
+    processData(allData);
     populateDeptFilter();
     buildConditionSidebar();
     renderPersonPicker();
