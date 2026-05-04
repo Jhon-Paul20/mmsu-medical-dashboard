@@ -569,10 +569,78 @@ def delete_personnel(pid):
     return jsonify({'message': 'Deleted successfully!'})
 
 
+def _parse_csv(content: str) -> tuple[list, list[str]]:
+    """
+    Parse and validate CSV content.
+
+    Returns (records, errors) where:
+      - records is a list of tuples ready for DB insert
+      - errors is a list of human-readable error strings (empty on success)
+
+    Validation is exhaustive: ALL row errors are collected before returning,
+    so the user sees every problem at once instead of fixing one at a time.
+    No database is touched.
+    """
+    reader = csv.DictReader(io.StringIO(content))
+    records = []
+    errors  = []
+
+    for i, row in enumerate(reader, start=2):
+        raw_conditions = row.get('conditions', '')
+        cond_list = [c.strip() for c in raw_conditions.split('|') if c.strip()] if raw_conditions else []
+        d = {
+            'name':       row.get('name', '').strip(),
+            'age':        row.get('age') or None,
+            'gender':     row.get('gender', '').strip(),
+            'blood':      row.get('blood', '').strip(),
+            'department': row.get('department', '').strip(),
+            'phone':      row.get('phone', '').strip(),
+            'address':    row.get('address', '').strip(),
+            'conditions': cond_list,
+        }
+        err = validate_personnel(d)
+        if err:
+            errors.append(f'Row {i}: {err}')
+        else:
+            records.append((
+                d['name'], d['age'], d['gender'], d['blood'],
+                d['department'], d['phone'], d['address'], raw_conditions,
+            ))
+
+    return records, errors
+
+
+def _snapshot_personnel(conn) -> list[dict]:
+    """Return all current personnel rows as a plain list of dicts (for pre-import backup)."""
+    c = conn.cursor()
+    c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+    return [
+        {'id': r[0], 'name': r[1], 'age': r[2], 'gender': r[3], 'blood': r[4],
+         'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': r[8]}
+        for r in c.fetchall()
+    ]
+
+
 @app.route('/upload', methods=['POST'])
 @login_required
 @csrf_required
 def upload():
+    """
+    CSV import endpoint.
+
+    Query params:
+      mode=preview   – validate only; returns a summary without touching the DB.
+                       Safe to call as a dry-run before committing.
+      (default)      – validate then replace all personnel in a single transaction.
+
+    The existing personnel table is snapshotted before the replace and returned
+    in the response as `backup` so the caller can offer an undo/download.
+
+    The DELETE + INSERT runs inside one transaction: if the insert fails for any
+    reason the delete is rolled back and the original data is preserved.
+    """
+    preview_only = request.args.get('mode') == 'preview'
+
     file = request.files.get('file')
     if not file:
         return jsonify({'error': 'No file uploaded'}), 400
@@ -582,44 +650,65 @@ def upload():
     except UnicodeDecodeError:
         return jsonify({'error': 'File must be UTF-8 encoded'}), 400
 
-    reader = csv.DictReader(io.StringIO(content))
-    records = []
-    for i, row in enumerate(reader, start=2):
-        raw_conditions = row.get('conditions', '')
-        cond_list = [c.strip() for c in raw_conditions.split('|') if c.strip()] if raw_conditions else []
-        d = {
-            'name':       row.get('name', '').strip(),
-            'age':        row.get('age') or None,
-            'gender':     row.get('gender', ''),
-            'blood':      row.get('blood', ''),
-            'department': row.get('department', ''),
-            'phone':      row.get('phone', ''),
-            'address':    row.get('address', ''),
-            'conditions': cond_list,
-        }
-        err = validate_personnel(d)
-        if err:
-            return jsonify({'error': f'Row {i}: {err}'}), 400
-        records.append((
-            d['name'], d['age'], d['gender'], d['blood'],
-            d['department'], d['phone'], d['address'], raw_conditions,
-        ))
+    records, errors = _parse_csv(content)
+
+    # ── Always return all validation errors at once ───────────────────────────
+    if errors:
+        return jsonify({
+            'error': f'{len(errors)} validation error(s) found. Fix them all before re-uploading.',
+            'validation_errors': errors,
+        }), 400
 
     if not records:
         return jsonify({'error': 'CSV file contains no data rows'}), 400
 
+    # ── Preview mode: return what would happen without changing anything ──────
+    if preview_only:
+        with get_db() as conn:
+            existing_count = conn.cursor()
+            existing_count.execute('SELECT COUNT(*) FROM personnel')
+            current_count = existing_count.fetchone()[0]
+        return jsonify({
+            'preview': True,
+            'incoming_records': len(records),
+            'current_records':  current_count,
+            'message': (
+                f'CSV is valid. Importing will replace {current_count} existing '
+                f'record(s) with {len(records)} new record(s).'
+            ),
+        })
+
+    # ── Commit: snapshot → DELETE → INSERT in one transaction ────────────────
     with get_db() as conn:
+        # Snapshot existing data BEFORE the delete so the caller can offer
+        # a rollback/download even after the import succeeds.
+        snapshot = _snapshot_personnel(conn)
+
         c = conn.cursor()
         c.execute('DELETE FROM personnel')
         psycopg2.extras.execute_batch(
             c,
-            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
+            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions)'
+            ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
             records,
         )
+        # Keep the serial sequence in sync with the new rows.
+        c.execute("SELECT setval('personnel_id_seq', (SELECT COALESCE(MAX(id), 0) FROM personnel))")
+        # conn.commit() is called automatically by the get_db() context manager.
 
-    audit('UPLOAD_CSV', f'{len(records)} records')
-    notify('CSV Import complete', f'{len(records)} personnel records imported.', 'info')
-    return jsonify({'message': f'{len(records)} records uploaded successfully!'})
+    audit('UPLOAD_CSV', f'{len(records)} records imported, {len(snapshot)} replaced')
+    notify(
+        'CSV Import complete',
+        f'{len(records)} personnel records imported (replaced {len(snapshot)}).',
+        'info',
+    )
+    return jsonify({
+        'message':          f'{len(records)} records uploaded successfully!',
+        'imported':         len(records),
+        'replaced':         len(snapshot),
+        'backup':           snapshot,          # caller may offer this as a downloadable undo
+        'backup_timestamp': datetime.now().isoformat(),
+    })
 
 # ── VISITS ────────────────────────────────────────────────────────────────────
 
