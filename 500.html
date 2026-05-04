@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MMSU Medical · Server Error</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:         #0a0f0d;
+      --surface:    #111a15;
+      --surface2:   #162019;
+      --border:     rgba(255,255,255,0.06);
+      --border2:    rgba(255,255,255,0.10);
+      --green:      #1a7a3c;
+      --accent:     #e8c84a;
+      --accent2:    #f5dfa0;
+      --accent-dim: rgba(232,200,74,0.10);
+      --text:       #f0ede8;
+      --text-2:     rgba(240,237,232,0.55);
+      --text-3:     rgba(240,237,232,0.28);
+      --danger:     #e05555;
+      --danger-bg:  rgba(224,85,85,0.10);
+      --danger-border: rgba(224,85,85,0.20);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Figtree', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px; left: -200px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(224,85,85,0.08) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -150px; right: -150px;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(232,200,74,0.06) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 24px;
+      padding: 56px 64px;
+      max-width: 520px;
+      width: calc(100% - 32px);
+      text-align: center;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+    }
+
+    .code-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    .code-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -18px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(224,85,85,0.12) 0%, transparent 70%);
+    }
+    .code-wrap::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid rgba(224,85,85,0.20);
+    }
+
+    .code {
+      font-family: 'Instrument Serif', serif;
+      font-size: 96px;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--danger) 0%, #f08080 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -4px;
+    }
+
+    .icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px; height: 48px;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      border-radius: 14px;
+      margin: 0 auto 20px;
+    }
+    .icon svg { width: 24px; height: 24px; stroke: var(--danger); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    h1 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--text);
+      margin-bottom: 12px;
+      letter-spacing: -0.3px;
+    }
+
+    p {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .error-detail {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 32px;
+      font-size: 13px;
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+    }
+    .error-detail svg { flex-shrink: 0; width: 16px; height: 16px; stroke: var(--text-3); fill: none; stroke-width: 1.8; stroke-linecap: round; }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 24px;
+      border-radius: 10px;
+      font-family: 'Figtree', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.18s ease;
+    }
+    .btn-primary {
+      background: var(--green);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #1f9048; transform: translateY(-1px); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border2);
+    }
+    .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+    .logo {
+      margin-bottom: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .logo-dot {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--green) 0%, #0f4a24 100%);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-dot svg { width: 16px; height: 16px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .logo-text { font-size: 13px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; }
+
+    @media (max-width: 480px) {
+      .card { padding: 40px 24px; }
+      .code { font-size: 72px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-dot">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <span class="logo-text">MMSU Medical</span>
+    </div>
+
+    <div class="code-wrap">
+      <span class="code">500</span>
+    </div>
+
+    <div class="icon">
+      <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+
+    <h1>Something went wrong</h1>
+    <p>An unexpected error occurred on the server. Your data is safe — this is a temporary issue. Please try again in a moment.</p>
+
+    <div class="error-detail">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      If this keeps happening, contact your system administrator and mention error code <strong style="color:var(--text-2);margin-left:4px;">500</strong>.
+    </div>
+
+    <div class="actions">
+      <a href="javascript:location.reload()" class="btn btn-primary">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap: round stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Try Again
+      </a>
+      <a href="/" class="btn btn-ghost">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Go to Dashboard
+      </a>
+    </div>
+  </div>
+</body>
+</html>
