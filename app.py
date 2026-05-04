@@ -171,6 +171,17 @@ def init_db():
             )
         ''')
 
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS notifications (
+                id         SERIAL PRIMARY KEY,
+                level      TEXT NOT NULL DEFAULT 'info',
+                title      TEXT NOT NULL,
+                body       TEXT,
+                read       BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+
 
 init_db()
 
@@ -227,6 +238,18 @@ def audit(action, detail=''):
             )
     except Exception as e:
         print(f'[audit] Failed to write audit log ({action}): {e}', file=sys.stderr)
+
+
+def notify(title, body='', level='info'):
+    """Push an in-app notification (level: info | warning | danger)."""
+    try:
+        with get_db() as conn:
+            conn.cursor().execute(
+                'INSERT INTO notifications (level, title, body) VALUES (%s, %s, %s)',
+                (level, title, body),
+            )
+    except Exception as e:
+        print(f'[notify] Failed ({title}): {e}', file=sys.stderr)
 
 # ── INPUT VALIDATION ─────────────────────────────────────────────────────────
 
@@ -337,6 +360,7 @@ def login():
             audit('LOGIN', f'Admin logged in from {request.remote_addr}')
             return jsonify({'success': True})
         audit('LOGIN_FAIL', f'Failed login attempt for "{data.get("username")}"')
+        notify('Failed login attempt', f'Username: {data.get("username","")} from {request.remote_addr}', 'warning')
         return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
     return render_template('login.html')
 
@@ -494,6 +518,15 @@ def add_personnel():
             person_params(d),
         )
     audit('ADD_PERSONNEL', d.get('name', ''))
+    _HIGH_RISK = {'Cancer','Heart Disease','Tuberculosis','HIV/AIDS','Epilepsy',
+                  'Chronic Kidney Disease','Stroke','Hepatitis B','Hepatitis C'}
+    hr_conds = [c for c in d.get('conditions', []) if c in _HIGH_RISK]
+    if hr_conds:
+        notify(
+            f'High-risk personnel added',
+            f'{d.get("name","")} — {", ".join(hr_conds)}',
+            'danger',
+        )
     return jsonify({'message': 'Personnel added successfully!'})
 
 
@@ -585,6 +618,7 @@ def upload():
         )
 
     audit('UPLOAD_CSV', f'{len(records)} records')
+    notify('CSV Import complete', f'{len(records)} personnel records imported.', 'info')
     return jsonify({'message': f'{len(records)} records uploaded successfully!'})
 
 # ── VISITS ────────────────────────────────────────────────────────────────────
@@ -1807,6 +1841,166 @@ def report_medicine_inventory():
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     headers={'Content-Disposition': 'attachment; filename=medicine_inventory_report.xlsx'})
 
+# ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+
+@app.route('/notifications')
+@login_required
+def get_notifications():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT id, level, title, body, read, created_at FROM notifications ORDER BY created_at DESC LIMIT 100'
+        )
+        rows = c.fetchall()
+        c.execute('SELECT COUNT(*) FROM notifications WHERE read = FALSE')
+        unread = c.fetchone()[0]
+    return jsonify({
+        'unread': unread,
+        'data': [
+            {'id': r[0], 'level': r[1], 'title': r[2], 'body': r[3], 'read': r[4], 'created_at': str(r[5])}
+            for r in rows
+        ],
+    })
+
+
+@app.route('/notifications/read-all', methods=['POST'])
+@login_required
+def mark_notifications_read():
+    with get_db() as conn:
+        conn.cursor().execute('UPDATE notifications SET read = TRUE WHERE read = FALSE')
+    return jsonify({'ok': True})
+
+
+@app.route('/notifications/delete-all', methods=['DELETE'])
+@login_required
+@csrf_required
+def delete_notifications():
+    with get_db() as conn:
+        conn.cursor().execute('DELETE FROM notifications')
+    return jsonify({'ok': True})
+
+
+@app.route('/notifications/<int:nid>/read', methods=['POST'])
+@login_required
+def mark_notification_read(nid):
+    with get_db() as conn:
+        conn.cursor().execute('UPDATE notifications SET read = TRUE WHERE id = %s', (nid,))
+    return jsonify({'ok': True})
+
+# ── BACKUP / RESTORE ───────────────────────────────────────────────────────────
+
+@app.route('/backup')
+@login_required
+def create_backup():
+    """Download a full JSON backup of all data (personnel + visits + departments)."""
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+        personnel = [
+            {'id': r[0], 'name': r[1], 'age': r[2], 'gender': r[3], 'blood': r[4],
+             'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': r[8]}
+            for r in c.fetchall()
+        ]
+        c.execute(
+            'SELECT v.id, v.personnel_id, p.name, v.visit_date, v.reason, v.notes, v.created_at'
+            ' FROM visits v JOIN personnel p ON p.id = v.personnel_id ORDER BY v.id'
+        )
+        visits = [
+            {'id': r[0], 'personnel_id': r[1], 'personnel_name': r[2],
+             'visit_date': str(r[3]), 'reason': r[4], 'notes': r[5], 'created_at': str(r[6])}
+            for r in c.fetchall()
+        ]
+        c.execute('SELECT id, name FROM departments ORDER BY name')
+        departments = [{'id': r[0], 'name': r[1]} for r in c.fetchall()]
+
+    payload = {
+        'backup_version': 1,
+        'created_at': datetime.now().isoformat(),
+        'counts': {
+            'personnel': len(personnel),
+            'visits': len(visits),
+            'departments': len(departments),
+        },
+        'personnel': personnel,
+        'visits': visits,
+        'departments': departments,
+    }
+
+    audit('BACKUP', f'{len(personnel)} personnel, {len(visits)} visits, {len(departments)} departments')
+    notify('Backup created', f'{len(personnel)} personnel, {len(visits)} visits, {len(departments)} departments', 'info')
+
+    filename = f'mmsu_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+    return Response(
+        json.dumps(payload, indent=2),
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
+@app.route('/restore', methods=['POST'])
+@login_required
+@csrf_required
+def restore_backup():
+    """Restore from a JSON backup. Personnel, visits, departments are fully replaced."""
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'error': 'No file provided'}), 400
+    try:
+        payload = json.loads(file.read().decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        return jsonify({'error': f'Invalid JSON file: {e}'}), 400
+
+    if payload.get('backup_version') != 1:
+        return jsonify({'error': 'Unrecognised backup format or version'}), 400
+
+    personnel   = payload.get('personnel', [])
+    visits      = payload.get('visits', [])
+    departments = payload.get('departments', [])
+
+    if not isinstance(personnel, list):
+        return jsonify({'error': 'Invalid personnel data'}), 400
+
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('DELETE FROM departments')
+        if departments:
+            psycopg2.extras.execute_batch(
+                c,
+                'INSERT INTO departments (id, name) VALUES (%s, %s)',
+                [(d['id'], d['name']) for d in departments],
+            )
+            c.execute("SELECT setval('departments_id_seq', (SELECT COALESCE(MAX(id),0) FROM departments))")
+        c.execute('DELETE FROM personnel')
+        if personnel:
+            psycopg2.extras.execute_batch(
+                c,
+                'INSERT INTO personnel (id, name, age, gender, blood, department, phone, address, conditions)'
+                ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                [(p['id'], p.get('name'), p.get('age'), p.get('gender'), p.get('blood'),
+                  p.get('department'), p.get('phone'), p.get('address'), p.get('conditions'))
+                 for p in personnel],
+            )
+            c.execute("SELECT setval('personnel_id_seq', (SELECT COALESCE(MAX(id),0) FROM personnel))")
+        if visits:
+            psycopg2.extras.execute_batch(
+                c,
+                'INSERT INTO visits (id, personnel_id, visit_date, reason, notes)'
+                ' VALUES (%s,%s,%s,%s,%s)',
+                [(v['id'], v['personnel_id'], v['visit_date'], v.get('reason'), v.get('notes'))
+                 for v in visits],
+            )
+            c.execute("SELECT setval('visits_id_seq', (SELECT COALESCE(MAX(id),0) FROM visits))")
+
+    audit('RESTORE', f'{len(personnel)} personnel, {len(visits)} visits, {len(departments)} departments')
+    notify('Backup restored',
+           f'{len(personnel)} personnel, {len(visits)} visits, {len(departments)} departments',
+           'warning')
+    return jsonify({
+        'message': (f'Restore complete — {len(personnel)} personnel, '
+                    f'{len(visits)} visits, {len(departments)} departments restored.'),
+    })
+
+
 # ── CHANGE PASSWORD ────────────────────────────────────────────────────────────────────────────────
 
 @app.route('/settings/change-password', methods=['POST'])
@@ -1835,6 +2029,7 @@ def change_password():
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
         """, (new_hash,))
     audit('CHANGE_PASSWORD', 'Admin password changed')
+    notify('Password changed', 'The admin password was updated successfully.', 'info')
     return jsonify({'message': 'Password updated successfully'})
 
 # ── SESSION PING ────────────────────────────────────────────────────────────────────────────────
