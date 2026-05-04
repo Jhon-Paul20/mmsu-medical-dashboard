@@ -157,9 +157,9 @@
     textarea.form-input{resize:vertical;min-height:80px;}
 
     /* ── MODAL ── */
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;padding:12px;box-sizing:border-box;}
     .modal-overlay.open{opacity:1;pointer-events:all;}
-    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:90vw;max-height:88vh;overflow-y:auto;padding:28px;position:relative;transform:scale(.97) translateY(8px);transition:transform .2s ease;box-shadow:0 40px 100px rgba(0,0,0,.7);}
+    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:calc(100vw - 24px);max-height:min(88vh, calc(100dvh - 24px));overflow-y:auto;overscroll-behavior:contain;padding:28px;position:relative;transform:scale(.97) translateY(8px);transition:transform .2s ease;box-shadow:0 40px 100px rgba(0,0,0,.7);}
     .modal-overlay.open .modal{transform:scale(1) translateY(0);}
     .modal::-webkit-scrollbar{width:3px;}
     .modal::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
@@ -350,7 +350,7 @@
       .topbar-right{gap:6px;}
       .btn{padding:7px 12px;font-size:12px;}
       .btn-sm{padding:5px 10px;font-size:11px;}
-      .modal{padding:18px 14px;max-width:96vw;border-radius:12px;}
+      .modal{padding:16px 14px;max-width:calc(100vw - 16px);max-height:min(85vh, calc(100dvh - 80px));border-radius:14px;}
       .modal-grid{grid-template-columns:1fr;}
       .modal-meds-grid{grid-template-columns:1fr;}
       .form-grid{grid-template-columns:1fr;}
@@ -538,7 +538,43 @@
     .rpt-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.03em;}
     .rpt-badge.pdf{background:rgba(217,85,85,.1);color:#e07070;}
     .rpt-badge.xlsx{background:rgba(69,191,110,.1);color:var(--safe);}
-  </style>
+  
+  /* ── SESSION TIMEOUT WARNING ── */
+  #sessionWarning {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+  }
+  #sessionWarning.visible { display: flex; }
+  .sw-card {
+    background: var(--surface);
+    border: 1px solid rgba(232,200,74,0.25);
+    border-radius: 20px;
+    padding: 40px 44px;
+    max-width: 420px;
+    width: calc(100% - 32px);
+    text-align: center;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+    animation: swSlideIn .22s ease;
+  }
+  @keyframes swSlideIn { from { transform: scale(.95) translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sw-icon { width: 52px; height: 52px; background: rgba(232,200,74,0.10); border: 1px solid rgba(232,200,74,0.22); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .sw-icon svg { width: 26px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sw-title { font-family: 'Instrument Serif', serif; font-size: 22px; color: var(--text); margin-bottom: 10px; }
+  .sw-msg { font-size: 14px; color: var(--text-2); line-height: 1.6; margin-bottom: 8px; }
+  .sw-countdown { font-size: 36px; font-weight: 700; color: var(--accent); margin: 16px 0 24px; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .sw-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .sw-btn { padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all .15s; }
+  .sw-btn-primary { background: var(--green); color: #fff; }
+  .sw-btn-primary:hover { background: #1f9048; transform: translateY(-1px); }
+  .sw-btn-ghost { background: transparent; color: var(--text-2); border: 1px solid var(--border2); }
+  .sw-btn-ghost:hover { background: var(--surface2); color: var(--text); }
+</style>
 </head>
 <body>
 
@@ -1420,6 +1456,22 @@
         </button>
       </div>
     </div>
+
+    <!-- Change Password -->
+    <div class="settings-section">
+      <div class="settings-title">Change Password</div>
+      <div class="settings-desc">Update the admin login password. Changes take effect immediately and persist across redeploys.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;max-width:360px;">
+        <input type="password" class="form-input" id="cpCurrent" placeholder="Current password" autocomplete="current-password">
+        <input type="password" class="form-input" id="cpNew" placeholder="New password (min. 8 characters)" autocomplete="new-password">
+        <input type="password" class="form-input" id="cpConfirm" placeholder="Confirm new password" autocomplete="new-password">
+        <div id="cpError" style="font-size:13px;color:var(--danger);display:none;padding:8px 12px;background:var(--danger-bg);border-radius:8px;border:1px solid rgba(224,85,85,0.2);"></div>
+        <button class="btn btn-primary" onclick="changePassword()" style="align-self:flex-start;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Update Password
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- ═══════════════ AUDIT LOG PAGE ═══════════════ -->
@@ -2104,7 +2156,6 @@
     document.getElementById('editPersonnelId').value = '';
     document.getElementById('addPersonnelTitle').textContent = 'Add Personnel';
     document.getElementById('savePersonnelBtn').textContent = 'Add Personnel';
-    clearFormValidation(['pName','pAge','pGender','pBlood','pDept','pPhone','pAddress','pConditions']);
     ['pName','pAge','pPhone','pAddress','pConditions'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('pGender').value = '';
     document.getElementById('pBlood').value = '';
@@ -2226,22 +2277,12 @@
   }
 
   async function saveVisit() {
-    if (!validateVisitForm()) return;
     const body = { visit_date: document.getElementById('vDate').value, reason: document.getElementById('vReason').value.trim(), notes: document.getElementById('vNotes').value.trim() };
-    const btn = document.querySelector('#addVisitOverlay .btn-primary');
-    if (btn) btn.disabled = true;
-    try {
-      const res = await fetch(`/personnel/${currentVisitPersonId}/visits/add`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
-      const data = await res.json();
-      showToast(data.message || data.error, !res.ok);
-      if (res.ok) {
-        document.getElementById('addVisitOverlay').classList.remove('open');
-        clearFormValidation(['vDate','vReason']);
-        await loadVisits(currentVisitPersonId);
-      }
-    } finally {
-      if (btn) btn.disabled = false;
-    }
+    if (!body.visit_date) { showToast('Visit date is required', true); return; }
+    const res = await fetch(`/personnel/${currentVisitPersonId}/visits/add`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) { document.getElementById('addVisitOverlay').classList.remove('open'); await loadVisits(currentVisitPersonId); }
   }
 
   async function deleteVisit(vid) {
@@ -3621,6 +3662,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     if (res.status === 401) { window.location.href = '/login'; return; }
     allData = await res.json();
     filteredData = allData;
+    processData(allData);
     populateDeptFilter();
     buildConditionSidebar();
     renderPersonPicker();
@@ -4223,6 +4265,21 @@ Limit to 2 suggestions per condition, max 6 total.`;
 </div>
 
 </div><!-- /print-wrap -->
+
+  <div id="sessionWarning" role="dialog" aria-modal="true" aria-labelledby="swTitle">
+    <div class="sw-card">
+      <div class="sw-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="sw-title" id="swTitle">Still there?</div>
+      <div class="sw-msg">Your session will expire due to inactivity in</div>
+      <div class="sw-countdown" id="swCountdown">2:00</div>
+      <div class="sw-msg" style="margin-bottom:24px">Click <strong>Stay logged in</strong> to continue.</div>
+      <div class="sw-actions">
+        <button class="sw-btn sw-btn-primary" onclick="sessionStay()">Stay logged in</button>
+        <button class="sw-btn sw-btn-ghost" onclick="sessionLogout()">Log out</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>`);
     printWin.document.close();
@@ -4319,51 +4376,102 @@ Limit to 2 suggestions per condition, max 6 total.`;
   };
 
 
-  // ── INLINE VALIDATION ────────────────────────────────────────────────────────
-  function validateField(el, type) {
-    const errEl = document.getElementById('err-' + el.id);
-    const v = (el.value || '').trim();
-    let valid = true;
-    if (type === 'name')   valid = v.length >= 2;
-    if (type === 'age')    valid = v !== '' && parseInt(v) >= 1 && parseInt(v) <= 120;
-    if (type === 'select') valid = v !== '';
-    if (type === 'date')   valid = v !== '';
-    if (type === 'phone')  valid = v === '' || /^[0-9+\-\s()]{7,}$/.test(v);
-    el.classList.toggle('invalid', !valid);
-    el.classList.toggle('valid', valid);
-    if (errEl) errEl.classList.toggle('visible', !valid);
-    return valid;
+  // ── CHANGE PASSWORD ──────────────────────────────────────────────────────────
+  async function changePassword() {
+    const current = document.getElementById('cpCurrent').value;
+    const newPw   = document.getElementById('cpNew').value;
+    const confirm = document.getElementById('cpConfirm').value;
+    const errEl   = document.getElementById('cpError');
+
+    errEl.style.display = 'none';
+
+    if (!current || !newPw || !confirm) {
+      errEl.textContent = 'All fields are required.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (newPw.length < 8) {
+      errEl.textContent = 'New password must be at least 8 characters.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (newPw !== confirm) {
+      errEl.textContent = 'New passwords do not match.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const btn = event.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+
+    try {
+      const res = await fetch('/settings/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ current_password: current, new_password: newPw, confirm_password: confirm })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Password updated successfully');
+        ['cpCurrent','cpNew','cpConfirm'].forEach(id => document.getElementById(id).value = '');
+      } else {
+        errEl.textContent = data.error || 'Failed to update password.';
+        errEl.style.display = 'block';
+      }
+    } catch(e) {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Update Password';
+    }
   }
 
-  function validatePersonnelForm() {
-    const results = [
-      validateField(document.getElementById('pName'),   'name'),
-      validateField(document.getElementById('pAge'),    'age'),
-      validateField(document.getElementById('pGender'), 'select'),
-      validateField(document.getElementById('pBlood'),  'select'),
-      validateField(document.getElementById('pDept'),   'select'),
-    ];
-    const phone = document.getElementById('pPhone');
-    if (phone.value.trim()) results.push(validateField(phone, 'phone'));
-    return results.every(Boolean);
-  }
 
-  function validateVisitForm() {
-    return [
-      validateField(document.getElementById('vDate'),   'date'),
-      validateField(document.getElementById('vReason'), 'name'),
-    ].every(Boolean);
-  }
-
-  function clearFormValidation(ids) {
-    ids.forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.classList.remove('invalid', 'valid');
-      const errEl = document.getElementById('err-' + id);
-      if (errEl) errEl.classList.remove('visible');
+  (function() {
+    const TOTAL_MS = 30 * 60 * 1000;
+    const WARN_MS  =  2 * 60 * 1000;
+    let _expireAt  = Date.now() + TOTAL_MS;
+    let _warnTimer = null, _countTimer = null;
+    function _scheduleWarn() {
+      clearTimeout(_warnTimer);
+      _warnTimer = setTimeout(_showWarning, Math.max(0, (_expireAt - Date.now()) - WARN_MS));
+    }
+    function _showWarning() {
+      document.getElementById('sessionWarning').classList.add('visible');
+      _tick();
+    }
+    function _tick() {
+      clearTimeout(_countTimer);
+      const left = Math.max(0, _expireAt - Date.now());
+      const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+      document.getElementById('swCountdown').textContent = m + ':' + String(s).padStart(2,'0');
+      if (left <= 0) { sessionLogout(); return; }
+      _countTimer = setTimeout(_tick, 1000);
+    }
+    let _ab = null;
+    ['mousemove','keydown','click','scroll','touchstart'].forEach(ev => {
+      document.addEventListener(ev, () => {
+        clearTimeout(_ab);
+        _ab = setTimeout(() => { _expireAt = Date.now() + TOTAL_MS; _scheduleWarn(); }, 500);
+      }, { passive: true });
     });
-  }
+    window.sessionStay = async function() {
+      try {
+        await fetch('/session/ping', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken': csrfToken} });
+      } catch(e) {}
+      _expireAt = Date.now() + TOTAL_MS;
+      clearTimeout(_countTimer);
+      document.getElementById('sessionWarning').classList.remove('visible');
+      _scheduleWarn();
+    };
+    window.sessionLogout = function() {
+      clearTimeout(_countTimer); clearTimeout(_warnTimer);
+      window.location.href = '/logout';
+    };
+    _scheduleWarn();
+  })();
 
 </script>
 </body>
