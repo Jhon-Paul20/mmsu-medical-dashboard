@@ -265,6 +265,14 @@ FIELD_LIMITS = {
 VALID_GENDERS     = {'Male', 'Female', ''}
 VALID_BLOOD_TYPES = {'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''}
 
+# Single source of truth for high-risk conditions.
+# Used by: search filters, add-personnel notifications, PDF export, all reports.
+HIGH_RISK_CONDITIONS = {
+    'Hypertension', 'Diabetes', 'Asthma',
+    'Heart Disease', 'Tuberculosis', 'Cancer', 'HIV/AIDS', 'Epilepsy',
+    'Chronic Kidney Disease', 'Stroke', 'Hepatitis B', 'Hepatitis C',
+}
+
 
 def validate_personnel(d: dict) -> str | None:
     """Return an error string if the payload is invalid, else None."""
@@ -408,11 +416,6 @@ def search_personnel():
       page     – 1-based page number (default 1)
       per_page – rows per page (default 25, max 100)
     """
-    HIGH_RISK_CONDITIONS = {
-        'Cancer', 'Heart Disease', 'Tuberculosis', 'HIV/AIDS', 'Epilepsy',
-        'Chronic Kidney Disease', 'Stroke', 'Hepatitis B', 'Hepatitis C',
-    }
-
     q        = request.args.get('q', '').strip()
     dept     = request.args.get('dept', '').strip()
     gender   = request.args.get('gender', '').strip()
@@ -518,9 +521,7 @@ def add_personnel():
             person_params(d),
         )
     audit('ADD_PERSONNEL', d.get('name', ''))
-    _HIGH_RISK = {'Cancer','Heart Disease','Tuberculosis','HIV/AIDS','Epilepsy',
-                  'Chronic Kidney Disease','Stroke','Hepatitis B','Hepatitis C'}
-    hr_conds = [c for c in d.get('conditions', []) if c in _HIGH_RISK]
+    hr_conds = [c for c in d.get('conditions', []) if c in HIGH_RISK_CONDITIONS]
     if hr_conds:
         notify(
             f'High-risk personnel added',
@@ -1106,11 +1107,10 @@ def export_personnel_pdf(pid):
     story.append(addr_cell)
 
     story.append(Paragraph('RECORDED CONDITIONS', section_style))
-    HIGH_RISK = ['Hypertension','Diabetes','Asthma','Heart Disease','Tuberculosis','Cancer','HIV/AIDS','Epilepsy']
     if p['conditions']:
         cond_cells = []
         for cond in p['conditions']:
-            is_high = cond in HIGH_RISK
+            is_high = cond in HIGH_RISK_CONDITIONS
             bg      = RED_BG   if is_high else LIGHT_GREY
             txt     = RED_TEXT if is_high else DARK
             border  = colors.HexColor('#f5c6c6') if is_high else BORDER
@@ -1277,11 +1277,6 @@ def _report_colors():
         'RED_TEXT':   colors.HexColor('#c0392b'),
         'WHITE':      colors.white,
     }
-
-HIGH_RISK_CONDITIONS = {
-    'Hypertension','Diabetes','Asthma','Heart Disease',
-    'Tuberculosis','Cancer','HIV/AIDS','Epilepsy'
-}
 
 def _report_header_footer(canvas_obj, doc, title, subtitle=''):
     """Draws page header + footer on every page."""
