@@ -2798,8 +2798,8 @@ Limit key_findings to 4. Limit recommendations to 4.`;
     const res = await fetch('/audit-log');
     const logs = await res.json();
     document.getElementById('auditCountLabel').textContent = `${logs.length} entries (last 200)`;
-    const iconMap = { LOGIN:'🟢', LOGIN_FAIL:'🔴', LOGOUT:'🔵', ADD_PERSONNEL:'✨', UPDATE_PERSONNEL:'✏️', DELETE_PERSONNEL:'🗑️', ADD_VISIT:'📅', DELETE_VISIT:'🗑️', ADD_DEPT:'🏢', DELETE_DEPT:'🗑️', EXPORT_CSV:'📤', EXPORT_VISITS_CSV:'📤', UPLOAD_CSV:'📥' };
-    const classMap = { LOGIN:'login', LOGIN_FAIL:'delete', LOGOUT:'logout', ADD_PERSONNEL:'add', UPDATE_PERSONNEL:'add', DELETE_PERSONNEL:'delete', ADD_VISIT:'add', DELETE_VISIT:'delete', EXPORT_CSV:'export', UPLOAD_CSV:'export' };
+    const iconMap = { LOGIN:'🟢', LOGIN_FAIL:'🔴', LOGOUT:'🔵', ADD_PERSONNEL:'✨', UPDATE_PERSONNEL:'✏️', DELETE_PERSONNEL:'🗑️', ADD_VISIT:'📅', DELETE_VISIT:'🗑️', ADD_DEPT:'🏢', DELETE_DEPT:'🗑️', EXPORT_CSV:'📤', EXPORT_VISITS_CSV:'📤', UPLOAD_CSV:'📥', EXPORT_PDF:'📄', REPORT_MONTHLY:'📄', REPORT_YEARLY:'📄', REPORT_DEPT:'📄', REPORT_CONSULTATION:'📄', REPORT_MEDICINE_INVENTORY:'💊', CHANGE_PASSWORD:'🔒' };
+    const classMap = { LOGIN:'login', LOGIN_FAIL:'delete', LOGOUT:'logout', ADD_PERSONNEL:'add', UPDATE_PERSONNEL:'add', DELETE_PERSONNEL:'delete', ADD_VISIT:'add', DELETE_VISIT:'delete', EXPORT_CSV:'export', UPLOAD_CSV:'export', EXPORT_PDF:'export', REPORT_MONTHLY:'export', REPORT_YEARLY:'export', REPORT_DEPT:'export', REPORT_CONSULTATION:'export', REPORT_MEDICINE_INVENTORY:'export', CHANGE_PASSWORD:'other' };
     document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
       `<div class="audit-item">
         <div class="audit-icon ${classMap[l.action]||'other'}">${iconMap[l.action]||'📋'}</div>
@@ -4368,11 +4368,12 @@ Limit to 2 suggestions per condition, max 6 total.`;
     if (url) window.location.href = url;
   }
 
-  // Hook into showPage to init controls when reports tab is opened
-  const _origShowPage = window.showPage;
-  window.showPage = function(name, btn) {
-    if (typeof _origShowPage === 'function') _origShowPage(name, btn);
-    if (name === 'reports') setTimeout(initReportControls, 100);
+  // Patch renderReports (called by showPage when navigating to Reports page)
+  // so initReportControls always runs after data is loaded
+  const _rptOrigRender = window.renderReports;
+  window.renderReports = function() {
+    if (typeof _rptOrigRender === 'function') _rptOrigRender();
+    setTimeout(initReportControls, 50);
   };
 
 
@@ -4408,7 +4409,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     try {
       const res = await fetch('/settings/change-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
         body: JSON.stringify({ current_password: current, new_password: newPw, confirm_password: confirm })
       });
       const data = await res.json();
@@ -4459,7 +4460,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     });
     window.sessionStay = async function() {
       try {
-        await fetch('/session/ping', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken': csrfToken} });
+        await fetch('/session/ping', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token': csrfToken} });
       } catch(e) {}
       _expireAt = Date.now() + TOTAL_MS;
       clearTimeout(_countTimer);
