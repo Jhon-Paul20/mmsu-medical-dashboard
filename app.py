@@ -49,12 +49,21 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-SESSION_TIMEOUT_MINUTES = 30
-
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-_raw_password  = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
-ADMIN_PASSWORD_HASH = generate_password_hash(_raw_password)
-del _raw_password  # don't keep plaintext in memory
+
+def _get_password_hash() -> str:
+    """Load password hash from DB, falling back to env var / default."""
+    try:
+        with get_db() as conn:
+            c = conn.cursor()
+            c.execute("SELECT value FROM app_settings WHERE key='admin_password_hash'")
+            row = c.fetchone()
+            if row:
+                return row[0]
+    except Exception:
+        pass  # DB not ready yet on first boot — fall through to env default
+    _raw = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
+    return generate_password_hash(_raw)
 
 # ── DATABASE ──────────────────────────────────────────────────────────────────
 
@@ -153,6 +162,12 @@ def init_db():
                 detail     TEXT,
                 ip         TEXT,
                 created_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             )
         ''')
 
@@ -316,7 +331,7 @@ def login():
         if is_rate_limited(ip):
             return jsonify({'success': False, 'error': 'Too many login attempts. Please wait 5 minutes.'}), 429
         data = request.json or {}
-        if data.get('username') == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, data.get('password', '')):
+        if data.get('username') == ADMIN_USERNAME and check_password_hash(_get_password_hash(), data.get('password', '')):
             session.permanent = True
             session['user'] = data['username']
             audit('LOGIN', f'Admin logged in from {request.remote_addr}')
@@ -1683,13 +1698,43 @@ def report_medicine_inventory():
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     headers={'Content-Disposition': 'attachment; filename=medicine_inventory_report.xlsx'})
 
+# ── CHANGE PASSWORD ────────────────────────────────────────────────────────────────────────────────
+
+@app.route('/settings/change-password', methods=['POST'])
+@login_required
+@csrf_required
+def change_password():
+    data = request.json or {}
+    current = data.get('current_password', '')
+    new_pw  = data.get('new_password', '')
+    confirm = data.get('confirm_password', '')
+
+    if not all([current, new_pw, confirm]):
+        return jsonify({'error': 'All fields are required'}), 400
+    if not check_password_hash(_get_password_hash(), current):
+        return jsonify({'error': 'Current password is incorrect'}), 401
+    if new_pw != confirm:
+        return jsonify({'error': 'New passwords do not match'}), 400
+    if len(new_pw) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+
+    new_hash = generate_password_hash(new_pw)
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO app_settings (key, value) VALUES ('admin_password_hash', %s)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+        """, (new_hash,))
+    audit('CHANGE_PASSWORD', 'Admin password changed')
+    return jsonify({'message': 'Password updated successfully'})
+
 # ── SESSION PING ────────────────────────────────────────────────────────────────────────────────
 
 @app.route('/session/ping', methods=['POST'])
 @login_required
 def session_ping():
-    session.modified = True  # resets the session lifetime timer
-    return jsonify({'ok': True, 'timeout_minutes': SESSION_TIMEOUT_MINUTES})
+    session.modified = True
+    return jsonify({'ok': True, 'timeout_minutes': 30})
 
 # ── GLOBAL ERROR HANDLERS ──────────────────────────────────────────────────────────────────────────────
 
