@@ -564,6 +564,73 @@
     .rpt-badge.pdf{background:rgba(217,85,85,.1);color:#e07070;}
     .rpt-badge.xlsx{background:rgba(69,191,110,.1);color:var(--safe);}
   
+  /* ── MEDICINE ANALYTICS ── */
+  .meda-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+  .meda-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:border-color .2s,transform .15s;}
+  .meda-kpi:hover{border-color:var(--border2);transform:translateY(-1px);}
+  .meda-kpi-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:13px;}
+  .meda-kpi-label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;}
+  .meda-kpi-value{font-family:'Instrument Serif',serif;font-size:28px;color:var(--text);line-height:1;}
+  .meda-kpi-sub{font-size:10.5px;color:var(--text-3);margin-top:4px;}
+
+  .meda-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  .meda-grid.wide{grid-template-columns:1fr;}
+  .meda-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;overflow:hidden;}
+  .meda-card-label{font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;}
+  .meda-card-title{font-family:'Instrument Serif',serif;font-size:15px;color:var(--text);margin-bottom:18px;}
+
+  /* Demand bar rows */
+  .meda-demand-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);}
+  .meda-demand-row:last-child{border-bottom:none;}
+  .meda-demand-name{font-size:12px;font-weight:500;color:var(--text);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .meda-demand-track{flex:1;height:6px;background:var(--surface2);border-radius:10px;overflow:hidden;}
+  .meda-demand-fill{height:100%;border-radius:10px;transition:width .8s ease;}
+  .meda-demand-count{font-size:11px;font-weight:600;color:var(--text-2);width:38px;text-align:right;flex-shrink:0;}
+  .meda-demand-badge{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:10px;flex-shrink:0;white-space:nowrap;}
+  .meda-demand-badge.high{background:var(--danger-bg);color:var(--danger);}
+  .meda-demand-badge.std{background:var(--safe-bg);color:var(--safe);}
+
+  /* Medicine need cards */
+  .meda-med-list{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;padding-right:2px;}
+  .meda-med-list::-webkit-scrollbar{width:3px;}
+  .meda-med-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+  .meda-med-item{display:flex;align-items:flex-start;gap:12px;padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);}
+  .meda-med-item.high-risk{border-color:rgba(217,85,85,.2);background:rgba(217,85,85,.04);}
+  .meda-med-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+  .meda-med-dot.high{background:var(--danger);}
+  .meda-med-dot.std{background:var(--safe);}
+  .meda-med-name{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:2px;}
+  .meda-med-for{font-size:11px;color:var(--text-3);}
+  .meda-med-units{margin-left:auto;text-align:right;flex-shrink:0;}
+  .meda-med-units-val{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);}
+  .meda-med-units-lbl{font-size:9.5px;color:var(--text-3);}
+
+  /* Dept heatmap */
+  .meda-heatmap-wrap{overflow-x:auto;}
+  .meda-heatmap{width:100%;border-collapse:collapse;font-size:11px;}
+  .meda-heatmap th{padding:6px 10px;text-align:left;font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;border-bottom:1px solid var(--border);}
+  .meda-heatmap td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .meda-heatmap tr:last-child td{border-bottom:none;}
+  .meda-hm-dept{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;}
+  .meda-hm-cell{text-align:center;font-size:11.5px;font-weight:600;border-radius:5px;padding:4px 8px;min-width:36px;}
+
+  /* Visit reason → medicine bridge */
+  .meda-bridge-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .meda-bridge-row:last-child{border-bottom:none;}
+  .meda-bridge-reason{font-size:12px;font-weight:500;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .meda-bridge-count{font-size:11px;color:var(--text-3);white-space:nowrap;}
+  .meda-bridge-pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+  .meda-bridge-pill{font-size:10px;padding:2px 7px;border-radius:4px;background:var(--accent-dim);color:var(--accent);font-weight:500;}
+
+  /* Filter bar */
+  .meda-filterbar{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+  .meda-filter-select{padding:7px 12px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text-2);font-size:12px;font-family:'Figtree',sans-serif;outline:none;cursor:pointer;transition:border-color .15s;}
+  .meda-filter-select:focus{border-color:rgba(212,184,74,.3);color:var(--text);}
+  .meda-disclaimer{font-size:11px;color:var(--text-3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 13px;margin-bottom:16px;line-height:1.55;}
+
+  @media(max-width:900px){.meda-hero{grid-template-columns:1fr 1fr;}.meda-grid{grid-template-columns:1fr;}}
+  @media(max-width:600px){.meda-hero{grid-template-columns:1fr 1fr;gap:8px;}.meda-demand-name{width:100px;}.meda-card{padding:14px 16px;}}
+
   /* ── SESSION TIMEOUT WARNING ── */
   #sessionWarning {
     display: none;
@@ -646,6 +713,10 @@
     <button class="nav-item" onclick="showPage('medlookup',this)">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2v16M2 10h16"/><circle cx="10" cy="10" r="8"/></svg>
       Medicine Lookup
+    </button>
+    <button class="nav-item" onclick="showPage('medanalytics',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="8" y="8" width="3" height="10" rx="1"/><rect x="14" y="4" width="3" height="14" rx="1"/><path d="M3.5 9l4-4 4 3 4-5"/></svg>
+      Medicine Analytics
     </button>
 
     <div class="sidebar-divider"></div>
@@ -1630,6 +1701,101 @@
     </div>
   </div>
 
+  <!-- ═══════════════ MEDICINE ANALYTICS PAGE ═══════════════ -->
+  <div class="page" id="page-medanalytics">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Medicine <em>Analytics</em></div>
+        <div class="page-sub">Projected medicine demand based on current conditions and visit data</div>
+      </div>
+      <div class="topbar-right">
+        <select class="meda-filter-select" id="medaDeptFilter" onchange="renderMedAnalytics()">
+          <option value="">All Departments</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="renderMedAnalytics()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Refresh
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="window.location.href='/reports/medicine-inventory'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export Excel
+        </button>
+      </div>
+    </div>
+
+    <div class="meda-disclaimer">
+      <strong style="color:var(--accent);">ℹ Projection basis:</strong> figures are derived from recorded conditions in personnel records cross-referenced with the medicine protocol database, and from clinic visit reasons. These are estimates — consult your pharmacist for actual procurement quantities.
+    </div>
+
+    <!-- KPI row -->
+    <div class="meda-hero">
+      <div class="meda-kpi">
+        <div class="meda-kpi-icon" style="background:var(--accent-dim);">💊</div>
+        <div class="meda-kpi-label">Medicines Needed</div>
+        <div class="meda-kpi-value" id="meda-kpi-medicines">—</div>
+        <div class="meda-kpi-sub">distinct medicines projected</div>
+      </div>
+      <div class="meda-kpi">
+        <div class="meda-kpi-icon" style="background:var(--danger-bg);">⚠️</div>
+        <div class="meda-kpi-label">High-Risk Conditions</div>
+        <div class="meda-kpi-value" id="meda-kpi-highrisk">—</div>
+        <div class="meda-kpi-sub">driving critical medicine needs</div>
+      </div>
+      <div class="meda-kpi">
+        <div class="meda-kpi-icon" style="background:var(--safe-bg);">📦</div>
+        <div class="meda-kpi-label">Est. Monthly Units</div>
+        <div class="meda-kpi-value" id="meda-kpi-units">—</div>
+        <div class="meda-kpi-sub">total units across all medicines</div>
+      </div>
+      <div class="meda-kpi">
+        <div class="meda-kpi-icon" style="background:rgba(80,150,200,.10);">👥</div>
+        <div class="meda-kpi-label">Personnel Covered</div>
+        <div class="meda-kpi-value" id="meda-kpi-covered">—</div>
+        <div class="meda-kpi-sub">have at least one condition</div>
+      </div>
+    </div>
+
+    <!-- Row 1: Condition demand + Medicine need list -->
+    <div class="meda-grid">
+      <div class="meda-card">
+        <div class="meda-card-label">By Condition</div>
+        <div class="meda-card-title">Condition Prevalence & Medicine Demand</div>
+        <div id="meda-demand-list"></div>
+      </div>
+      <div class="meda-card">
+        <div class="meda-card-label">Projected Need</div>
+        <div class="meda-card-title" style="margin-bottom:12px;">Monthly Medicine Requirements</div>
+        <div class="meda-med-list" id="meda-med-list"></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Dept heatmap -->
+    <div class="meda-card" style="margin-bottom:14px;">
+      <div class="meda-card-label">Department View</div>
+      <div class="meda-card-title">Condition Exposure by Department</div>
+      <div class="meda-heatmap-wrap">
+        <table class="meda-heatmap" id="meda-heatmap-table">
+          <thead id="meda-heatmap-head"></thead>
+          <tbody id="meda-heatmap-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Row 3: Visit reasons → medicine bridge + chart -->
+    <div class="meda-grid">
+      <div class="meda-card">
+        <div class="meda-card-label">From Visit Reasons</div>
+        <div class="meda-card-title">Visit Complaints → Associated Medicines</div>
+        <div id="meda-bridge-list"></div>
+      </div>
+      <div class="meda-card">
+        <div class="meda-card-label">Top Conditions</div>
+        <div class="meda-card-title">Condition Distribution (Personnel)</div>
+        <canvas id="medaCondChart" style="max-height:280px;"></canvas>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <!-- ── PERSONNEL DETAIL MODAL ── -->
@@ -1905,6 +2071,7 @@
     if (name === 'settings') loadDepartments();
     if (name === 'visits') renderPersonPicker();
     if (name === 'medlookup') initMedLookupPage();
+    if (name === 'medanalytics') renderMedAnalytics();
   }
 
   // ── PERSONNEL ──
@@ -4842,6 +5009,224 @@ Limit to 2 suggestions per condition, max 6 total.`;
     }
     document.getElementById('restoreFile').value = '';
     document.getElementById('restoreFileName').textContent = '';
+  }
+
+  // ── MEDICINE ANALYTICS ────────────────────────────────────────────────────
+
+  const MED_ANALYTICS_DB = {
+    'Hypertension':     { meds: ['Amlodipine 5mg','Losartan 50mg','Hydrochlorothiazide 25mg'], high: true,  upd: 1 },
+    'Diabetes':         { meds: ['Metformin 500mg','Glibenclamide 5mg','Insulin (Regular)'],   high: true,  upd: 2 },
+    'Asthma':           { meds: ['Salbutamol Inhaler','Budesonide Inhaler','Prednisolone 5mg'], high: true,  upd: 1 },
+    'Heart Disease':    { meds: ['Aspirin 81mg','Atorvastatin 40mg','Bisoprolol 5mg'],          high: true,  upd: 2 },
+    'Tuberculosis':     { meds: ['Isoniazid 300mg','Rifampicin 600mg','Pyrazinamide 500mg'],    high: true,  upd: 3 },
+    'Cancer':           { meds: ['Ondansetron 4mg','Dexamethasone 4mg','(Refer Oncology)'],     high: true,  upd: 2 },
+    'HIV/AIDS':         { meds: ['Cotrimoxazole 960mg','(Refer Inf. Disease)'],                 high: true,  upd: 1 },
+    'Epilepsy':         { meds: ['Phenobarbital 30mg','Carbamazepine 200mg','Valproic Acid'],   high: true,  upd: 2 },
+    'Allergies':        { meds: ['Cetirizine 10mg','Loratadine 10mg'],                          high: false, upd: 1 },
+    'Anemia':           { meds: ['Ferrous Sulfate','Folic Acid 5mg'],                           high: false, upd: 1 },
+    'Arthritis':        { meds: ['Naproxen 500mg','Methotrexate 7.5mg'],                        high: false, upd: 1 },
+    'Obesity':          { meds: ['Orlistat 120mg','Diet & Exercise'],                           high: false, upd: 1 },
+    'Mental Health':    { meds: ['Sertraline 50mg','Counseling'],                               high: false, upd: 1 },
+    'Liver Disease':    { meds: ['Silymarin 140mg','Ursodeoxycholic Acid'],                     high: false, upd: 1 },
+    'Kidney Disease':   { meds: ['Amlodipine 5mg','Erythropoietin'],                            high: false, upd: 1 },
+    'Migraine':         { meds: ['Sumatriptan 50mg','Topiramate 25mg'],                         high: false, upd: 1 },
+    'Ulcer':            { meds: ['Omeprazole 20mg','Amoxicillin 500mg'],                        high: false, upd: 2 },
+    'Gastritis':        { meds: ['Pantoprazole 40mg','Antacids'],                               high: false, upd: 1 },
+    'Thyroid Disorder': { meds: ['Levothyroxine 50mcg','Methimazole 5mg'],                      high: false, upd: 1 },
+    'Bronchitis':       { meds: ['Salbutamol','Amoxicillin 500mg'],                             high: false, upd: 2 },
+    'Stroke':           { meds: ['Aspirin 81mg','Clopidogrel 75mg'],                            high: false, upd: 2 },
+    'Gout':             { meds: ['Allopurinol 100mg','Colchicine 0.5mg'],                       high: false, upd: 1 },
+    'GERD':             { meds: ['Omeprazole 20mg','Domperidone 10mg'],                         high: false, upd: 2 },
+  };
+
+  const REASON_COND_MAP = [
+    { kw: ['hypertens','blood pressure'],    cond: 'Hypertension'     },
+    { kw: ['diabet','sugar','glucose'],      cond: 'Diabetes'         },
+    { kw: ['asthma','wheez','inhaler'],      cond: 'Asthma'           },
+    { kw: ['heart','cardiac','chest pain'],  cond: 'Heart Disease'    },
+    { kw: ['tb','tuberc'],                   cond: 'Tuberculosis'     },
+    { kw: ['cancer','tumor','oncol'],        cond: 'Cancer'           },
+    { kw: ['epilep','seizure'],              cond: 'Epilepsy'         },
+    { kw: ['allerg','rash','hives'],         cond: 'Allergies'        },
+    { kw: ['anemia','iron','ferr'],          cond: 'Anemia'           },
+    { kw: ['arthrit','joint'],               cond: 'Arthritis'        },
+    { kw: ['mental','depress','anxiety'],    cond: 'Mental Health'    },
+    { kw: ['ulcer','gastrit','stomach','acid','gerd','reflux'], cond: 'Ulcer' },
+    { kw: ['thyroid','goiter'],              cond: 'Thyroid Disorder' },
+    { kw: ['migrain','headache'],            cond: 'Migraine'         },
+    { kw: ['kidney','renal'],                cond: 'Kidney Disease'   },
+    { kw: ['liver','hepat'],                 cond: 'Liver Disease'    },
+    { kw: ['stroke','paralys'],              cond: 'Stroke'           },
+    { kw: ['obes','overweight'],             cond: 'Obesity'          },
+  ];
+
+  function heatColor(val, max) {
+    if (!val || !max) return 'transparent';
+    const t = Math.min(val / max, 1);
+    return `rgba(${Math.round(80+t*137)},${Math.round(20+t*10)},20,${(0.12+t*0.55).toFixed(2)})`;
+  }
+  function heatTextColor(val, max) {
+    if (!val) return '';
+    return Math.min(val/max,1) > 0.4 ? '#f0a0a0' : 'var(--text-2)';
+  }
+
+  let medaCondChart = null;
+
+  async function renderMedAnalytics() {
+    // Populate dept filter once
+    const deptSel = document.getElementById('medaDeptFilter');
+    const chosenDept = deptSel.value;
+    if (deptSel.options.length <= 1) {
+      [...new Set(allData.map(p => p.department).filter(Boolean))].sort()
+        .forEach(d => { const o = new Option(d, d); deptSel.appendChild(o); });
+    }
+
+    const personnel = chosenDept ? allData.filter(p => p.department === chosenDept) : allData;
+
+    // Build condition maps
+    const condCounts = {}, deptCondMap = {};
+    let coveredCount = 0;
+    personnel.forEach(p => {
+      const conds = Array.isArray(p.conditions) ? p.conditions : [];
+      if (conds.length) coveredCount++;
+      const dept = p.department || 'Unassigned';
+      if (!deptCondMap[dept]) deptCondMap[dept] = {};
+      conds.forEach(c => {
+        condCounts[c] = (condCounts[c] || 0) + 1;
+        deptCondMap[dept][c] = (deptCondMap[dept][c] || 0) + 1;
+      });
+    });
+
+    const sorted = Object.entries(condCounts).sort((a,b) => b[1]-a[1]);
+    const highRiskConds = sorted.filter(([c]) => MED_ANALYTICS_DB[c]?.high);
+
+    // KPIs
+    let totalMeds = 0, totalUnits = 0;
+    sorted.forEach(([c, n]) => {
+      const db = MED_ANALYTICS_DB[c];
+      if (db) { totalMeds += db.meds.length; totalUnits += n * (db.upd||1) * 30; }
+    });
+    document.getElementById('meda-kpi-medicines').textContent = totalMeds || '—';
+    document.getElementById('meda-kpi-highrisk').textContent  = highRiskConds.length || '0';
+    document.getElementById('meda-kpi-units').textContent     = totalUnits ? totalUnits.toLocaleString() : '—';
+    document.getElementById('meda-kpi-covered').textContent   = coveredCount;
+
+    // Condition demand bars
+    const maxN = sorted[0]?.[1] || 1;
+    const demandEl = document.getElementById('meda-demand-list');
+    demandEl.innerHTML = !sorted.length
+      ? '<div class="chart-empty" style="min-height:80px;"><div class="chart-empty-icon">📋</div><div class="chart-empty-text">No condition data recorded</div></div>'
+      : sorted.slice(0,15).map(([cond,cnt]) => {
+          const isH = MED_ANALYTICS_DB[cond]?.high || false;
+          return `<div class="meda-demand-row">
+            <div class="meda-demand-name" title="${cond}">${cond}</div>
+            <div class="meda-demand-track"><div class="meda-demand-fill" style="width:${(cnt/maxN*100).toFixed(0)}%;background:${isH?'rgba(217,85,85,.75)':'rgba(69,191,110,.65)'};"></div></div>
+            <div class="meda-demand-count">${cnt}</div>
+            <span class="meda-demand-badge ${isH?'high':'std'}">${isH?'⚠ High':'Standard'}</span>
+          </div>`;
+        }).join('');
+
+    // Medicine need list
+    const medRows = [];
+    sorted.forEach(([c,n]) => {
+      const db = MED_ANALYTICS_DB[c];
+      if (db) db.meds.forEach(m => medRows.push({ med:m, cond:c, cnt:n, units:n*(db.upd||1)*30, high:db.high }));
+    });
+    medRows.sort((a,b) => b.units-a.units);
+    const medEl = document.getElementById('meda-med-list');
+    medEl.innerHTML = !medRows.length
+      ? '<div class="chart-empty" style="min-height:80px;"><div class="chart-empty-icon">💊</div><div class="chart-empty-text">No medicines projected</div></div>'
+      : medRows.slice(0,22).map(r => `
+          <div class="meda-med-item${r.high?' high-risk':''}">
+            <div class="meda-med-dot ${r.high?'high':'std'}"></div>
+            <div style="flex:1;min-width:0;">
+              <div class="meda-med-name">${r.med}</div>
+              <div class="meda-med-for">For: ${r.cond} · ${r.cnt} patient${r.cnt!==1?'s':''}</div>
+            </div>
+            <div class="meda-med-units">
+              <div class="meda-med-units-val">${r.units.toLocaleString()}</div>
+              <div class="meda-med-units-lbl">units/mo</div>
+            </div>
+          </div>`).join('');
+
+    // Dept heatmap
+    const topConds = sorted.slice(0,8).map(([c])=>c);
+    const depts = Object.keys(deptCondMap).sort();
+    const hmHead = document.getElementById('meda-heatmap-head');
+    const hmBody = document.getElementById('meda-heatmap-body');
+    if (!depts.length || !topConds.length) {
+      hmHead.innerHTML=''; hmBody.innerHTML='<tr><td colspan="10" style="padding:30px;text-align:center;color:var(--text-3);font-size:12px;">No data</td></tr>';
+    } else {
+      const condMax={};
+      topConds.forEach(c=>{ condMax[c]=Math.max(...depts.map(d=>deptCondMap[d]?.[c]||0)); });
+      hmHead.innerHTML=`<tr><th>Department</th><th style="text-align:center;">Total</th>${topConds.map(c=>{
+        const isH=MED_ANALYTICS_DB[c]?.high;
+        return `<th style="text-align:center;color:${isH?'var(--danger)':'var(--text-3)'};">${c}${isH?' ⚠':''}</th>`;
+      }).join('')}</tr>`;
+      hmBody.innerHTML=depts.map(dept=>{
+        const dTotal=personnel.filter(p=>(p.department||'Unassigned')===dept).length;
+        return `<tr>
+          <td class="meda-hm-dept">${dept}</td>
+          <td class="meda-hm-cell" style="color:var(--text-2);font-weight:600;">${dTotal}</td>
+          ${topConds.map(c=>{
+            const v=deptCondMap[dept]?.[c]||0;
+            return `<td class="meda-hm-cell" style="background:${heatColor(v,condMax[c])};color:${heatTextColor(v,condMax[c])};">${v||''}</td>`;
+          }).join('')}
+        </tr>`;
+      }).join('');
+    }
+
+    // Visit-reason → medicine bridge
+    const bridgeEl = document.getElementById('meda-bridge-list');
+    bridgeEl.innerHTML = '<div style="font-size:11.5px;color:var(--text-3);padding:8px 0;">Loading visit data…</div>';
+    try {
+      const tres = await fetch('/analytics/trends?period=12m');
+      const tdata = await tres.json();
+      const reasons = (tdata.top_reasons||[]).slice(0,10);
+      bridgeEl.innerHTML = !reasons.length
+        ? '<div class="chart-empty" style="min-height:80px;"><div class="chart-empty-icon">📅</div><div class="chart-empty-text">No visit data yet</div></div>'
+        : reasons.map(r => {
+            const rl=r.reason.toLowerCase();
+            const matched=REASON_COND_MAP.filter(m=>m.kw.some(k=>rl.includes(k)));
+            const pills=[...new Set(matched.flatMap(m=>MED_ANALYTICS_DB[m.cond]?.meds.slice(0,2)||[]))];
+            return `<div class="meda-bridge-row">
+              <div style="flex:1;min-width:0;">
+                <div class="meda-bridge-reason" title="${r.reason}">${r.reason}</div>
+                <div class="meda-bridge-pills">${pills.length
+                  ? pills.map(p=>`<span class="meda-bridge-pill">${p}</span>`).join('')
+                  : '<span style="font-size:10.5px;color:var(--text-3);">No protocol match</span>'
+                }</div>
+              </div>
+              <div class="meda-bridge-count">${r.count} visit${r.count!==1?'s':''}</div>
+            </div>`;
+          }).join('');
+    } catch(e) {
+      bridgeEl.innerHTML='<div style="font-size:11.5px;color:var(--danger);padding:8px 0;">Failed to load visit data</div>';
+    }
+
+    // Condition doughnut chart
+    const ctx = document.getElementById('medaCondChart').getContext('2d');
+    const topC = sorted.slice(0,8);
+    const palette = ['rgba(212,184,74,.85)','rgba(217,85,85,.8)','rgba(69,191,110,.8)','rgba(80,150,200,.8)','rgba(196,110,160,.8)','rgba(255,160,80,.8)','rgba(100,200,180,.8)','rgba(180,120,220,.8)'];
+    if (medaCondChart) { medaCondChart.destroy(); medaCondChart = null; }
+    if (!topC.length) {
+      renderChartEmpty('medaCondChart', 'No condition data');
+    } else {
+      document.getElementById('medaCondChart').style.display='';
+      const eEl=document.getElementById('medaCondChart').parentElement.querySelector('.chart-empty');
+      if (eEl) eEl.style.display='none';
+      medaCondChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: topC.map(([c])=>c), datasets:[{ data:topC.map(([,n])=>n), backgroundColor:palette, borderWidth:0, hoverOffset:6 }] },
+        options: {
+          responsive:true, maintainAspectRatio:true, cutout:'62%',
+          plugins: {
+            legend:{ position:'right', labels:{ color:'rgba(236,234,229,.55)', font:{family:'Figtree',size:11}, boxWidth:10, padding:10 }},
+            tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${ctx.parsed} personnel` }}
+          }
+        }
+      });
+    }
   }
 
 </script>
