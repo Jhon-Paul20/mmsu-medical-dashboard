@@ -183,7 +183,46 @@ def init_db():
         ''')
 
 
-init_db()
+# ── STARTUP HOOK ──────────────────────────────────────────────────────────────
+# init_db() is intentionally NOT called at import time.
+#
+# Calling it at module level causes two problems:
+#   1. Any DB unavailability at startup (e.g. Railway cold-start, bad DATABASE_URL)
+#      crashes every gunicorn worker before a single request is handled, with no
+#      useful HTTP error — just a silent process death.
+#   2. With multiple workers (gunicorn -w 4), all workers import the module in
+#      parallel and race to run the ALTER TABLE migrations simultaneously, which
+#      can produce deadlocks or duplicate-column errors under load.
+#
+# Instead, init runs once per process on the first real request, guarded by a
+# lock so only one thread does it even if several requests arrive concurrently.
+
+_db_initialised = False
+_init_lock       = Lock()
+
+
+@app.before_request
+def _ensure_db_ready():
+    """Run init_db() exactly once per worker process, on the first request."""
+    global _db_initialised
+    if _db_initialised:          # fast path — no lock needed after first request
+        return
+    with _init_lock:
+        if _db_initialised:      # re-check inside the lock (another thread may have won)
+            return
+        try:
+            init_db()
+            _db_initialised = True
+        except Exception as e:
+            # Surface the error as an HTTP 503 so ops can see it immediately
+            # rather than getting cryptic 500s from every route handler.
+            app.logger.exception('DB initialisation failed: %s', e)
+            return (
+                'Service temporarily unavailable — database initialisation failed. '
+                'Check DATABASE_URL and server logs.',
+                503,
+            )
+
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
 
