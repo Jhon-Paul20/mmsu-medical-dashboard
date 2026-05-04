@@ -1679,6 +1679,21 @@ def report_medicine_inventory():
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     headers={'Content-Disposition': 'attachment; filename=medicine_inventory_report.xlsx'})
 
+# ── GLOBAL ERROR HANDLERS ─────────────────────────────────────────────────────
+
+@app.errorhandler(404)
+def not_found(e):
+    # API requests get JSON; browser requests get the HTML page
+    if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+        return jsonify({'error': 'Not found'}), 404
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+        return jsonify({'error': 'Internal server error'}), 500
+    return render_template('500.html'), 500
+
 # ── ENTRYPOINT ────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
