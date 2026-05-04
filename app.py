@@ -1841,6 +1841,173 @@ def report_medicine_inventory():
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     headers={'Content-Disposition': 'attachment; filename=medicine_inventory_report.xlsx'})
 
+# ── TREND ANALYTICS ───────────────────────────────────────────────────────────
+
+@app.route('/analytics/trends')
+@login_required
+def analytics_trends():
+    """
+    All trend data in one efficient query set.
+
+    Query params:
+      period  – '6m' | '12m' | 'all' (default '12m')
+    """
+    period = request.args.get('period', '12m')
+
+    now = datetime.now()
+    if period == '6m':
+        cutoff = datetime(now.year, now.month, 1) - timedelta(days=5*31)
+        cutoff = cutoff.replace(day=1)
+    elif period == '12m':
+        cutoff = datetime(now.year, now.month, 1) - timedelta(days=11*31)
+        cutoff = cutoff.replace(day=1)
+    else:
+        cutoff = None
+
+    with get_db() as conn:
+        c = conn.cursor()
+
+        # ── 1. Monthly visit volume ──────────────────────────────────────────
+        if cutoff:
+            c.execute("""
+                SELECT TO_CHAR(visit_date, 'YYYY-MM') AS mo, COUNT(*) AS cnt
+                FROM visits
+                WHERE visit_date >= %s
+                GROUP BY mo ORDER BY mo
+            """, (cutoff.date(),))
+        else:
+            c.execute("""
+                SELECT TO_CHAR(visit_date, 'YYYY-MM') AS mo, COUNT(*) AS cnt
+                FROM visits
+                GROUP BY mo ORDER BY mo
+            """)
+        monthly_visits = [{'month': r[0], 'count': r[1]} for r in c.fetchall()]
+
+        # ── 2. Day-of-week distribution ──────────────────────────────────────
+        if cutoff:
+            c.execute("""
+                SELECT EXTRACT(DOW FROM visit_date)::int AS dow, COUNT(*) AS cnt
+                FROM visits WHERE visit_date >= %s
+                GROUP BY dow ORDER BY dow
+            """, (cutoff.date(),))
+        else:
+            c.execute("""
+                SELECT EXTRACT(DOW FROM visit_date)::int AS dow, COUNT(*) AS cnt
+                FROM visits GROUP BY dow ORDER BY dow
+            """)
+        dow_raw = {r[0]: r[1] for r in c.fetchall()}
+        day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        dow_distribution = [{'day': day_names[i], 'count': dow_raw.get(i, 0)} for i in range(7)]
+
+        # ── 3. Top visit reasons (monthly breakdown for top 5) ───────────────
+        if cutoff:
+            c.execute("""
+                SELECT reason, COUNT(*) AS cnt FROM visits
+                WHERE visit_date >= %s AND reason IS NOT NULL AND reason != ''
+                GROUP BY reason ORDER BY cnt DESC LIMIT 7
+            """, (cutoff.date(),))
+        else:
+            c.execute("""
+                SELECT reason, COUNT(*) AS cnt FROM visits
+                WHERE reason IS NOT NULL AND reason != ''
+                GROUP BY reason ORDER BY cnt DESC LIMIT 7
+            """)
+        top_reasons = [{'reason': r[0], 'count': r[1]} for r in c.fetchall()]
+
+        # ── 4. Visit volume by department (month × dept) ─────────────────────
+        if cutoff:
+            c.execute("""
+                SELECT TO_CHAR(v.visit_date, 'YYYY-MM') AS mo,
+                       COALESCE(p.department, 'Unknown') AS dept,
+                       COUNT(*) AS cnt
+                FROM visits v JOIN personnel p ON p.id = v.personnel_id
+                WHERE v.visit_date >= %s
+                GROUP BY mo, dept ORDER BY mo, cnt DESC
+            """, (cutoff.date(),))
+        else:
+            c.execute("""
+                SELECT TO_CHAR(v.visit_date, 'YYYY-MM') AS mo,
+                       COALESCE(p.department, 'Unknown') AS dept,
+                       COUNT(*) AS cnt
+                FROM visits v JOIN personnel p ON p.id = v.personnel_id
+                GROUP BY mo, dept ORDER BY mo, cnt DESC
+            """)
+        dept_monthly_raw = c.fetchall()
+
+        # Top 5 departments by total visits
+        dept_totals = {}
+        for mo, dept, cnt in dept_monthly_raw:
+            dept_totals[dept] = dept_totals.get(dept, 0) + cnt
+        top_depts = [d for d, _ in sorted(dept_totals.items(), key=lambda x: -x[1])[:5]]
+
+        # Build month × dept matrix
+        dept_month_map = {}
+        for mo, dept, cnt in dept_monthly_raw:
+            if dept in top_depts:
+                dept_month_map.setdefault(dept, {})[mo] = cnt
+
+        dept_monthly = {dept: dept_month_map.get(dept, {}) for dept in top_depts}
+
+        # ── 5. Condition prevalence snapshot (current, not time-series) ──────
+        c.execute("""
+            SELECT conditions FROM personnel WHERE conditions IS NOT NULL AND conditions != ''
+        """)
+        cond_counts = {}
+        for (conds_str,) in c.fetchall():
+            for cond in conds_str.split('|'):
+                cond = cond.strip()
+                if cond:
+                    cond_counts[cond] = cond_counts.get(cond, 0) + 1
+        top_conditions = sorted(cond_counts.items(), key=lambda x: -x[1])[:10]
+
+        # ── 6. Summary stats ─────────────────────────────────────────────────
+        c.execute('SELECT COUNT(*) FROM visits' + (' WHERE visit_date >= %s' if cutoff else ''),
+                  (cutoff.date(),) if cutoff else ())
+        total_visits = c.fetchone()[0]
+
+        c.execute('SELECT COUNT(*) FROM personnel')
+        total_personnel = c.fetchone()[0]
+
+        # Returning visitors (visited more than once in period)
+        if cutoff:
+            c.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT personnel_id FROM visits WHERE visit_date >= %s
+                    GROUP BY personnel_id HAVING COUNT(*) > 1
+                ) t
+            """, (cutoff.date(),))
+        else:
+            c.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT personnel_id FROM visits
+                    GROUP BY personnel_id HAVING COUNT(*) > 1
+                ) t
+            """)
+        returning = c.fetchone()[0]
+
+        # Unique visitors in period
+        if cutoff:
+            c.execute("SELECT COUNT(DISTINCT personnel_id) FROM visits WHERE visit_date >= %s", (cutoff.date(),))
+        else:
+            c.execute("SELECT COUNT(DISTINCT personnel_id) FROM visits")
+        unique_visitors = c.fetchone()[0]
+
+    return jsonify({
+        'period': period,
+        'summary': {
+            'total_visits': total_visits,
+            'total_personnel': total_personnel,
+            'unique_visitors': unique_visitors,
+            'returning_visitors': returning,
+        },
+        'monthly_visits': monthly_visits,
+        'dow_distribution': dow_distribution,
+        'top_reasons': top_reasons,
+        'dept_monthly': dept_monthly,
+        'top_conditions': [{'condition': c, 'count': n} for c, n in top_conditions],
+    })
+
+
 # ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
 @app.route('/notifications')

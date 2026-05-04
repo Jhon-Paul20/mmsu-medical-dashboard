@@ -1241,7 +1241,7 @@
             <span class="trend-eyebrow-label">Trend Analytics</span>
           </div>
           <div class="trend-title">Clinic Activity <em style="font-style:italic;color:var(--blue);">Over Time</em></div>
-          <div class="trend-sub">Based on visit records and personnel registration data</div>
+          <div class="trend-sub">Visit trends, day patterns, department breakdown and condition prevalence</div>
         </div>
         <div class="trend-controls">
           <div class="trend-period-btns">
@@ -1256,26 +1256,51 @@
         </div>
       </div>
 
+      <!-- Summary KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;" id="trendKpiRow">
+        <div class="trend-card" style="text-align:center;padding:14px 10px;">
+          <div class="trend-card-label">Total Visits</div>
+          <div class="trend-stat-val" id="tkTotal" style="font-size:28px;margin-top:4px;">—</div>
+        </div>
+        <div class="trend-card" style="text-align:center;padding:14px 10px;">
+          <div class="trend-card-label">Unique Visitors</div>
+          <div class="trend-stat-val" id="tkUnique" style="font-size:28px;margin-top:4px;">—</div>
+        </div>
+        <div class="trend-card" style="text-align:center;padding:14px 10px;">
+          <div class="trend-card-label">Returning</div>
+          <div class="trend-stat-val" id="tkReturning" style="font-size:28px;margin-top:4px;">—</div>
+        </div>
+        <div class="trend-card" style="text-align:center;padding:14px 10px;">
+          <div class="trend-card-label">Avg / Month</div>
+          <div class="trend-stat-val" id="tkAvg" style="font-size:28px;margin-top:4px;">—</div>
+        </div>
+      </div>
+
       <div class="trend-grid" id="trendGrid">
-        <!-- Visit Volume (wide) -->
+
+        <!-- Visit Volume line chart (wide) -->
         <div class="trend-card wide">
           <div class="trend-card-label">Visit Volume</div>
           <div class="trend-card-title">Monthly Clinic Visits</div>
-          <div class="trend-stat-row" id="trendVisitStats">
-            <div class="trend-stat"><div class="trend-stat-val" id="trendTotalVisits">—</div><div class="trend-stat-lbl">Total Visits</div></div>
-            <div class="trend-stat"><div class="trend-stat-val" id="trendAvgVisits">—</div><div class="trend-stat-lbl">Avg / Month</div></div>
-            <div class="trend-stat"><div class="trend-stat-val" id="trendPeakMonth">—</div><div class="trend-stat-lbl">Peak Month</div></div>
-            <div class="trend-stat"><div class="trend-stat-val" id="trendThisMonth">—</div><div class="trend-stat-lbl">This Month</div></div>
-          </div>
           <div id="trendVisitLoading" class="trend-loading">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-            Loading visit data…
+            Loading…
           </div>
           <canvas id="visitTrendChart" style="display:none;max-height:200px;"></canvas>
           <div id="trendVisitInsight" class="trend-insight" style="display:none;">
             <span class="trend-insight-icon">💡</span>
             <span class="trend-insight-text" id="trendVisitInsightText"></span>
           </div>
+        </div>
+
+        <!-- Day-of-week bar chart -->
+        <div class="trend-card">
+          <div class="trend-card-label">Visit Patterns</div>
+          <div class="trend-card-title">Busiest Days of the Week</div>
+          <div id="trendDowLoading" class="trend-loading" style="min-height:80px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+          </div>
+          <canvas id="dowChart" style="display:none;max-height:170px;"></canvas>
         </div>
 
         <!-- Visit Reasons -->
@@ -1288,17 +1313,31 @@
           <div id="trendReasonsList" style="display:none;"></div>
         </div>
 
-        <!-- Visit Frequency by Dept -->
-        <div class="trend-card">
+        <!-- Dept multi-line chart (wide) -->
+        <div class="trend-card wide">
           <div class="trend-card-label">By Department</div>
-          <div class="trend-card-title">Most Active Departments</div>
+          <div class="trend-card-title">Visit Volume per Department Over Time</div>
           <div id="trendDeptLoading" class="trend-loading" style="min-height:80px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
           </div>
+          <canvas id="deptTrendChart" style="display:none;max-height:200px;"></canvas>
           <div id="trendDeptList" style="display:none;"></div>
         </div>
+
+        <!-- Top conditions bar -->
+        <div class="trend-card wide">
+          <div class="trend-card-label">Condition Prevalence</div>
+          <div class="trend-card-title">Most Common Health Conditions (Current Personnel)</div>
+          <div id="trendCondLoading" class="trend-loading" style="min-height:80px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+          </div>
+          <canvas id="condTrendChart" style="display:none;max-height:180px;"></canvas>
+        </div>
+
       </div>
     </div>
+
+
 
     <!-- ── AI DEPARTMENT HEALTH SUMMARY ── -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:20px;">
@@ -2455,225 +2494,269 @@
   }
 
   // ── TREND ANALYTICS ──
+  // ── TREND ANALYTICS ────────────────────────────────────────────────────────
   let visitTrendChartInst = null;
-  let trendPeriod = '6m'; // '6m' | '12m' | 'all'
-  let _allVisitsCache = null; // cache so refresh doesn't re-fetch everything
+  let dowChartInst        = null;
+  let deptTrendChartInst  = null;
+  let condTrendChartInst  = null;
+  let trendPeriod = '6m';
+  let _trendCache = null;
+
+  const CHART_COLORS = [
+    'rgba(80,150,200,0.85)',
+    'rgba(212,184,74,0.85)',
+    'rgba(78,201,122,0.85)',
+    'rgba(196,110,160,0.85)',
+    'rgba(224,85,85,0.85)',
+    'rgba(120,180,220,0.7)',
+    'rgba(230,200,90,0.7)',
+  ];
+  const TC = 'rgba(240,237,232,0.35)', GC = 'rgba(255,255,255,0.04)', CF = {family:'Figtree',size:10};
+  const TOOLTIP_OPTS = { backgroundColor:'#162019', titleColor:'#f0ede8', bodyColor:'rgba(240,237,232,0.7)', padding:10 };
 
   function setTrendPeriod(period, btn) {
     trendPeriod = period;
     document.querySelectorAll('.trend-period-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    renderTrendCharts(_allVisitsCache);
+    _trendCache = null;
+    loadTrendData();
   }
 
   async function loadTrendData() {
-    if (!allData.length) return;
-
-    // Show loaders
-    ['trendVisitLoading','trendReasonsLoading','trendDeptLoading'].forEach(id => {
+    const loaders = ['trendVisitLoading','trendDowLoading','trendReasonsLoading','trendDeptLoading','trendCondLoading'];
+    loaders.forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.style.display = 'flex';
+      if (el) { el.style.display='flex'; el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>'; }
     });
-    const canvas = document.getElementById('visitTrendChart');
-    if (canvas) canvas.style.display = 'none';
+    ['visitTrendChart','dowChart','deptTrendChart','condTrendChart'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display='none';
+    });
     ['trendReasonsList','trendDeptList','trendVisitInsight'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
+      const el = document.getElementById(id); if (el) el.style.display='none';
     });
 
     try {
-      // Fetch all visits in parallel
-      const allVisits = [];
-      await Promise.all(allData.map(async p => {
-        try {
-          const r = await fetch(`/personnel/${p.id}/visits`);
-          const vs = await r.json();
-          vs.forEach(v => allVisits.push({ ...v, department: p.department, name: p.name }));
-        } catch(e) {}
-      }));
-      _allVisitsCache = allVisits;
-      renderTrendCharts(allVisits);
+      const res  = await fetch(`/analytics/trends?period=${trendPeriod}`);
+      const data = await res.json();
+      _trendCache = data;
+      renderTrendCharts(data);
     } catch(e) {
-      ['trendVisitLoading','trendReasonsLoading','trendDeptLoading'].forEach(id => {
+      loaders.forEach(id => {
         const el = document.getElementById(id);
-        if (el) { el.style.display = 'flex'; el.innerHTML = '<span style="color:var(--danger);font-size:12px;">Failed to load data</span>'; }
+        if (el) { el.style.display='flex'; el.innerHTML='<span style="color:var(--danger);font-size:12px;">Failed to load</span>'; }
       });
     }
   }
 
-  function renderTrendCharts(allVisits) {
-    if (!allVisits) return;
+  function renderTrendCharts(data) {
+    if (!data) return;
+    const { summary, monthly_visits, dow_distribution, top_reasons, dept_monthly, top_conditions } = data;
 
-    const now = new Date();
-    let cutoff = null;
-    if (trendPeriod === '6m') cutoff = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    else if (trendPeriod === '12m') cutoff = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    // ── KPI row ──────────────────────────────────────────────────────────────
+    const months = monthly_visits.length;
+    const avgPerMonth = months ? Math.round(summary.total_visits / months) : 0;
+    document.getElementById('tkTotal').textContent     = summary.total_visits.toLocaleString();
+    document.getElementById('tkUnique').textContent    = summary.unique_visitors.toLocaleString();
+    document.getElementById('tkReturning').textContent = summary.returning_visitors.toLocaleString();
+    document.getElementById('tkAvg').textContent       = avgPerMonth;
 
-    const filtered = cutoff
-      ? allVisits.filter(v => new Date(v.visit_date) >= cutoff)
-      : allVisits;
-
-    // ── 1. Monthly visit volume line chart ──
-    const monthMap = {};
-    filtered.forEach(v => {
-      const d = new Date(v.visit_date);
-      if (isNaN(d)) return;
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      monthMap[key] = (monthMap[key] || 0) + 1;
-    });
-
-    // Fill in missing months in range
-    const sortedKeys = Object.keys(monthMap).sort();
-    let monthLabels = [], monthCounts = [];
-
-    if (sortedKeys.length >= 2) {
-      const start = new Date(sortedKeys[0] + '-01');
-      const end   = new Date(sortedKeys[sortedKeys.length-1] + '-01');
-      const cur   = new Date(start);
-      while (cur <= end) {
+    // ── 1. Monthly visit volume line chart ───────────────────────────────────
+    document.getElementById('trendVisitLoading').style.display = 'none';
+    if (monthly_visits.length > 0) {
+      // Fill gaps between first and last month
+      const allMonths = [], allCounts = [];
+      const firstDate = new Date(monthly_visits[0].month + '-01');
+      const lastDate  = new Date(monthly_visits[monthly_visits.length-1].month + '-01');
+      const monthMap  = Object.fromEntries(monthly_visits.map(m => [m.month, m.count]));
+      const cur = new Date(firstDate);
+      while (cur <= lastDate) {
         const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-        const label = cur.toLocaleDateString('en-PH', { month:'short', year:'2-digit' });
-        monthLabels.push(label);
-        monthCounts.push(monthMap[key] || 0);
+        allMonths.push(cur.toLocaleDateString('en-PH', {month:'short', year:'2-digit'}));
+        allCounts.push(monthMap[key] || 0);
         cur.setMonth(cur.getMonth() + 1);
       }
-    } else if (sortedKeys.length === 1) {
-      const d = new Date(sortedKeys[0] + '-01');
-      monthLabels = [d.toLocaleDateString('en-PH', { month:'short', year:'2-digit' })];
-      monthCounts = [monthMap[sortedKeys[0]]];
-    }
 
-    // Stats
-    const totalV  = filtered.length;
-    const avgV    = monthCounts.length ? Math.round(totalV / monthCounts.length) : 0;
-    const peakIdx = monthCounts.indexOf(Math.max(...monthCounts, 0));
-    const peakLbl = monthLabels[peakIdx] || '—';
-    const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const thisMonthCount = monthMap[thisMonthKey] || 0;
-
-    document.getElementById('trendTotalVisits').textContent = totalV;
-    document.getElementById('trendAvgVisits').textContent   = avgV;
-    document.getElementById('trendPeakMonth').textContent   = peakLbl;
-    document.getElementById('trendThisMonth').textContent   = thisMonthCount;
-
-    document.getElementById('trendVisitLoading').style.display = 'none';
-
-    if (monthLabels.length === 0) {
-      document.getElementById('visitTrendChart').style.display = 'none';
-      document.getElementById('trendVisitInsight').style.display = 'none';
-    } else {
       const canvas = document.getElementById('visitTrendChart');
       canvas.style.display = 'block';
-
-      const tc = 'rgba(240,237,232,0.35)', gc = 'rgba(255,255,255,0.04)', cf = { family:'Figtree', size:10 };
-      if (visitTrendChartInst) { visitTrendChartInst.destroy(); visitTrendChartInst = null; }
-
+      if (visitTrendChartInst) visitTrendChartInst.destroy();
       visitTrendChartInst = new Chart(canvas, {
         type: 'line',
         data: {
-          labels: monthLabels,
+          labels: allMonths,
           datasets: [{
-            label: 'Visits',
-            data: monthCounts,
-            borderColor: 'rgba(80,150,200,0.9)',
-            backgroundColor: 'rgba(80,150,200,0.08)',
-            borderWidth: 2,
-            pointRadius: monthLabels.length > 18 ? 2 : 4,
-            pointBackgroundColor: 'rgba(80,150,200,1)',
-            tension: 0.35,
-            fill: true,
+            label: 'Visits', data: allCounts,
+            borderColor: 'rgba(80,150,200,0.9)', backgroundColor: 'rgba(80,150,200,0.08)',
+            borderWidth: 2, pointRadius: allMonths.length > 18 ? 2 : 4,
+            pointBackgroundColor: 'rgba(80,150,200,1)', tension: 0.35, fill: true,
           }]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: { backgroundColor:'#162019', titleColor:'#f0ede8', bodyColor:'rgba(240,237,232,0.7)', padding:10 }
-          },
+          plugins: { legend:{display:false}, tooltip: TOOLTIP_OPTS },
           scales: {
-            x: { ticks:{ color:tc, font:cf, maxRotation:45 }, grid:{ color:gc } },
-            y: { beginAtZero:true, ticks:{ color:tc, font:cf, stepSize:1 }, grid:{ color:gc } }
+            x: { ticks:{color:TC,font:CF,maxRotation:45}, grid:{color:GC} },
+            y: { beginAtZero:true, ticks:{color:TC,font:CF,stepSize:1}, grid:{color:GC} }
           }
         }
       });
 
-      // Insight
-      const lastTwo = monthCounts.slice(-2);
+      // MoM insight
+      const last2 = allCounts.slice(-2);
       let insightText = '';
-      if (lastTwo.length === 2 && lastTwo[0] > 0) {
-        const change = lastTwo[1] - lastTwo[0];
-        const pct    = Math.abs(Math.round((change / lastTwo[0]) * 100));
-        if (change > 0)      insightText = `Visit volume is up ${pct}% compared to last month — the clinic is getting busier.`;
-        else if (change < 0) insightText = `Visit volume dropped ${pct}% from last month. Could reflect seasonal patterns or improved health outcomes.`;
-        else                 insightText = `Visit volume held steady compared to last month.`;
-      } else if (totalV === 0) {
-        insightText = 'No visits recorded in this period yet.';
+      if (last2.length === 2 && last2[0] > 0) {
+        const chg = last2[1] - last2[0];
+        const pct = Math.abs(Math.round(chg / last2[0] * 100));
+        insightText = chg > 0
+          ? `Visit volume is up ${pct}% compared to last month.`
+          : chg < 0
+          ? `Visit volume dropped ${pct}% from last month.`
+          : `Visit volume held steady compared to last month.`;
       } else {
-        insightText = `${totalV} visit${totalV !== 1 ? 's' : ''} recorded in this period across ${allData.length} personnel.`;
+        insightText = `${summary.total_visits} visit${summary.total_visits !== 1 ? 's' : ''} across ${summary.unique_visitors} unique personnel.`;
       }
       document.getElementById('trendVisitInsightText').textContent = insightText;
       document.getElementById('trendVisitInsight').style.display = 'flex';
     }
 
-    // ── 2. Visit reasons breakdown ──
-    const reasonMap = {};
-    filtered.forEach(v => {
-      const r = (v.reason || 'General Visit').trim() || 'General Visit';
-      // Normalize common variants
-      const normalized = r.length > 40 ? r.slice(0,38) + '…' : r;
-      reasonMap[normalized] = (reasonMap[normalized] || 0) + 1;
+    // ── 2. Day-of-week bar chart ─────────────────────────────────────────────
+    document.getElementById('trendDowLoading').style.display = 'none';
+    const dowCanvas = document.getElementById('dowChart');
+    dowCanvas.style.display = 'block';
+    if (dowChartInst) dowChartInst.destroy();
+    const maxDow = Math.max(...dow_distribution.map(d => d.count), 1);
+    dowChartInst = new Chart(dowCanvas, {
+      type: 'bar',
+      data: {
+        labels: dow_distribution.map(d => d.day),
+        datasets: [{
+          label: 'Visits',
+          data: dow_distribution.map(d => d.count),
+          backgroundColor: dow_distribution.map(d =>
+            d.count === maxDow ? 'rgba(80,150,200,0.9)' : 'rgba(80,150,200,0.35)'
+          ),
+          borderRadius: 5, borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend:{display:false}, tooltip: TOOLTIP_OPTS },
+        scales: {
+          x: { ticks:{color:TC,font:CF}, grid:{display:false} },
+          y: { beginAtZero:true, ticks:{color:TC,font:CF,stepSize:1}, grid:{color:GC} }
+        }
+      }
     });
 
+    // ── 3. Visit reasons list ────────────────────────────────────────────────
     document.getElementById('trendReasonsLoading').style.display = 'none';
     const reasonsList = document.getElementById('trendReasonsList');
     reasonsList.style.display = 'block';
-
-    const topReasons = Object.entries(reasonMap).sort((a,b) => b[1]-a[1]).slice(0, 7);
-    if (!topReasons.length) {
-      reasonsList.innerHTML = '<div class="trend-empty"><div class="trend-empty-icon">📋</div><div class="trend-empty-text">No visit data in this period</div></div>';
+    if (!top_reasons.length) {
+      reasonsList.innerHTML = '<div class="trend-empty"><div class="trend-empty-icon">📋</div><div class="trend-empty-text">No visit reason data</div></div>';
     } else {
-      const maxR = topReasons[0][1];
-      const colors = ['rgba(80,150,200,0.8)','rgba(212,184,74,0.8)','rgba(78,201,122,0.8)','rgba(196,110,160,0.8)','rgba(224,85,85,0.8)','rgba(80,150,200,0.5)','rgba(212,184,74,0.5)'];
-      reasonsList.innerHTML = topReasons.map(([r, n], i) => `
+      const maxR = top_reasons[0].count;
+      reasonsList.innerHTML = top_reasons.map(({reason, count}, i) => `
         <div style="margin-bottom:9px;">
           <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-2);margin-bottom:4px;">
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${r}</span>
-            <span style="font-weight:600;color:var(--text);flex-shrink:0;">${n}</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${reason.length > 38 ? reason.slice(0,36)+'…' : reason}</span>
+            <span style="font-weight:600;color:var(--text);flex-shrink:0;">${count}</span>
           </div>
           <div style="height:5px;background:var(--border);border-radius:10px;overflow:hidden;">
-            <div style="height:100%;width:${(n/maxR*100).toFixed(1)}%;background:${colors[i % colors.length]};border-radius:10px;transition:width .6s ease;"></div>
+            <div style="height:100%;width:${(count/maxR*100).toFixed(1)}%;background:${CHART_COLORS[i%CHART_COLORS.length]};border-radius:10px;transition:width .6s ease;"></div>
           </div>
         </div>`).join('');
     }
 
-    // ── 3. Visits by department ──
-    const deptVisitMap = {};
-    filtered.forEach(v => {
-      const d = v.department || 'Unknown';
-      deptVisitMap[d] = (deptVisitMap[d] || 0) + 1;
-    });
-
+    // ── 4. Department multi-line chart ───────────────────────────────────────
     document.getElementById('trendDeptLoading').style.display = 'none';
-    const deptList = document.getElementById('trendDeptList');
-    deptList.style.display = 'block';
+    const depts = Object.keys(dept_monthly);
+    if (depts.length > 0 && monthly_visits.length > 0) {
+      const allMonthKeys = [];
+      const firstDate = new Date(monthly_visits[0].month + '-01');
+      const lastDate  = new Date(monthly_visits[monthly_visits.length-1].month + '-01');
+      const cur = new Date(firstDate);
+      while (cur <= lastDate) {
+        allMonthKeys.push(`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`);
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      const labels = allMonthKeys.map(k => {
+        const d = new Date(k + '-01');
+        return d.toLocaleDateString('en-PH', {month:'short', year:'2-digit'});
+      });
 
-    const topDepts = Object.entries(deptVisitMap).sort((a,b) => b[1]-a[1]).slice(0, 7);
-    if (!topDepts.length) {
-      deptList.innerHTML = '<div class="trend-empty"><div class="trend-empty-icon">🏢</div><div class="trend-empty-text">No department visit data</div></div>';
+      const deptCanvas = document.getElementById('deptTrendChart');
+      deptCanvas.style.display = 'block';
+      if (deptTrendChartInst) deptTrendChartInst.destroy();
+      deptTrendChartInst = new Chart(deptCanvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: depts.map((dept, i) => ({
+            label: dept,
+            data: allMonthKeys.map(k => dept_monthly[dept][k] || 0),
+            borderColor: CHART_COLORS[i % CHART_COLORS.length],
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: labels.length > 12 ? 2 : 3,
+            tension: 0.3,
+          }))
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true, labels:{ color: TC, font: CF, boxWidth:12, padding:14 } },
+            tooltip: TOOLTIP_OPTS,
+          },
+          scales: {
+            x: { ticks:{color:TC,font:CF,maxRotation:45}, grid:{color:GC} },
+            y: { beginAtZero:true, ticks:{color:TC,font:CF,stepSize:1}, grid:{color:GC} }
+          }
+        }
+      });
     } else {
-      const maxD = topDepts[0][1];
-      deptList.innerHTML = topDepts.map(([d, n], i) => `
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-2);margin-bottom:4px;">
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${d}</span>
-            <span style="font-weight:600;color:var(--text);flex-shrink:0;">${n} visit${n !== 1 ? 's' : ''}</span>
-          </div>
-          <div style="height:5px;background:var(--border);border-radius:10px;overflow:hidden;">
-            <div style="height:100%;width:${(n/maxD*100).toFixed(1)}%;background:rgba(80,150,200,${0.85 - i*0.1});border-radius:10px;transition:width .6s ease;"></div>
-          </div>
-        </div>`).join('');
+      document.getElementById('trendDeptList').style.display = 'block';
+      document.getElementById('trendDeptList').innerHTML = '<div class="trend-empty"><div class="trend-empty-icon">🏢</div><div class="trend-empty-text">No department visit data</div></div>';
+    }
+
+    // ── 5. Condition prevalence horizontal bar ───────────────────────────────
+    document.getElementById('trendCondLoading').style.display = 'none';
+    if (top_conditions.length > 0) {
+      const condCanvas = document.getElementById('condTrendChart');
+      condCanvas.style.display = 'block';
+      if (condTrendChartInst) condTrendChartInst.destroy();
+
+      const HIGH_RISK = new Set(['Cancer','Heart Disease','Tuberculosis','HIV/AIDS','Epilepsy',
+        'Chronic Kidney Disease','Stroke','Hepatitis B','Hepatitis C']);
+
+      condTrendChartInst = new Chart(condCanvas, {
+        type: 'bar',
+        data: {
+          labels: top_conditions.map(c => c.condition),
+          datasets: [{
+            label: 'Personnel',
+            data: top_conditions.map(c => c.count),
+            backgroundColor: top_conditions.map(c =>
+              HIGH_RISK.has(c.condition) ? 'rgba(224,85,85,0.75)' : 'rgba(80,150,200,0.6)'
+            ),
+            borderRadius: 5, borderSkipped: false,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display:false },
+            tooltip: { ...TOOLTIP_OPTS, callbacks: { label: ctx => ` ${ctx.raw} personnel` } },
+          },
+          scales: {
+            x: { beginAtZero:true, ticks:{color:TC,font:CF,stepSize:1}, grid:{color:GC} },
+            y: { ticks:{color:TC,font:{family:'Figtree',size:11}}, grid:{display:false} }
+          }
+        }
+      });
     }
   }
+
 
   // ── AI DEPARTMENT HEALTH SUMMARY ──
   async function runAIDeptSummary() {
