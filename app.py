@@ -681,15 +681,124 @@ def delete_department(did):
 @app.route('/audit-log')
 @login_required
 def get_audit_log():
+    """
+    Filterable, paginated audit log.
+
+    Query params:
+      q        – free-text search across action + detail (optional)
+      action   – exact action filter e.g. LOGIN, DELETE_PERSONNEL (optional)
+      date_from – YYYY-MM-DD inclusive start date (optional)
+      date_to   – YYYY-MM-DD inclusive end date (optional)
+      page     – 1-based page (default 1)
+      per_page – rows per page (default 50, max 200)
+    """
+    q         = request.args.get('q', '').strip()
+    action_f  = request.args.get('action', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to   = request.args.get('date_to', '').strip()
+
+    try:
+        page     = max(1, int(request.args.get('page', 1)))
+        per_page = min(200, max(1, int(request.args.get('per_page', 50))))
+    except ValueError:
+        return jsonify({'error': 'Invalid page or per_page'}), 400
+
+    wheres, params = [], []
+
+    if q:
+        wheres.append('(LOWER(action) LIKE %s OR LOWER(detail) LIKE %s OR LOWER(COALESCE(ip,\'\')) LIKE %s)')
+        like = f'%{q.lower()}%'
+        params += [like, like, like]
+
+    if action_f:
+        wheres.append('action = %s')
+        params.append(action_f)
+
+    if date_from:
+        wheres.append('created_at >= %s')
+        params.append(date_from)
+
+    if date_to:
+        wheres.append('created_at < (%s::date + INTERVAL \'1 day\')')
+        params.append(date_to)
+
+    where_sql = ('WHERE ' + ' AND '.join(wheres)) if wheres else ''
+
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute(f'SELECT COUNT(*) FROM audit_log {where_sql}', params)
+        total = c.fetchone()[0]
+
+        offset = (page - 1) * per_page
+        c.execute(
+            f'SELECT id, username, action, detail, ip, created_at FROM audit_log {where_sql} '
+            f'ORDER BY created_at DESC LIMIT %s OFFSET %s',
+            params + [per_page, offset],
+        )
+        rows = [
+            {'id': r[0], 'username': r[1], 'action': r[2], 'detail': r[3], 'ip': r[4], 'created_at': str(r[5])}
+            for r in c.fetchall()
+        ]
+
+    return jsonify({
+        'data':        rows,
+        'total':       total,
+        'page':        page,
+        'per_page':    per_page,
+        'total_pages': max(1, -(-total // per_page)),
+    })
+
+
+@app.route('/audit-log/actions')
+@login_required
+def get_audit_actions():
+    """Return sorted list of distinct action types for the filter dropdown."""
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT DISTINCT action FROM audit_log ORDER BY action')
+        return jsonify([r[0] for r in c.fetchall()])
+
+
+@app.route('/audit-log/export')
+@login_required
+def export_audit_log():
+    """Download the full audit log (optionally filtered) as CSV."""
+    q         = request.args.get('q', '').strip()
+    action_f  = request.args.get('action', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to   = request.args.get('date_to', '').strip()
+
+    wheres, params = [], []
+    if q:
+        wheres.append('(LOWER(action) LIKE %s OR LOWER(detail) LIKE %s OR LOWER(COALESCE(ip,\'\')) LIKE %s)')
+        like = f'%{q.lower()}%'
+        params += [like, like, like]
+    if action_f:
+        wheres.append('action = %s')
+        params.append(action_f)
+    if date_from:
+        wheres.append('created_at >= %s')
+        params.append(date_from)
+    if date_to:
+        wheres.append('created_at < (%s::date + INTERVAL \'1 day\')')
+        params.append(date_to)
+
+    where_sql = ('WHERE ' + ' AND '.join(wheres)) if wheres else ''
+
     with get_db() as conn:
         c = conn.cursor()
         c.execute(
-            'SELECT id, username, action, detail, ip, created_at FROM audit_log ORDER BY created_at DESC LIMIT 200'
+            f'SELECT id, username, action, detail, ip, created_at FROM audit_log {where_sql} ORDER BY created_at DESC',
+            params,
         )
-        return jsonify([
-            {'id': r[0], 'username': r[1], 'action': r[2], 'detail': r[3], 'ip': r[4], 'created_at': str(r[5])}
-            for r in c.fetchall()
-        ])
+        rows = c.fetchall()
+
+    audit('EXPORT_AUDIT_LOG', f'{len(rows)} entries')
+    return csv_response(
+        rows,
+        ['id', 'username', 'action', 'detail', 'ip', 'created_at'],
+        'audit_log_export.csv',
+    )
 
 # ── EXPORT ────────────────────────────────────────────────────────────────────
 

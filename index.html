@@ -1482,10 +1482,39 @@
         <div class="page-sub">All admin actions recorded with timestamp and IP address</div>
       </div>
       <div class="topbar-right">
-        <button class="btn btn-ghost btn-sm" onclick="loadAuditLog()">
+        <button class="btn btn-ghost btn-sm" onclick="exportAuditLog()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="loadAuditLog(1)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
           Refresh
         </button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="table-wrap" style="margin-bottom:12px;padding:14px 18px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Search</div>
+          <input id="auditSearchQ" class="form-input" placeholder="Action, detail, or IP…" style="width:100%;" oninput="auditDebouncedLoad()" />
+        </div>
+        <div style="min-width:160px;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Action</div>
+          <select id="auditActionFilter" class="form-input" onchange="loadAuditLog(1)">
+            <option value="">All actions</option>
+          </select>
+        </div>
+        <div style="min-width:130px;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">From</div>
+          <input id="auditDateFrom" type="date" class="form-input" onchange="loadAuditLog(1)" />
+        </div>
+        <div style="min-width:130px;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">To</div>
+          <input id="auditDateTo" type="date" class="form-input" onchange="loadAuditLog(1)" />
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearAuditFilters()" style="align-self:flex-end;">Clear</button>
       </div>
     </div>
 
@@ -1497,6 +1526,7 @@
         </div>
       </div>
       <div id="auditLogList" style="padding:8px 22px;"></div>
+      <div id="auditPagination" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:16px 22px;border-top:1px solid var(--border);"></div>
     </div>
   </div>
 
@@ -1768,7 +1798,7 @@
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.getElementById('page-' + name).classList.add('active');
     if (btn) btn.classList.add('active');
-    if (name === 'audit') loadAuditLog();
+    if (name === 'audit') { loadAuditActions(); loadAuditLog(1); }
     if (name === 'reports') renderReports();
     if (name === 'riskReport') renderRiskReport();
     if (name === 'settings') loadDepartments();
@@ -2794,22 +2824,116 @@ Limit key_findings to 4. Limit recommendations to 4.`;
   }
 
   // ── AUDIT LOG ──
-  async function loadAuditLog() {
-    const res = await fetch('/audit-log');
-    const logs = await res.json();
-    document.getElementById('auditCountLabel').textContent = `${logs.length} entries (last 200)`;
-    const iconMap = { LOGIN:'🟢', LOGIN_FAIL:'🔴', LOGOUT:'🔵', ADD_PERSONNEL:'✨', UPDATE_PERSONNEL:'✏️', DELETE_PERSONNEL:'🗑️', ADD_VISIT:'📅', DELETE_VISIT:'🗑️', ADD_DEPT:'🏢', DELETE_DEPT:'🗑️', EXPORT_CSV:'📤', EXPORT_VISITS_CSV:'📤', UPLOAD_CSV:'📥', EXPORT_PDF:'📄', REPORT_MONTHLY:'📄', REPORT_YEARLY:'📄', REPORT_DEPT:'📄', REPORT_CONSULTATION:'📄', REPORT_MEDICINE_INVENTORY:'💊', CHANGE_PASSWORD:'🔒' };
-    const classMap = { LOGIN:'login', LOGIN_FAIL:'delete', LOGOUT:'logout', ADD_PERSONNEL:'add', UPDATE_PERSONNEL:'add', DELETE_PERSONNEL:'delete', ADD_VISIT:'add', DELETE_VISIT:'delete', EXPORT_CSV:'export', UPLOAD_CSV:'export', EXPORT_PDF:'export', REPORT_MONTHLY:'export', REPORT_YEARLY:'export', REPORT_DEPT:'export', REPORT_CONSULTATION:'export', REPORT_MEDICINE_INVENTORY:'export', CHANGE_PASSWORD:'other' };
-    document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
-      `<div class="audit-item">
-        <div class="audit-icon ${classMap[l.action]||'other'}">${iconMap[l.action]||'📋'}</div>
-        <div style="flex:1;">
-          <div class="audit-action">${l.action.replace(/_/g,' ')}</div>
-          <div class="audit-detail">${l.detail || ''} ${l.ip ? `· IP: ${l.ip}` : ''}</div>
-        </div>
-        <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
-      </div>`
-    ).join('') : '<div class="empty-state" style="padding:40px;"><div class="empty-title">No activity yet</div></div>';
+  let _auditDebounceTimer = null;
+  function auditDebouncedLoad() {
+    clearTimeout(_auditDebounceTimer);
+    _auditDebounceTimer = setTimeout(() => loadAuditLog(1), 350);
+  }
+
+  function clearAuditFilters() {
+    document.getElementById('auditSearchQ').value = '';
+    document.getElementById('auditActionFilter').value = '';
+    document.getElementById('auditDateFrom').value = '';
+    document.getElementById('auditDateTo').value = '';
+    loadAuditLog(1);
+  }
+
+  async function loadAuditActions() {
+    try {
+      const res  = await fetch('/audit-log/actions');
+      const acts = await res.json();
+      const sel  = document.getElementById('auditActionFilter');
+      const cur  = sel.value;
+      sel.innerHTML = '<option value="">All actions</option>' +
+        acts.map(a => `<option value="${a}"${a===cur?' selected':''}>${a.replace(/_/g,' ')}</option>`).join('');
+    } catch(e) { /* non-critical */ }
+  }
+
+  async function loadAuditLog(page = 1) {
+    const q        = document.getElementById('auditSearchQ')?.value.trim() || '';
+    const action   = document.getElementById('auditActionFilter')?.value || '';
+    const dateFrom = document.getElementById('auditDateFrom')?.value || '';
+    const dateTo   = document.getElementById('auditDateTo')?.value || '';
+
+    const params = new URLSearchParams({ page, per_page: 50 });
+    if (q)        params.set('q', q);
+    if (action)   params.set('action', action);
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo)   params.set('date_to', dateTo);
+
+    const res  = await fetch(`/audit-log?${params}`);
+    const json = await res.json();
+    const logs = json.data || [];
+
+    document.getElementById('auditCountLabel').textContent =
+      `${json.total.toLocaleString()} entr${json.total === 1 ? 'y' : 'ies'}` +
+      (json.total_pages > 1 ? ` · page ${json.page} of ${json.total_pages}` : '');
+
+    const iconMap = {
+      LOGIN:'🟢', LOGIN_FAIL:'🔴', LOGOUT:'🔵',
+      ADD_PERSONNEL:'✨', UPDATE_PERSONNEL:'✏️', DELETE_PERSONNEL:'🗑️',
+      ADD_VISIT:'📅', DELETE_VISIT:'🗑️',
+      ADD_DEPT:'🏢', DELETE_DEPT:'🗑️',
+      EXPORT_CSV:'📤', EXPORT_VISITS_CSV:'📤', UPLOAD_CSV:'📥',
+      EXPORT_PDF:'📄', REPORT_MONTHLY:'📄', REPORT_YEARLY:'📄',
+      REPORT_DEPT:'📄', REPORT_CONSULTATION:'📄', REPORT_MEDICINE_INVENTORY:'💊',
+      CHANGE_PASSWORD:'🔒', EXPORT_AUDIT_LOG:'📋',
+    };
+    const classMap = {
+      LOGIN:'login', LOGIN_FAIL:'delete', LOGOUT:'logout',
+      ADD_PERSONNEL:'add', UPDATE_PERSONNEL:'add', DELETE_PERSONNEL:'delete',
+      ADD_VISIT:'add', DELETE_VISIT:'delete',
+      EXPORT_CSV:'export', UPLOAD_CSV:'export', EXPORT_PDF:'export',
+      REPORT_MONTHLY:'export', REPORT_YEARLY:'export', REPORT_DEPT:'export',
+      REPORT_CONSULTATION:'export', REPORT_MEDICINE_INVENTORY:'export',
+      CHANGE_PASSWORD:'other', EXPORT_AUDIT_LOG:'export',
+    };
+
+    document.getElementById('auditLogList').innerHTML = logs.length
+      ? logs.map(l => `
+          <div class="audit-item">
+            <div class="audit-icon ${classMap[l.action]||'other'}">${iconMap[l.action]||'📋'}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="audit-action">${l.action.replace(/_/g,' ')}</div>
+              <div class="audit-detail">${l.detail || ''}${l.ip ? ` · IP: ${l.ip}` : ''}</div>
+            </div>
+            <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
+          </div>`).join('')
+      : '<div class="empty-state" style="padding:40px;"><div class="empty-title">No matching activity</div></div>';
+
+    // Pagination
+    const pg = document.getElementById('auditPagination');
+    if (json.total_pages <= 1) { pg.innerHTML = ''; return; }
+    const mkBtn = (label, targetPage, disabled = false, active = false) =>
+      `<button class="btn btn-ghost btn-sm" onclick="loadAuditLog(${targetPage})"
+        style="${active?'background:var(--accent-dim);color:var(--accent);':''}"
+        ${disabled?'disabled':''}>
+        ${label}
+      </button>`;
+    const p = json.page, tp = json.total_pages;
+    let btns = mkBtn('‹ Prev', p - 1, p <= 1);
+    const range = [...new Set([1, Math.max(1,p-1), p, Math.min(tp,p+1), tp])].sort((a,b)=>a-b);
+    let prev = null;
+    for (const n of range) {
+      if (prev !== null && n - prev > 1) btns += `<span style="color:var(--text-3);padding:0 4px;">…</span>`;
+      btns += mkBtn(n, n, false, n === p);
+      prev = n;
+    }
+    btns += mkBtn('Next ›', p + 1, p >= tp);
+    pg.innerHTML = btns;
+  }
+
+  function exportAuditLog() {
+    const q        = document.getElementById('auditSearchQ')?.value.trim() || '';
+    const action   = document.getElementById('auditActionFilter')?.value || '';
+    const dateFrom = document.getElementById('auditDateFrom')?.value || '';
+    const dateTo   = document.getElementById('auditDateTo')?.value || '';
+    const params   = new URLSearchParams();
+    if (q)        params.set('q', q);
+    if (action)   params.set('action', action);
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo)   params.set('date_to', dateTo);
+    window.location.href = `/audit-log/export?${params}`;
   }
 
   // ── EXPORT ──
