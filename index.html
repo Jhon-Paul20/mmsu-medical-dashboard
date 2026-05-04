@@ -538,7 +538,50 @@
     .rpt-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.03em;}
     .rpt-badge.pdf{background:rgba(217,85,85,.1);color:#e07070;}
     .rpt-badge.xlsx{background:rgba(69,191,110,.1);color:var(--safe);}
-  </style>
+  
+  /* ── SESSION TIMEOUT WARNING ── */
+  #sessionWarning {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+  }
+  #sessionWarning.visible { display: flex; }
+  .sw-card {
+    background: var(--surface);
+    border: 1px solid rgba(232,200,74,0.25);
+    border-radius: 20px;
+    padding: 40px 44px;
+    max-width: 420px;
+    width: calc(100% - 32px);
+    text-align: center;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+    animation: swSlideIn .22s ease;
+  }
+  @keyframes swSlideIn { from { transform: scale(.95) translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sw-icon {
+    width: 52px; height: 52px;
+    background: rgba(232,200,74,0.10);
+    border: 1px solid rgba(232,200,74,0.22);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+  }
+  .sw-icon svg { width: 26px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sw-title { font-family: 'Instrument Serif', serif; font-size: 22px; color: var(--text); margin-bottom: 10px; }
+  .sw-msg { font-size: 14px; color: var(--text-2); line-height: 1.6; margin-bottom: 8px; }
+  .sw-countdown { font-size: 36px; font-weight: 700; color: var(--accent); margin: 16px 0 24px; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .sw-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .sw-btn { padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all .15s; }
+  .sw-btn-primary { background: var(--green); color: #fff; }
+  .sw-btn-primary:hover { background: #1f9048; transform: translateY(-1px); }
+  .sw-btn-ghost { background: transparent; color: var(--text-2); border: 1px solid var(--border2); }
+  .sw-btn-ghost:hover { background: var(--surface2); color: var(--text); }
+</style>
 </head>
 <body>
 
@@ -3605,17 +3648,14 @@ Limit to 2 suggestions per condition, max 6 total.`;
   const _origLoadPersonnel = loadPersonnel;
   window.loadPersonnel = async function() {
     showTableSkeleton();
-    // Load full dataset for charts, reports, condition sidebar, person picker
     const res = await fetch('/personnel');
     if (res.status === 401) { window.location.href = '/login'; return; }
     allData = await res.json();
     filteredData = allData;
-    // Populate overview KPI cards + charts
     processData(allData);
     populateDeptFilter();
     buildConditionSidebar();
     renderPersonPicker();
-    // Load first page of the table from the server
     currentPage = 1;
     await _doServerSearch();
   };
@@ -4214,6 +4254,24 @@ Limit to 2 suggestions per condition, max 6 total.`;
 </div>
 
 </div><!-- /print-wrap -->
+
+  <!-- SESSION TIMEOUT WARNING DIALOG -->
+  <div id="sessionWarning" role="dialog" aria-modal="true" aria-labelledby="swTitle">
+    <div class="sw-card">
+      <div class="sw-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="sw-title" id="swTitle">Still there?</div>
+      <div class="sw-msg">Your session will expire due to inactivity in</div>
+      <div class="sw-countdown" id="swCountdown">2:00</div>
+      <div class="sw-msg" style="margin-bottom:24px">Click <strong>Stay logged in</strong> to continue, or log out now.</div>
+      <div class="sw-actions">
+        <button class="sw-btn sw-btn-primary" onclick="sessionStay()">Stay logged in</button>
+        <button class="sw-btn sw-btn-ghost" onclick="sessionLogout()">Log out</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>`);
     printWin.document.close();
@@ -4309,6 +4367,75 @@ Limit to 2 suggestions per condition, max 6 total.`;
     if (name === 'reports') setTimeout(initReportControls, 100);
   };
 
-</script>
+
+  // ── SESSION TIMEOUT WARNING ──────────────────────────────────────────────────
+  (function() {
+    const TOTAL_MS    = 30 * 60 * 1000;  // 30 min — must match server
+    const WARN_MS     =  2 * 60 * 1000;  // warn 2 min before expiry
+    const TICK_MS     = 1000;
+
+    let _expireAt   = Date.now() + TOTAL_MS;
+    let _warnTimer  = null;
+    let _countTimer = null;
+
+    function _scheduleWarn() {
+      clearTimeout(_warnTimer);
+      const delay = (_expireAt - Date.now()) - WARN_MS;
+      _warnTimer = setTimeout(_showWarning, Math.max(0, delay));
+    }
+
+    function _showWarning() {
+      document.getElementById('sessionWarning').classList.add('visible');
+      _tick();
+    }
+
+    function _tick() {
+      clearTimeout(_countTimer);
+      const left = Math.max(0, _expireAt - Date.now());
+      const m = Math.floor(left / 60000);
+      const s = Math.floor((left % 60000) / 1000);
+      document.getElementById('swCountdown').textContent =
+        m + ':' + String(s).padStart(2, '0');
+      if (left <= 0) { sessionLogout(); return; }
+      _countTimer = setTimeout(_tick, TICK_MS);
+    }
+
+    // Reset timer on any user activity
+    let _activityDebounce = null;
+    ['mousemove','keydown','click','scroll','touchstart'].forEach(ev => {
+      document.addEventListener(ev, () => {
+        clearTimeout(_activityDebounce);
+        _activityDebounce = setTimeout(() => {
+          _expireAt = Date.now() + TOTAL_MS;
+          _scheduleWarn();
+        }, 500);
+      }, { passive: true });
+    });
+
+    window.sessionStay = async function() {
+      try {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        await fetch('/session/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf }
+        });
+      } catch(e) {}
+      _expireAt = Date.now() + TOTAL_MS;
+      clearTimeout(_countTimer);
+      document.getElementById('sessionWarning').classList.remove('visible');
+      _scheduleWarn();
+    };
+
+    window.sessionLogout = function() {
+      clearTimeout(_countTimer);
+      clearTimeout(_warnTimer);
+      window.location.href = '/logout';
+    };
+
+    // Kick off on page load
+    _scheduleWarn();
+  })();
+
+  </script>
 </body>
 </html>

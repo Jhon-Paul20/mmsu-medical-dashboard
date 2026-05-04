@@ -47,6 +47,9 @@ if not app.secret_key:
 app.config['SESSION_COOKIE_SECURE']   = os.environ.get('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+
+SESSION_TIMEOUT_MINUTES = 30
 
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 _raw_password  = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
@@ -314,6 +317,7 @@ def login():
             return jsonify({'success': False, 'error': 'Too many login attempts. Please wait 5 minutes.'}), 429
         data = request.json or {}
         if data.get('username') == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, data.get('password', '')):
+            session.permanent = True
             session['user'] = data['username']
             audit('LOGIN', f'Admin logged in from {request.remote_addr}')
             return jsonify({'success': True})
@@ -1679,11 +1683,18 @@ def report_medicine_inventory():
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     headers={'Content-Disposition': 'attachment; filename=medicine_inventory_report.xlsx'})
 
-# ── GLOBAL ERROR HANDLERS ─────────────────────────────────────────────────────
+# ── SESSION PING ────────────────────────────────────────────────────────────────────────────────
+
+@app.route('/session/ping', methods=['POST'])
+@login_required
+def session_ping():
+    session.modified = True  # resets the session lifetime timer
+    return jsonify({'ok': True, 'timeout_minutes': SESSION_TIMEOUT_MINUTES})
+
+# ── GLOBAL ERROR HANDLERS ──────────────────────────────────────────────────────────────────────────────
 
 @app.errorhandler(404)
 def not_found(e):
-    # API requests get JSON; browser requests get the HTML page
     if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
         return jsonify({'error': 'Not found'}), 404
     return render_template('404.html'), 404
