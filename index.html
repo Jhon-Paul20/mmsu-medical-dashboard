@@ -3851,6 +3851,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON found in response');
       const parsed = JSON.parse(jsonMatch[0]);
+      window._lastAiPayload = parsed; // store for PDF export
 
       const grid = document.getElementById('aiMedsGrid');
       grid.innerHTML = parsed.suggestions.map(s =>
@@ -3885,7 +3886,14 @@ Limit to 2 suggestions per condition, max 6 total.`;
   // ── DOWNLOAD PATIENT PDF ──
   function downloadPatientPDF() {
     if (!currentPersonnelId) return;
-    window.location.href = `/personnel/${currentPersonnelId}/pdf`;
+    let url = `/personnel/${currentPersonnelId}/pdf`;
+
+    // If AI suggestions have already been loaded, attach them to the PDF request
+    const aiResults = document.getElementById('aiResults');
+    if (aiResults && aiResults.style.display !== 'none' && window._lastAiPayload) {
+      url += '?ai_data=' + encodeURIComponent(JSON.stringify(window._lastAiPayload));
+    }
+    window.location.href = url;
   }
   init();
 
