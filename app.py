@@ -618,6 +618,19 @@ def search_personnel():
     })
 
 
+@app.route('/personnel/<int:pid>', methods=['GET'])
+@login_required
+def get_personnel(pid):
+    """Return a single personnel record including photo."""
+    with get_db() as conn:
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel WHERE id = %s', (pid,))
+        r = c.fetchone()
+    if not r:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(row_to_person(r))
+
+
 @app.route('/personnel/add', methods=['POST'])
 @login_required
 @csrf_required

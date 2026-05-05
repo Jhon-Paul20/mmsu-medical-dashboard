@@ -2451,8 +2451,15 @@
 
 
   // ── MODAL ──
-  function openModal(id) {
-    const p = allData.find(x => x.id === id);
+  async function openModal(id) {
+    // Always fetch fresh data from server so photo and latest info are included
+    let p = allData.find(x => x.id === id || x.id === +id);
+    if (!p) {
+      try {
+        const res = await fetch(`/personnel/${id}`);
+        if (res.ok) p = await res.json();
+      } catch(e) {}
+    }
     if (!p) return;
     currentPersonnelId = id;
     // Avatar: photo or initials
@@ -2460,7 +2467,7 @@
     const avatarImg      = document.getElementById('modalAvatarImg');
     const avatarInitials = document.getElementById('modalAvatarInitials');
     if (p.photo) {
-      avatarImg.src          = p.photo;
+      avatarImg.src           = p.photo;
       avatarImg.style.display = 'block';
       avatarInitials.style.display = 'none';
     } else {
