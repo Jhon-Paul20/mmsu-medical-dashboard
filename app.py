@@ -603,7 +603,7 @@ def search_personnel():
         offset = (page - 1) * per_page
         c2 = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         c2.execute(
-            f'SELECT id, name, age, gender, blood, department, phone, address, conditions '
+            f'SELECT id, name, age, gender, blood, department, phone, address, conditions, photo '
             f'FROM personnel {where_sql} ORDER BY name LIMIT %s OFFSET %s',
             params + [per_page, offset],
         )
