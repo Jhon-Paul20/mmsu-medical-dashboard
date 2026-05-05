@@ -16,3 +16,6 @@ reportlab==4.4.1
 
 # Excel report generation (optional — used for medicine inventory report)
 openpyxl==3.1.5
+
+# AI/LLM client (required for Groq API integration)
+groq==0.13.1
