@@ -1532,6 +1532,16 @@
       <div id="riskConditionList"></div>
     </div>
 
+    <!-- Most At-Risk Individual card -->
+    <div class="risk-summary-card" id="mostAtRiskCard" style="margin-bottom:20px;display:none;">
+      <div class="risk-summary-title" style="margin-bottom:14px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Most At-Risk Individual
+        <span style="margin-left:auto;font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);letter-spacing:.04em;">URGENT ATTENTION</span>
+      </div>
+      <div id="mostAtRiskInner"></div>
+    </div>
+
     <!-- Department cards grid -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div>
@@ -3582,6 +3592,88 @@ Limit key_findings to 4. Limit recommendations to 4.`;
 
     document.getElementById('riskDeptSubtitle').textContent =
       `${deptArr.length} department${deptArr.length !== 1 ? 's' : ''} shown`;
+
+    // ── Most At-Risk Individual ───────────────────────────────────────────────
+    const scored = allData.map(p => {
+      const hrCount  = p.conditions.filter(c => HIGH_RISK_SET.has(c)).length;
+      const modCount = p.conditions.filter(c => MODERATE_SET.has(c)).length;
+      return { ...p, _hrCount: hrCount, _modCount: modCount, _score: hrCount * 3 + modCount };
+    }).filter(p => p._score > 0).sort((a, b) => b._score - a._score);
+
+    const card     = document.getElementById('mostAtRiskCard');
+    const inner    = document.getElementById('mostAtRiskInner');
+    const topPerson = scored[0];
+
+    if (!topPerson) {
+      card.style.display = 'none';
+    } else {
+      card.style.display = 'block';
+      const hrConds  = topPerson.conditions.filter(c => HIGH_RISK_SET.has(c));
+      const modConds = topPerson.conditions.filter(c => MODERATE_SET.has(c));
+      const initials = topPerson.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+      // Runner-up list (up to 4 more)
+      const runners = scored.slice(1, 5);
+      const runnerHtml = runners.length ? `
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;">Other High-Risk Personnel</div>
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            ${runners.map((p, i) => {
+              const ri = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+              const rHr = p.conditions.filter(c => HIGH_RISK_SET.has(c)).length;
+              const rMod = p.conditions.filter(c => MODERATE_SET.has(c)).length;
+              return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:var(--surface2);cursor:pointer;" onclick="openModal(${p.id})">
+                <div style="width:28px;height:28px;border-radius:8px;background:var(--surface);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text-2);flex-shrink:0;overflow:hidden;">
+                  ${p.photo ? `<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:7px;">` : ri}
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+                  <div style="font-size:11px;color:var(--text-3);">${p.department || '—'}</div>
+                </div>
+                <div style="display:flex;gap:4px;flex-shrink:0;">
+                  ${rHr > 0 ? `<span style="padding:2px 7px;border-radius:12px;font-size:10px;font-weight:700;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);">${rHr} high</span>` : ''}
+                  ${rMod > 0 ? `<span style="padding:2px 7px;border-radius:12px;font-size:10px;font-weight:700;background:rgba(232,200,74,0.1);color:var(--accent);border:1px solid rgba(232,200,74,0.2);">${rMod} mod</span>` : ''}
+                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>`;
+            }).join('')}
+          </div>
+          ${scored.length > 5 ? `<div style="margin-top:8px;font-size:11px;color:var(--text-3);">+${scored.length - 5} more high-risk personnel across all departments.</div>` : ''}
+        </div>` : '';
+
+      inner.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:16px;">
+          <!-- Avatar -->
+          <div style="width:60px;height:60px;border-radius:14px;background:var(--danger-bg);border:2px solid rgba(224,85,85,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--danger);flex-shrink:0;overflow:hidden;">
+            ${topPerson.photo
+              ? `<img src="${topPerson.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">`
+              : initials}
+          </div>
+          <!-- Info -->
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="font-size:16px;font-weight:700;color:var(--text);">${topPerson.name}</div>
+              <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);">
+                ${topPerson._hrCount} High-Risk · ${topPerson._modCount} Moderate
+              </span>
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:3px;">
+              ${topPerson.department || '—'}&nbsp;·&nbsp;${topPerson.age ? topPerson.age + ' yrs' : 'Age unknown'}&nbsp;·&nbsp;${topPerson.gender || '—'}
+            </div>
+            <!-- Condition pills -->
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;">
+              ${hrConds.map(c => `<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);">${c}</span>`).join('')}
+              ${modConds.map(c => `<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(232,200,74,0.1);color:var(--accent);border:1px solid rgba(232,200,74,0.2);">${c}</span>`).join('')}
+            </div>
+          </div>
+          <!-- View Profile button -->
+          <button onclick="openModal(${topPerson.id})" style="flex-shrink:0;background:var(--danger-bg);border:1px solid rgba(224,85,85,0.3);border-radius:10px;padding:8px 16px;font-size:12px;font-weight:700;color:var(--danger);cursor:pointer;white-space:nowrap;transition:background .15s;" onmouseover="this.style.background='rgba(224,85,85,0.18)'" onmouseout="this.style.background='var(--danger-bg)'">
+            View Profile →
+          </button>
+        </div>
+        ${runnerHtml}
+      `;
+    }
 
     const grid = document.getElementById('riskDeptGrid');
 
