@@ -95,6 +95,8 @@
     .kpi-label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
     .kpi-value{font-family:'Instrument Serif',serif;font-size:32px;color:var(--text);line-height:1;}
     .kpi-sub{font-size:11px;color:var(--text-3);margin-top:6px;}
+    #insightRow{grid-template-columns:1fr 1fr;}
+    @media(max-width:900px){#insightRow{grid-template-columns:1fr;}}
 
     .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
     .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
@@ -810,6 +812,43 @@
       <div class="kpi-card fade-in"><div class="kpi-icon pink"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 18h6"/></svg></div><div class="kpi-label">Female</div><div class="kpi-value" id="femalePercent">—</div><div class="kpi-sub">Of total personnel</div></div>
       <div class="kpi-card fade-in"><div class="kpi-icon" style="background:var(--danger-bg);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-label">High Risk</div><div class="kpi-value" id="highRiskCount">—</div><div class="kpi-sub" id="highRiskPct">Of total personnel</div></div>
     </div>
+
+    <!-- ── INSIGHT ROW: Most At-Risk + Risk Trend ── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;" id="insightRow">
+
+      <!-- Most At-Risk Individual Card -->
+      <div class="kpi-card fade-in" id="atRiskCard" style="border-color:rgba(217,85,85,0.22);background:linear-gradient(135deg,rgba(217,85,85,0.06) 0%,var(--surface) 60%);cursor:pointer;" onclick="atRiskViewProfile()">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="kpi-icon" style="background:var(--danger-bg);margin-bottom:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;">Most At-Risk Individual</div>
+          </div>
+          <span id="atRiskViewBtn" style="font-size:11px;color:var(--danger);border:1px solid rgba(217,85,85,0.3);border-radius:6px;padding:3px 10px;font-weight:500;display:none;">View Profile →</span>
+        </div>
+        <div id="atRiskContent" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:13px;color:var(--text-3);">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Risk Trend Over Time Card -->
+      <div class="kpi-card fade-in" style="overflow:visible;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="kpi-icon" style="background:rgba(80,150,200,0.10);margin-bottom:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;">Risk Trend Over Time</div>
+          </div>
+          <span id="riskTrendBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;display:none;"></span>
+        </div>
+        <div id="riskTrendContent" style="font-size:13px;color:var(--text-3);">Loading…</div>
+        <canvas id="riskTrendChart" style="max-height:90px;margin-top:10px;display:none;"></canvas>
+      </div>
+
+    </div>
+    <!-- ── END INSIGHT ROW ── -->
 
     <div class="med-panel" id="medPanel">
       <div class="med-panel-head">
@@ -2078,6 +2117,7 @@
     generateConditionList();
     loadDepartments();
     loadNotifications();
+    loadDashboardInsights();
   }
 
   async function fetchCsrfToken() {
@@ -2286,6 +2326,135 @@
     }
 
     renderTable(data);
+  }
+
+  // ── DASHBOARD INSIGHTS ──────────────────────────────────────────────────────
+
+  let _atRiskId = null;
+  let riskTrendChartInst = null;
+
+  async function loadDashboardInsights() {
+    try {
+      const res = await fetch('/dashboard/insights');
+      if (!res.ok) return;
+      const { most_at_risk, risk_trend } = await res.json();
+      renderAtRiskCard(most_at_risk);
+      renderRiskTrendCard(risk_trend);
+    } catch(e) {
+      console.warn('Dashboard insights failed:', e);
+    }
+  }
+
+  function renderAtRiskCard(person) {
+    const content = document.getElementById('atRiskContent');
+    const btn     = document.getElementById('atRiskViewBtn');
+    if (!content) return;
+
+    if (!person) {
+      content.innerHTML = `<div style="font-size:13px;color:var(--text-3);">No high-risk personnel on record.</div>`;
+      return;
+    }
+
+    _atRiskId = person.id;
+    btn.style.display = 'inline-block';
+
+    const pills = person.hr_conditions.map(c =>
+      `<span style="display:inline-block;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:600;background:rgba(217,85,85,0.13);color:var(--danger);border:1px solid rgba(217,85,85,0.2);margin:2px 3px 2px 0;">${c}</span>`
+    ).join('');
+
+    content.innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+        <div style="font-family:'Instrument Serif',serif;font-size:22px;color:var(--text);line-height:1;">${person.name}</div>
+        <div style="font-size:11.5px;color:var(--text-3);">${person.department}</div>
+      </div>
+      <div style="margin-bottom:6px;">
+        <span style="font-size:11px;color:var(--danger);font-weight:600;">${person.hr_count} high-risk condition${person.hr_count !== 1 ? 's' : ''}</span>
+      </div>
+      <div style="line-height:1.8;">${pills}</div>
+    `;
+  }
+
+  function atRiskViewProfile() {
+    if (!_atRiskId) return;
+    openModal(_atRiskId);
+  }
+
+  function renderRiskTrendCard(trend) {
+    const content = document.getElementById('riskTrendContent');
+    const badge   = document.getElementById('riskTrendBadge');
+    const canvas  = document.getElementById('riskTrendChart');
+    if (!content || !canvas) return;
+
+    if (!trend || trend.length === 0) {
+      content.innerHTML = `<div style="font-size:12.5px;color:var(--text-3);">No visit data available yet. Add visits to track risk trends over time.</div>`;
+      return;
+    }
+
+    // Compute month-over-month direction
+    const counts  = trend.map(t => t.count);
+    const labels  = trend.map(t => {
+      const [y, m] = t.month.split('-');
+      return new Date(+y, +m - 1).toLocaleString('default', { month: 'short' });
+    });
+
+    let trendText = '', trendColor = 'var(--text-3)';
+    if (counts.length >= 2) {
+      const last  = counts[counts.length - 1];
+      const prev  = counts[counts.length - 2];
+      const delta = last - prev;
+      if (delta > 0) {
+        trendText = `▲ +${delta} vs last month`; trendColor = 'var(--danger)';
+        badge.style.background = 'rgba(217,85,85,0.12)'; badge.style.color = 'var(--danger)'; badge.style.border = '1px solid rgba(217,85,85,0.25)';
+        badge.textContent = '↑ Increasing';
+      } else if (delta < 0) {
+        trendText = `▼ ${delta} vs last month`; trendColor = 'var(--safe)';
+        badge.style.background = 'rgba(69,191,110,0.12)'; badge.style.color = 'var(--safe)'; badge.style.border = '1px solid rgba(69,191,110,0.25)';
+        badge.textContent = '↓ Improving';
+      } else {
+        trendText = `→ No change vs last month`; trendColor = 'var(--text-3)';
+        badge.style.background = 'rgba(255,255,255,0.05)'; badge.style.color = 'var(--text-3)'; badge.style.border = '1px solid var(--border)';
+        badge.textContent = '→ Stable';
+      }
+      badge.style.display = 'inline-block';
+    }
+
+    const totalVisits = counts.reduce((a, b) => a + b, 0);
+    content.innerHTML = `
+      <div style="font-size:12.5px;color:var(--text-2);margin-bottom:4px;">
+        <strong style="color:var(--text);font-size:14px;">${totalVisits}</strong> high-risk visits over ${trend.length} month${trend.length !== 1 ? 's' : ''}
+      </div>
+      ${trendText ? `<div style="font-size:11.5px;color:${trendColor};font-weight:500;">${trendText}</div>` : ''}
+    `;
+
+    canvas.style.display = 'block';
+    if (riskTrendChartInst) riskTrendChartInst.destroy();
+    const isIncreasing = trendText.startsWith('▲');
+    const lineColor    = isIncreasing ? 'rgba(217,85,85,0.9)' : 'rgba(69,191,110,0.85)';
+    const fillColor    = isIncreasing ? 'rgba(217,85,85,0.08)' : 'rgba(69,191,110,0.07)';
+    riskTrendChartInst = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: counts,
+          borderColor: lineColor,
+          backgroundColor: fillColor,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: lineColor,
+          tension: 0.35,
+          fill: true,
+        }]
+      },
+      options: {
+        animation: { duration: 700 },
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#162019', titleColor: '#f0ede8', bodyColor: 'rgba(240,237,232,0.7)' } },
+        scales: {
+          x: { ticks: { color: 'rgba(240,237,232,0.4)', font: { family: 'Figtree', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y: { beginAtZero: true, ticks: { stepSize: 1, color: 'rgba(240,237,232,0.4)', font: { family: 'Figtree', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        }
+      }
+    });
   }
 
   // ── MULTI-CONDITION FILTER SYSTEM ──
