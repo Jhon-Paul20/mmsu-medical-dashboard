@@ -275,8 +275,10 @@ def audit(action, detail=''):
                 'INSERT INTO audit_log (username, action, detail, ip) VALUES (%s, %s, %s, %s)',
                 (session.get('user', 'system'), action, detail, request.remote_addr),
             )
-    except Exception as e:
-        print(f'[audit] Failed to write audit log ({action}): {e}', file=sys.stderr)
+    except Exception:
+        # Use app.logger so the full traceback appears in structured production
+        # logs (Railway, Heroku, gunicorn) rather than being lost on stderr.
+        app.logger.error('[audit] Failed to write audit log (action=%s)', action, exc_info=True)
 
 
 def notify(title, body='', level='info'):
@@ -287,8 +289,8 @@ def notify(title, body='', level='info'):
                 'INSERT INTO notifications (level, title, body) VALUES (%s, %s, %s)',
                 (level, title, body),
             )
-    except Exception as e:
-        print(f'[notify] Failed ({title}): {e}', file=sys.stderr)
+    except Exception:
+        app.logger.error('[notify] Failed to write notification (title=%s)', title, exc_info=True)
 
 # ── INPUT VALIDATION ─────────────────────────────────────────────────────────
 
@@ -489,53 +491,49 @@ def search_personnel():
         wheres.append('blood = %s')
         params.append(blood)
 
+    # ── conditions filter → SQL LIKE clauses ────────────────────────────────
+    # The conditions column stores pipe-delimited values e.g. "Diabetes|Asthma".
+    # We match each condition with %condition% which is safe: condition names
+    # contain only letters/spaces and cannot partially match each other across
+    # the pipe delimiter.
+    if conds_raw:
+        cond_list = [c2.strip() for c2 in conds_raw.split(',') if c2.strip()]
+        if logic == 'AND':
+            for cond in cond_list:
+                wheres.append('conditions LIKE %s')
+                params.append(f'%{cond}%')
+        else:  # OR
+            or_parts = ['conditions LIKE %s'] * len(cond_list)
+            wheres.append('(' + ' OR '.join(or_parts) + ')')
+            params.extend(f'%{cond}%' for cond in cond_list)
+
+    # ── risk filter → SQL LIKE clauses ───────────────────────────────────────
+    # Expand HIGH_RISK_CONDITIONS into OR-joined LIKE clauses so the DB engine
+    # can use its own optimiser rather than loading every row into Python.
+    if risk == 'high':
+        risk_parts = ['conditions LIKE %s'] * len(HIGH_RISK_CONDITIONS)
+        wheres.append('(' + ' OR '.join(risk_parts) + ')')
+        params.extend(f'%{c2}%' for c2 in HIGH_RISK_CONDITIONS)
+    elif risk == 'normal':
+        for c2 in HIGH_RISK_CONDITIONS:
+            wheres.append('conditions NOT LIKE %s')
+            params.append(f'%{c2}%')
+
     where_sql = ('WHERE ' + ' AND '.join(wheres)) if wheres else ''
 
     with get_db() as conn:
         c = conn.cursor()
 
-        # Total count (before risk/condition filter which needs Python)
         c.execute(f'SELECT COUNT(*) FROM personnel {where_sql}', params)
-        db_total = c.fetchone()[0]
+        total = c.fetchone()[0]
 
-        # Fetch matching rows — if risk/condition filters are active we over-fetch
-        # and filter in Python; otherwise we use DB-level LIMIT/OFFSET.
-        needs_python_filter = bool(risk or conds_raw)
-
-        if needs_python_filter:
-            c.execute(
-                f'SELECT id, name, age, gender, blood, department, phone, address, conditions '
-                f'FROM personnel {where_sql} ORDER BY name',
-                params,
-            )
-            rows = [row_to_person(r) for r in c.fetchall()]
-
-            # Condition filter
-            if conds_raw:
-                cond_list = [c2.strip() for c2 in conds_raw.split(',') if c2.strip()]
-                if logic == 'AND':
-                    rows = [p for p in rows if all(c2 in p['conditions'] for c2 in cond_list)]
-                else:
-                    rows = [p for p in rows if any(c2 in p['conditions'] for c2 in cond_list)]
-
-            # Risk filter
-            if risk == 'high':
-                rows = [p for p in rows if any(c2 in HIGH_RISK_CONDITIONS for c2 in p['conditions'])]
-            elif risk == 'normal':
-                rows = [p for p in rows if not any(c2 in HIGH_RISK_CONDITIONS for c2 in p['conditions'])]
-
-            total = len(rows)
-            start = (page - 1) * per_page
-            page_rows = rows[start:start + per_page]
-        else:
-            total = db_total
-            offset = (page - 1) * per_page
-            c.execute(
-                f'SELECT id, name, age, gender, blood, department, phone, address, conditions '
-                f'FROM personnel {where_sql} ORDER BY name LIMIT %s OFFSET %s',
-                params + [per_page, offset],
-            )
-            page_rows = [row_to_person(r) for r in c.fetchall()]
+        offset = (page - 1) * per_page
+        c.execute(
+            f'SELECT id, name, age, gender, blood, department, phone, address, conditions '
+            f'FROM personnel {where_sql} ORDER BY name LIMIT %s OFFSET %s',
+            params + [per_page, offset],
+        )
+        page_rows = [row_to_person(r) for r in c.fetchall()]
 
     return jsonify({
         'data':       page_rows,
@@ -2247,8 +2245,54 @@ def restore_backup():
     visits      = payload.get('visits', [])
     departments = payload.get('departments', [])
 
+    # ── Validate all three entities before opening any transaction ────────────
+    # Collecting every error up front means the user sees all problems at once,
+    # and we never reach the DELETE statements with bad data.
+    val_errors = []
+
     if not isinstance(personnel, list):
-        return jsonify({'error': 'Invalid personnel data'}), 400
+        val_errors.append('personnel must be a list')
+    else:
+        for i, p in enumerate(personnel):
+            if not isinstance(p, dict):
+                val_errors.append(f'personnel[{i}]: must be an object')
+                continue
+            if not isinstance(p.get('id'), int):
+                val_errors.append(f'personnel[{i}]: missing or invalid "id" (integer required)')
+            if not p.get('name') or not isinstance(p.get('name'), str):
+                val_errors.append(f'personnel[{i}]: missing or invalid "name"')
+
+    if not isinstance(visits, list):
+        val_errors.append('visits must be a list')
+    else:
+        for i, v in enumerate(visits):
+            if not isinstance(v, dict):
+                val_errors.append(f'visits[{i}]: must be an object')
+                continue
+            if not isinstance(v.get('id'), int):
+                val_errors.append(f'visits[{i}]: missing or invalid "id" (integer required)')
+            if not isinstance(v.get('personnel_id'), int):
+                val_errors.append(f'visits[{i}]: missing or invalid "personnel_id" (integer required)')
+            if not v.get('visit_date'):
+                val_errors.append(f'visits[{i}]: missing "visit_date"')
+
+    if not isinstance(departments, list):
+        val_errors.append('departments must be a list')
+    else:
+        for i, d in enumerate(departments):
+            if not isinstance(d, dict):
+                val_errors.append(f'departments[{i}]: must be an object')
+                continue
+            if not isinstance(d.get('id'), int):
+                val_errors.append(f'departments[{i}]: missing or invalid "id" (integer required)')
+            if not d.get('name') or not isinstance(d.get('name'), str):
+                val_errors.append(f'departments[{i}]: missing or invalid "name"')
+
+    if val_errors:
+        return jsonify({
+            'error': f'{len(val_errors)} validation error(s) in backup file.',
+            'validation_errors': val_errors,
+        }), 400
 
     with get_db() as conn:
         c = conn.cursor()
