@@ -3702,6 +3702,7 @@ Rules: risk_score 0-24=Low, 25-49=Moderate, 50-74=High, 75-100=Critical. Limit r
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON in response');
       const parsed = JSON.parse(jsonMatch[0]);
+      window._lastAiRiskPayload = parsed; // store for PDF export
 
       loading.style.display = 'none';
       results.style.display = 'block';
@@ -3887,12 +3888,22 @@ Limit to 2 suggestions per condition, max 6 total.`;
   function downloadPatientPDF() {
     if (!currentPersonnelId) return;
     let url = `/personnel/${currentPersonnelId}/pdf`;
+    const params = new URLSearchParams();
 
-    // If AI suggestions have already been loaded, attach them to the PDF request
+    // Attach AI treatment suggestions if already loaded
     const aiResults = document.getElementById('aiResults');
     if (aiResults && aiResults.style.display !== 'none' && window._lastAiPayload) {
-      url += '?ai_data=' + encodeURIComponent(JSON.stringify(window._lastAiPayload));
+      params.set('ai_data', JSON.stringify(window._lastAiPayload));
     }
+
+    // Attach AI risk prediction if already loaded
+    const aiRiskResults = document.getElementById('aiRiskResults');
+    if (aiRiskResults && aiRiskResults.style.display !== 'none' && window._lastAiRiskPayload) {
+      params.set('ai_risk', JSON.stringify(window._lastAiRiskPayload));
+    }
+
+    const qs = params.toString();
+    if (qs) url += '?' + qs;
     window.location.href = url;
   }
   init();

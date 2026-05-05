@@ -1081,16 +1081,25 @@ def export_personnel_pdf(pid):
         )
         visits = c2.fetchall()
 
-    # Optional AI suggestions passed from the frontend as URL-encoded JSON
+    # Optional AI suggestions & risk prediction passed from the frontend as URL-encoded JSON
     import urllib.parse
-    ai_json = request.args.get('ai_data', '')
     ai_suggestions = []
     ai_interaction = ''
+    ai_risk = None
+
+    ai_json = request.args.get('ai_data', '')
     if ai_json:
         try:
             ai_payload = json.loads(urllib.parse.unquote(ai_json))
             ai_suggestions = ai_payload.get('suggestions', [])
             ai_interaction = ai_payload.get('interaction_note', '')
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    risk_json = request.args.get('ai_risk', '')
+    if risk_json:
+        try:
+            ai_risk = json.loads(urllib.parse.unquote(risk_json))
         except (json.JSONDecodeError, ValueError):
             pass
 
@@ -1292,7 +1301,7 @@ def export_personnel_pdf(pid):
             story.append(vt)
             story.append(Spacer(1, 5))
 
-    # ── AI TREATMENT SUGGESTIONS (optional, passed from frontend) ──
+    # ── AI TREATMENT SUGGESTIONS (optional) ──
     if ai_suggestions:
         story.append(Paragraph('AI TREATMENT SUGGESTIONS', section_style))
         story.append(Paragraph(
@@ -1318,13 +1327,122 @@ def export_personnel_pdf(pid):
             ]))
             story.append(ai_tbl)
             story.append(Spacer(1, 5))
-
         if ai_interaction:
             story.append(Paragraph(
                 f'\u26a0 Interaction Note: {ai_interaction}',
                 style('AiInteract', fontSize=10, textColor=RED_TEXT, fontName='Helvetica',
                       backColor=RED_BG, spaceAfter=6, leftIndent=8, rightIndent=8)
             ))
+
+    # ── AI RISK PREDICTION (optional) ──
+    if ai_risk:
+        story.append(Paragraph('AI RISK PREDICTION', section_style))
+        story.append(Paragraph(
+            'Risk prediction is AI-generated for reference only. Consult a licensed physician for clinical decisions.',
+            style('RiskDisclaimer', fontSize=8, textColor=GREY, fontName='Helvetica', spaceAfter=6)
+        ))
+
+        risk_score  = ai_risk.get('risk_score', 0)
+        risk_level  = ai_risk.get('risk_level', '')
+        risk_color  = ai_risk.get('risk_color', 'warn')
+        risk_colors_map = {
+            'safe':     colors.HexColor('#4ec97a'),
+            'warn':     colors.HexColor('#e8c84a'),
+            'danger':   colors.HexColor('#d95555'),
+            'critical': colors.HexColor('#b42828'),
+        }
+        rc = risk_colors_map.get(risk_color, risk_colors_map['warn'])
+
+        # Score + level row
+        score_tbl = Table([[
+            Paragraph(f'<font size="26" color="{rc.hexval()}">{risk_score}</font>',
+                      style('RScore', fontSize=26, fontName='Helvetica-Bold', alignment=TA_CENTER)),
+            Paragraph(
+                f'<font name="Helvetica-Bold" size="13">{risk_level} Risk</font><br/>'
+                f'<font name="Helvetica" size="9" color="#555555">{ai_risk.get("future_outlook", "")}</font>',
+                style('RLevel', fontSize=11, fontName='Helvetica', leading=16)
+            ),
+        ]], colWidths=[2.5*cm, page_w - 2.5*cm])
+        score_tbl.setStyle(TableStyle([
+            ('BACKGROUND',   (0,0),(-1,-1), LIGHT_GREY),
+            ('BOX',          (0,0),(-1,-1), 0.5, BORDER),
+            ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
+            ('ALIGN',        (0,0),(0,0), 'CENTER'),
+            ('TOPPADDING',   (0,0),(-1,-1), 10),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 10),
+            ('LEFTPADDING',  (0,0),(-1,-1), 12),
+            ('RIGHTPADDING', (0,0),(-1,-1), 12),
+        ]))
+        story.append(score_tbl)
+        story.append(Spacer(1, 6))
+
+        # Risk factors
+        risk_factors = ai_risk.get('risk_factors', [])
+        if risk_factors:
+            story.append(Paragraph('RISK FACTORS',
+                style('RFTitle', fontSize=8, textColor=GREY, fontName='Helvetica-Bold', spaceBefore=8, spaceAfter=4)))
+            impact_colors = {'high': RED_TEXT, 'medium': colors.HexColor('#b8960a'), 'low': colors.HexColor('#1a7a3c')}
+            for f in risk_factors:
+                ic = impact_colors.get(f.get('impact', 'medium'), GREY)
+                rf_tbl = Table([[
+                    Paragraph(f.get('factor', ''), style('RFactor', fontSize=10, textColor=DARK, fontName='Helvetica-Bold')),
+                    Paragraph(f.get('impact', '').upper(), style('RImpact', fontSize=8, textColor=ic, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+                ], [
+                    Paragraph(f.get('detail', ''), style('RDetail', fontSize=9.5, textColor=GREY, fontName='Helvetica', colSpan=2)),
+                    '',
+                ]], colWidths=[page_w * 0.75, page_w * 0.25 - 0.3*cm])
+                rf_tbl.setStyle(TableStyle([
+                    ('BACKGROUND',   (0,0),(-1,-1), LIGHT_GREY),
+                    ('BOX',          (0,0),(-1,-1), 0.5, BORDER),
+                    ('SPAN',         (0,1),(1,1)),
+                    ('TOPPADDING',   (0,0),(-1,-1), 5),
+                    ('BOTTOMPADDING',(0,0),(-1,-1), 5),
+                    ('LEFTPADDING',  (0,0),(-1,-1), 10),
+                    ('RIGHTPADDING', (0,0),(-1,-1), 10),
+                ]))
+                story.append(rf_tbl)
+                story.append(Spacer(1, 4))
+
+        # Conditions to monitor
+        conds_to_monitor = ai_risk.get('conditions_to_monitor', [])
+        if conds_to_monitor:
+            story.append(Paragraph('CONDITIONS TO MONITOR',
+                style('CTMTitle', fontSize=8, textColor=GREY, fontName='Helvetica-Bold', spaceBefore=8, spaceAfter=4)))
+            cond_cells = [Table([[Paragraph(c, style('CTM', fontSize=9.5, textColor=RED_TEXT, fontName='Helvetica-Bold'))]],
+                               colWidths=[len(c)*6 + 24]) for c in conds_to_monitor]
+            if cond_cells:
+                ctm_row = Table([cond_cells], colWidths=[len(c)*6 + 28 for c in conds_to_monitor], hAlign='LEFT')
+                ctm_row.setStyle(TableStyle([
+                    ('BACKGROUND',   (0,0),(-1,-1), RED_BG),
+                    ('BOX',          (0,0),(-1,-1), 0.5, colors.HexColor('#f5c6c6')),
+                    ('LEFTPADDING',  (0,0),(-1,-1), 8),
+                    ('RIGHTPADDING', (0,0),(-1,-1), 8),
+                    ('TOPPADDING',   (0,0),(-1,-1), 4),
+                    ('BOTTOMPADDING',(0,0),(-1,-1), 4),
+                ]))
+                story.append(ctm_row)
+                story.append(Spacer(1, 4))
+
+        # Preventive actions
+        prev_actions = ai_risk.get('preventive_actions', [])
+        if prev_actions:
+            story.append(Paragraph('PREVENTIVE ACTIONS',
+                style('PATitle', fontSize=8, textColor=GREY, fontName='Helvetica-Bold', spaceBefore=8, spaceAfter=4)))
+            for i, action in enumerate(prev_actions, 1):
+                pa_tbl = Table([[
+                    Paragraph(str(i), style('PANum', fontSize=9, textColor=GREEN, fontName='Helvetica-Bold', alignment=TA_CENTER)),
+                    Paragraph(action, style('PAText', fontSize=10, textColor=DARK, fontName='Helvetica')),
+                ]], colWidths=[0.6*cm, page_w - 0.9*cm])
+                pa_tbl.setStyle(TableStyle([
+                    ('BACKGROUND',   (0,0),(0,0), GREEN_LIGHT),
+                    ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
+                    ('TOPPADDING',   (0,0),(-1,-1), 5),
+                    ('BOTTOMPADDING',(0,0),(-1,-1), 5),
+                    ('LEFTPADDING',  (0,0),(-1,-1), 8),
+                    ('RIGHTPADDING', (0,0),(-1,-1), 8),
+                ]))
+                story.append(pa_tbl)
+                story.append(Spacer(1, 3))
 
     story.append(Spacer(1, 16))
     story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=8))
