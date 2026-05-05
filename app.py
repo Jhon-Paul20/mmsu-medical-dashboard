@@ -2238,24 +2238,22 @@ def analytics_trends():
     })
 
 
-# ── DASHBOARD INSIGHTS ────────────────────────────────────────────────────────
+# -- DASHBOARD INSIGHTS --
 
 @app.route('/dashboard/insights')
 @login_required
 def dashboard_insights():
     """
-    Returns two dashboard insight blocks:
-      1. most_at_risk – the single person with the most high-risk conditions
-      2. risk_trend   – monthly high-risk visit counts for the last 6 months
+    Returns:
+      most_at_risk - person with the most high-risk conditions
+      risk_trend   - monthly high-risk visit counts, last 6 months
     """
     with get_db() as conn:
         c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # ── 1. Most at-risk individual ────────────────────────────────────────
-        c.execute(
-            'SELECT id, name, department, conditions FROM personnel '
-            "WHERE conditions IS NOT NULL AND conditions != ''"
-        )
+        # 1. Most at-risk individual
+        c.execute('SELECT id, name, department, conditions FROM personnel '
+                  "WHERE conditions IS NOT NULL AND conditions != ''")
         most_at_risk = None
         best_count   = 0
         hr_ids       = set()
@@ -2269,16 +2267,17 @@ def dashboard_insights():
                 most_at_risk = {
                     'id':            row['id'],
                     'name':          row['name'],
-                    'department':    row['department'] or '—',
+                    'department':    row['department'] or '-',
                     'hr_conditions': hr_conds,
                     'hr_count':      len(hr_conds),
                 }
 
-        # ── 2. Risk trend – monthly high-risk visit counts (last 6 months) ───
+        # 2. Risk trend - monthly high-risk visit counts (last 6 months)
         risk_trend = []
         if hr_ids:
             placeholders = ','.join(['%s'] * len(hr_ids))
-            c.execute(f"""
+            c.execute(
+                f"""
                 SELECT TO_CHAR(visit_date, 'YYYY-MM') AS mo, COUNT(*) AS cnt
                 FROM visits
                 WHERE personnel_id IN ({placeholders})
@@ -2286,7 +2285,9 @@ def dashboard_insights():
                   AND visit_date <  DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
                 GROUP BY mo
                 ORDER BY mo
-            """, list(hr_ids))
+                """,
+                list(hr_ids)
+            )
             risk_trend = [{'month': r['mo'], 'count': r['cnt']} for r in c.fetchall()]
 
     return jsonify({
