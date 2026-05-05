@@ -2238,6 +2238,79 @@ def analytics_trends():
     })
 
 
+# ── DASHBOARD INSIGHTS ────────────────────────────────────────────────────────
+
+@app.route('/dashboard/insights')
+@login_required
+def dashboard_insights():
+    """
+    Returns two dashboard insight blocks:
+      1. most_at_risk  – the single person with the most high-risk conditions
+      2. risk_trend    – month-over-month high-risk visit counts for the last 6 months
+    """
+    with get_db() as conn:
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # ── 1. Most at-risk individual ────────────────────────────────────────
+        c.execute(
+            'SELECT id, name, department, conditions FROM personnel '
+            'WHERE conditions IS NOT NULL AND conditions != \'\''
+        )
+        most_at_risk = None
+        best_count   = 0
+        for row in c.fetchall():
+            conds     = [x.strip() for x in row['conditions'].split('|') if x.strip()]
+            hr_conds  = [c2 for c2 in conds if c2 in HIGH_RISK_CONDITIONS]
+            if len(hr_conds) > best_count:
+                best_count   = len(hr_conds)
+                most_at_risk = {
+                    'id':         row['id'],
+                    'name':       row['name'],
+                    'department': row['department'] or '—',
+                    'hr_conditions': hr_conds,
+                    'hr_count':   len(hr_conds),
+                }
+
+        # ── 2. Risk trend – monthly high-risk visit counts (last 6 months) ───
+        # A "high-risk visit" = a visit by a personnel who has at least one
+        # high-risk condition at the time of query (current snapshot).
+        c.execute("""
+            SELECT p.id
+            FROM personnel p
+            WHERE p.conditions IS NOT NULL AND p.conditions != ''
+        """)
+        hr_ids = set()
+        for row in c.fetchall():
+            conds = [x.strip() for x in row['id'] and [] or []]
+            # Re-query with conditions to identify high-risk personnel ids
+        # Simpler: pull id+conditions together
+        c.execute("SELECT id, conditions FROM personnel WHERE conditions IS NOT NULL AND conditions != ''")
+        hr_ids = set()
+        for row in c.fetchall():
+            conds = [x.strip() for x in row['conditions'].split('|') if x.strip()]
+            if any(co in HIGH_RISK_CONDITIONS for co in conds):
+                hr_ids.add(row['id'])
+
+        risk_trend = []
+        if hr_ids:
+            placeholders = ','.join(['%s'] * len(hr_ids))
+            c.execute(f"""
+                SELECT TO_CHAR(visit_date, 'YYYY-MM') AS mo, COUNT(*) AS cnt
+                FROM visits
+                WHERE personnel_id IN ({placeholders})
+                  AND visit_date >= (CURRENT_DATE - INTERVAL '5 months')::date
+                  AND visit_date < (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::date
+                GROUP BY mo
+                ORDER BY mo
+            """, list(hr_ids))
+            risk_trend = [{'month': r['mo'], 'count': r['cnt']} for r in c.fetchall()]
+
+    return jsonify({
+        'most_at_risk': most_at_risk,
+        'risk_trend':   risk_trend,
+    })
+
+
 # ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
 @app.route('/notifications')
