@@ -1081,6 +1081,19 @@ def export_personnel_pdf(pid):
         )
         visits = c2.fetchall()
 
+    # Optional AI suggestions passed from the frontend as URL-encoded JSON
+    import urllib.parse
+    ai_json = request.args.get('ai_data', '')
+    ai_suggestions = []
+    ai_interaction = ''
+    if ai_json:
+        try:
+            ai_payload = json.loads(urllib.parse.unquote(ai_json))
+            ai_suggestions = ai_payload.get('suggestions', [])
+            ai_interaction = ai_payload.get('interaction_note', '')
+        except (json.JSONDecodeError, ValueError):
+            pass
+
     audit('EXPORT_PDF', f'id={pid} name={p["name"]}')
 
     buf = io.BytesIO()
@@ -1278,6 +1291,40 @@ def export_personnel_pdf(pid):
             ]))
             story.append(vt)
             story.append(Spacer(1, 5))
+
+    # ── AI TREATMENT SUGGESTIONS (optional, passed from frontend) ──
+    if ai_suggestions:
+        story.append(Paragraph('AI TREATMENT SUGGESTIONS', section_style))
+        story.append(Paragraph(
+            'AI suggestions are for general reference only. Always defer to a licensed physician for final treatment decisions.',
+            style('AiDisclaimer', fontSize=8, textColor=GREY, fontName='Helvetica', spaceAfter=6)
+        ))
+        for s in ai_suggestions:
+            ai_data_rows = [
+                [Paragraph(s.get('condition', ''), style('AiCond', fontSize=8, textColor=GREEN, fontName='Helvetica-Bold'))],
+                [Paragraph(s.get('medicine', ''), style('AiMed', fontSize=11, textColor=DARK, fontName='Helvetica-Bold'))],
+                [Paragraph(s.get('description', ''), style('AiDesc', fontSize=10, textColor=GREY, fontName='Helvetica'))],
+            ]
+            if s.get('warning'):
+                ai_data_rows.append([Paragraph(f'\u26a0 {s["warning"]}', style('AiWarn', fontSize=10, textColor=RED_TEXT, fontName='Helvetica'))])
+            ai_tbl = Table(ai_data_rows, colWidths=[page_w - 0.3*cm])
+            ai_tbl.setStyle(TableStyle([
+                ('BACKGROUND',    (0,0),(-1,-1), GREEN_LIGHT),
+                ('BOX',           (0,0),(-1,-1), 0.5, colors.HexColor('#b2d8c0')),
+                ('TOPPADDING',    (0,0),(-1,-1), 6),
+                ('BOTTOMPADDING', (0,0),(-1,-1), 6),
+                ('LEFTPADDING',   (0,0),(-1,-1), 12),
+                ('RIGHTPADDING',  (0,0),(-1,-1), 12),
+            ]))
+            story.append(ai_tbl)
+            story.append(Spacer(1, 5))
+
+        if ai_interaction:
+            story.append(Paragraph(
+                f'\u26a0 Interaction Note: {ai_interaction}',
+                style('AiInteract', fontSize=10, textColor=RED_TEXT, fontName='Helvetica',
+                      backColor=RED_BG, spaceAfter=6, leftIndent=8, rightIndent=8)
+            ))
 
     story.append(Spacer(1, 16))
     story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=8))
