@@ -670,28 +670,20 @@ def update_personnel(pid):
 @login_required
 @csrf_required
 def upload_photo(pid):
-    """Accept a base64 photo string and store it on the personnel record."""
     d = request.json or {}
     photo = d.get('photo', '').strip()
-
-    # Basic validation — must be a data URI image
     if photo and not photo.startswith('data:image/'):
         return jsonify({'error': 'Invalid image format.'}), 400
-
-    # Cap at ~2 MB of base64 (~1.5 MB raw image)
     if len(photo) > 2_800_000:
         return jsonify({'error': 'Image too large. Please use an image under 1.5 MB.'}), 400
-
     with get_db() as conn:
         c = conn.cursor()
         c.execute('SELECT id FROM personnel WHERE id = %s', (pid,))
         if not c.fetchone():
             return jsonify({'error': 'Personnel not found'}), 404
         c.execute('UPDATE personnel SET photo = %s WHERE id = %s', (photo or None, pid))
-
     audit('UPLOAD_PHOTO', f'id={pid}')
     return jsonify({'message': 'Photo updated successfully!'})
-
 
 
 @app.route('/personnel/delete/<int:pid>', methods=['DELETE'])
@@ -753,7 +745,7 @@ def _parse_csv(content: str) -> tuple[list, list[str]]:
 def _snapshot_personnel(conn) -> list[dict]:
     """Return all current personnel rows as a plain list of dicts (for pre-import backup)."""
     c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+    c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel ORDER BY id')
     return [dict(r) for r in c.fetchall()]
 
 
@@ -1066,7 +1058,7 @@ def export_audit_log():
 def export_personnel():
     with get_db() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel ORDER BY id')
         rows = c.fetchall()
     audit('EXPORT_CSV', f'{len(rows)} records')
     return csv_response(rows, ['id', 'name', 'age', 'gender', 'blood', 'department', 'phone', 'address', 'conditions'], 'personnel_export.csv')
@@ -1724,9 +1716,9 @@ def report_department():
     with get_db() as conn:
         c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         if dept:
-            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions FROM personnel WHERE department=%s ORDER BY name', (dept,))
+            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions,photo FROM personnel WHERE department=%s ORDER BY name', (dept,))
         else:
-            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions FROM personnel ORDER BY department,name')
+            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions,photo FROM personnel ORDER BY department,name')
         rows = c.fetchall()
         personnel = [row_to_person(r) for r in rows]
 
@@ -2292,7 +2284,7 @@ def create_backup():
     """Download a full JSON backup of all data (personnel + visits + departments)."""
     with get_db() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel ORDER BY id')
         personnel = [
             {'id': r[0], 'name': r[1], 'age': r[2], 'gender': r[3], 'blood': r[4],
              'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': r[8]}
