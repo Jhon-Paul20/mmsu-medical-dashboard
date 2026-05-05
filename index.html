@@ -1491,6 +1491,10 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           Export CSV
         </button>
+        <button class="btn btn-primary btn-sm" onclick="downloadMonthlyReport()" id="monthlyReportBtn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Monthly PDF
+        </button>
       </div>
     </div>
 
@@ -1566,48 +1570,6 @@
 
     <div class="risk-dept-grid" id="riskDeptGrid">
       <div class="risk-empty"><div class="risk-empty-icon">📊</div><div style="font-size:13px;">Loading data…</div></div>
-    </div>
-
-    <!-- Risk Trend Over Time -->
-    <div class="risk-summary-card" style="margin-top:20px;">
-      <div class="risk-summary-title" style="justify-content:space-between;margin-bottom:6px;">
-        <span style="display:flex;align-items:center;gap:8px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          High-Risk Case Trend
-        </span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span id="riskTrendBadge" style="font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;letter-spacing:.04em;"></span>
-          <select id="riskTrendPeriod" class="filter-select" style="font-size:11px;padding:4px 8px;" onchange="renderRiskTrend()">
-            <option value="6">Last 6 months</option>
-            <option value="12" selected>Last 12 months</option>
-          </select>
-        </div>
-      </div>
-      <div style="font-size:11.5px;color:var(--text-3);margin-bottom:16px;">Tracks whether high-risk personnel visit counts are rising or falling — an indicator of whether clinic interventions are working.</div>
-
-      <!-- Loading state -->
-      <div id="riskTrendLoading" style="display:flex;align-items:center;gap:8px;padding:20px 0;font-size:12px;color:var(--text-3);">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-        Loading trend data…
-      </div>
-
-      <!-- Chart + stats row -->
-      <div id="riskTrendContent" style="display:none;">
-        <!-- KPI strip -->
-        <div id="riskTrendKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;"></div>
-        <!-- Chart -->
-        <div style="position:relative;height:200px;">
-          <canvas id="riskTrendChart"></canvas>
-        </div>
-        <!-- Month-over-month table -->
-        <div id="riskTrendMomTable" style="margin-top:16px;overflow-x:auto;"></div>
-        <!-- Insight -->
-        <div id="riskTrendInsight" style="margin-top:14px;padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.7;"></div>
-      </div>
-
-      <div id="riskTrendEmpty" style="display:none;padding:20px 0;font-size:12.5px;color:var(--text-3);text-align:center;">
-        Not enough visit data to show a trend yet. Visits will appear here once records are added.
-      </div>
     </div>
 
   </div>
@@ -2156,7 +2118,7 @@
     if (btn) btn.classList.add('active');
     if (name === 'audit') { loadAuditActions(); loadAuditLog(1); }
     if (name === 'reports') renderReports();
-    if (name === 'riskReport') { renderRiskReport(); renderRiskTrend(); }
+    if (name === 'riskReport') renderRiskReport();
     if (name === 'settings') loadDepartments();
     if (name === 'visits') renderPersonPicker();
     if (name === 'medlookup') initMedLookupPage();
@@ -3775,6 +3737,31 @@ Limit key_findings to 4. Limit recommendations to 4.`;
         </div>
       </div>`;
     }).join('');
+  }
+
+  async function downloadMonthlyReport() {
+    const btn = document.getElementById('monthlyReportBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+    try {
+      const res = await fetch('/report/monthly-pdf');
+      if (!res.ok) { showToast('Failed to generate report', true); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      const now  = new Date();
+      a.href     = url;
+      a.download = `MMSU_Health_Report_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Monthly report downloaded!');
+    } catch(e) {
+      showToast('Failed to generate report', true);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Monthly PDF`;
+      }
+    }
   }
 
   function exportRiskReportCSV() {
@@ -5568,192 +5555,6 @@ Limit to 2 suggestions per condition, max 6 total.`;
     }
   }
 
-  // ── RISK TREND OVER TIME ────────────────────────────────────────────────────
-  let _riskTrendChartInst = null;
-
-  async function renderRiskTrend() {
-    const loading  = document.getElementById('riskTrendLoading');
-    const content  = document.getElementById('riskTrendContent');
-    const empty    = document.getElementById('riskTrendEmpty');
-    const badge    = document.getElementById('riskTrendBadge');
-    const months   = parseInt(document.getElementById('riskTrendPeriod')?.value || '12');
-    if (!loading) return;
-
-    loading.style.display = 'flex';
-    content.style.display = 'none';
-    empty.style.display   = 'none';
-    badge.textContent     = '';
-
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
-    const highRiskIds   = new Set(allData.filter(p => p.conditions.some(c => HIGH_RISK_SET.has(c))).map(p => p.id));
-
-    try {
-      const res  = await fetch(`/analytics/trends?period=${months}m`);
-      const data = await res.json();
-      const mv   = data.monthly_visits || [];
-
-      if (mv.length < 2) {
-        loading.style.display = 'none';
-        empty.style.display   = 'block';
-        return;
-      }
-
-      // Build full month axis (fill gaps)
-      const monthMap  = Object.fromEntries(mv.map(m => [m.month, m.count]));
-      const firstDate = new Date(mv[0].month + '-01');
-      const lastDate  = new Date(mv[mv.length-1].month + '-01');
-      const labels = [], totalCounts = [];
-      const cur = new Date(firstDate);
-      while (cur <= lastDate) {
-        const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-        labels.push(cur.toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }));
-        totalCounts.push(monthMap[key] || 0);
-        cur.setMonth(cur.getMonth() + 1);
-      }
-
-      // Month-over-month change
-      const momChanges = totalCounts.map((v, i) => {
-        if (i === 0) return null;
-        const prev = totalCounts[i - 1];
-        if (prev === 0) return null;
-        return ((v - prev) / prev * 100).toFixed(1);
-      });
-
-      // Trend direction (compare first half vs second half)
-      const half     = Math.floor(totalCounts.length / 2);
-      const firstAvg = totalCounts.slice(0, half).reduce((a,b)=>a+b,0) / (half||1);
-      const lastAvg  = totalCounts.slice(half).reduce((a,b)=>a+b,0) / (totalCounts.length - half || 1);
-      const delta    = lastAvg - firstAvg;
-      const deltaPct = firstAvg ? Math.abs(delta / firstAvg * 100).toFixed(1) : '0';
-
-      let trendDir, lineColor, fillColor, badgeStyle, insightText, insightStyle;
-      if (delta > 2) {
-        trendDir    = `▲ +${deltaPct}% visits`;
-        lineColor   = 'rgba(224,85,85,0.9)';
-        fillColor   = 'rgba(224,85,85,0.07)';
-        badgeStyle  = 'background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);';
-        insightText = `⚠ High-risk personnel clinic visits have <strong>increased by ${deltaPct}%</strong> over the period. This may indicate worsening conditions or improved compliance with checkup recommendations.`;
-        insightStyle = 'background:var(--danger-bg);border:1px solid rgba(224,85,85,0.15);color:var(--text-2);';
-      } else if (delta < -2) {
-        trendDir    = `▼ −${deltaPct}% visits`;
-        lineColor   = 'rgba(78,201,122,0.9)';
-        fillColor   = 'rgba(78,201,122,0.07)';
-        badgeStyle  = 'background:rgba(78,201,122,0.08);color:var(--safe);border:1px solid rgba(78,201,122,0.2);';
-        insightText = `✓ Clinic visits by high-risk personnel have <strong>decreased by ${deltaPct}%</strong>. This could reflect successful interventions — monitor to confirm conditions are stabilising.`;
-        insightStyle = 'background:rgba(78,201,122,0.06);border:1px solid rgba(78,201,122,0.15);color:var(--text-2);';
-      } else {
-        trendDir    = `→ Stable`;
-        lineColor   = 'rgba(212,184,74,0.9)';
-        fillColor   = 'rgba(212,184,74,0.07)';
-        badgeStyle  = 'background:rgba(212,184,74,0.1);color:var(--accent);border:1px solid rgba(212,184,74,0.2);';
-        insightText = `→ Visit volume is <strong>stable</strong> with no significant change. Continue monitoring high-risk personnel at regular intervals.`;
-        insightStyle = 'background:rgba(212,184,74,0.06);border:1px solid rgba(212,184,74,0.15);color:var(--text-2);';
-      }
-
-      badge.textContent = trendDir;
-      badge.style.cssText = badgeStyle;
-
-      // KPI strip
-      const total    = totalCounts.reduce((a,b)=>a+b,0);
-      const peak     = Math.max(...totalCounts);
-      const peakLbl  = labels[totalCounts.indexOf(peak)];
-      const low      = Math.min(...totalCounts);
-      const lowLbl   = labels[totalCounts.indexOf(low)];
-      const avg      = (total / totalCounts.length).toFixed(1);
-      document.getElementById('riskTrendKpis').innerHTML = [
-        { label: 'Total Visits',    val: total,   sub: `over ${totalCounts.length} months` },
-        { label: 'Monthly Average', val: avg,      sub: 'visits per month' },
-        { label: 'Peak Month',      val: peak,     sub: peakLbl },
-        { label: 'High-Risk Staff', val: highRiskIds.size, sub: 'currently flagged' },
-      ].map(k => `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
-          <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;">${k.label}</div>
-          <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1;">${k.val}</div>
-          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px;">${k.sub}</div>
-        </div>`).join('');
-
-      // Chart
-      if (_riskTrendChartInst) { _riskTrendChartInst.destroy(); _riskTrendChartInst = null; }
-      const ctx = document.getElementById('riskTrendChart').getContext('2d');
-      const TC  = 'rgba(240,237,232,0.3)', GC = 'rgba(255,255,255,0.04)', CF = { family:'Figtree', size:10 };
-      _riskTrendChartInst = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Clinic Visits',
-            data: totalCounts,
-            borderColor: lineColor,
-            backgroundColor: fillColor,
-            borderWidth: 2.5,
-            pointRadius: 4,
-            pointBackgroundColor: lineColor,
-            pointBorderColor: 'transparent',
-            tension: 0.35,
-            fill: true,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: '#162019',
-              titleColor: '#f0ede8',
-              bodyColor: 'rgba(240,237,232,0.7)',
-              padding: 10,
-              callbacks: {
-                afterBody: (items) => {
-                  const i = items[0].dataIndex;
-                  const mom = momChanges[i];
-                  return mom !== null ? [`MoM change: ${mom > 0 ? '+' : ''}${mom}%`] : [];
-                }
-              }
-            },
-          },
-          scales: {
-            x: { ticks:{ color:TC, font:CF }, grid:{ color:GC } },
-            y: { beginAtZero: true, ticks:{ stepSize:1, color:TC, font:CF }, grid:{ color:GC } },
-          },
-        }
-      });
-
-      // MoM table
-      const tableRows = labels.map((lbl, i) => {
-        const mom  = momChanges[i];
-        const dir  = mom === null ? '—' : mom > 0 ? `<span style="color:var(--danger);">▲ +${mom}%</span>` : mom < 0 ? `<span style="color:var(--safe);">▼ ${mom}%</span>` : `<span style="color:var(--accent);">→ 0%</span>`;
-        const isLast = i === labels.length - 1;
-        return `<tr style="${isLast ? 'background:rgba(212,184,74,0.04);font-weight:600;' : ''}">
-          <td style="padding:6px 10px;font-size:11.5px;color:var(--text-2);border-bottom:1px solid var(--border);">${lbl}</td>
-          <td style="padding:6px 10px;font-size:11.5px;color:var(--text);text-align:right;border-bottom:1px solid var(--border);">${totalCounts[i]}</td>
-          <td style="padding:6px 10px;font-size:11.5px;text-align:right;border-bottom:1px solid var(--border);">${dir}</td>
-        </tr>`;
-      }).join('');
-
-      document.getElementById('riskTrendMomTable').innerHTML = `
-        <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Month-over-Month Breakdown</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th style="padding:5px 10px;font-size:10px;font-weight:700;color:var(--text-3);text-align:left;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Month</th>
-              <th style="padding:5px 10px;font-size:10px;font-weight:700;color:var(--text-3);text-align:right;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Visits</th>
-              <th style="padding:5px 10px;font-size:10px;font-weight:700;color:var(--text-3);text-align:right;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">vs Prev</th>
-            </tr>
-          </thead>
-          <tbody>${tableRows}</tbody>
-        </table>`;
-
-      // Insight
-      document.getElementById('riskTrendInsight').innerHTML = insightText;
-      document.getElementById('riskTrendInsight').style.cssText = insightStyle + 'padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.7;';
-
-      loading.style.display = 'none';
-      content.style.display = 'block';
-
-    } catch(e) {
-      loading.innerHTML = '<span style="color:var(--danger);font-size:12px;">Failed to load trend data.</span>';
-    }
-  }
-
 </script>
+</body>
+</html>

@@ -2081,6 +2081,337 @@ def report_medicine_inventory():
 
 # ── TREND ANALYTICS ───────────────────────────────────────────────────────────
 
+@app.route('/report/monthly-pdf')
+@login_required
+def monthly_health_report_pdf():
+    """Generate a one-click monthly health summary PDF for administration."""
+    if not REPORTLAB_AVAILABLE:
+        return jsonify({'error': 'reportlab is not installed'}), 500
+
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+
+    now       = datetime.now()
+    month_str = now.strftime('%B %Y')
+    # Current month window for visit stats
+    month_start = datetime(now.year, now.month, 1).date()
+
+    HIGH_RISK_CONDITIONS = [
+        'Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke',
+        'Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus'
+    ]
+
+    with get_db() as conn:
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # All personnel
+        c.execute('SELECT id, name, age, gender, blood, department, conditions FROM personnel ORDER BY name')
+        personnel = c.fetchall()
+
+        # Current month visits
+        c.execute('''
+            SELECT v.visit_date, v.reason, v.notes, p.name, p.department
+            FROM visits v JOIN personnel p ON p.id = v.personnel_id
+            WHERE v.visit_date >= %s
+            ORDER BY v.visit_date DESC
+        ''', (month_start,))
+        month_visits = c.fetchall()
+
+        # Top visit reasons this month
+        c.execute('''
+            SELECT reason, COUNT(*) cnt FROM visits
+            WHERE visit_date >= %s AND reason IS NOT NULL AND reason != ''
+            GROUP BY reason ORDER BY cnt DESC LIMIT 8
+        ''', (month_start,))
+        top_reasons = c.fetchall()
+
+        # Dept visit counts this month
+        c.execute('''
+            SELECT COALESCE(p.department,'Unknown') dept, COUNT(*) cnt
+            FROM visits v JOIN personnel p ON p.id = v.personnel_id
+            WHERE v.visit_date >= %s
+            GROUP BY dept ORDER BY cnt DESC
+        ''', (month_start,))
+        dept_visits = c.fetchall()
+
+    # ── Derived stats ─────────────────────────────────────────────────────────
+    total_personnel  = len(personnel)
+    high_risk        = [p for p in personnel if any(c2 in HIGH_RISK_CONDITIONS for c2 in (p['conditions'] or '').split('|'))]
+    total_high_risk  = len(high_risk)
+    risk_rate        = f'{total_high_risk/total_personnel*100:.1f}%' if total_personnel else '0%'
+    total_visits_mo  = len(month_visits)
+    unique_visitors  = len(set(v['name'] for v in month_visits))
+
+    # Dept breakdown
+    dept_map = {}
+    for p in personnel:
+        d = p['department'] or 'Unknown'
+        if d not in dept_map:
+            dept_map[d] = {'total': 0, 'high_risk': 0}
+        dept_map[d]['total'] += 1
+        if any(c2 in HIGH_RISK_CONDITIONS for c2 in (p['conditions'] or '').split('|')):
+            dept_map[d]['high_risk'] += 1
+
+    # Condition frequency
+    cond_freq = {}
+    for p in personnel:
+        for c2 in (p['conditions'] or '').split('|'):
+            c2 = c2.strip()
+            if c2:
+                cond_freq[c2] = cond_freq.get(c2, 0) + 1
+    top_conds = sorted(cond_freq.items(), key=lambda x: -x[1])[:10]
+
+    # ── PDF Setup ─────────────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm
+    )
+
+    GREEN       = colors.HexColor('#1a7a3c')
+    GREEN_LIGHT = colors.HexColor('#e8f5ee')
+    GOLD        = colors.HexColor('#d4b84a')
+    GOLD_LIGHT  = colors.HexColor('#fdf8e8')
+    DARK        = colors.HexColor('#111111')
+    GREY        = colors.HexColor('#555555')
+    LIGHT_GREY  = colors.HexColor('#f6f7f6')
+    BORDER      = colors.HexColor('#e0e0e0')
+    RED_BG      = colors.HexColor('#fdecea')
+    RED_TEXT    = colors.HexColor('#c0392b')
+    BLUE        = colors.HexColor('#2471a3')
+    BLUE_BG     = colors.HexColor('#eaf4fb')
+
+    from reportlab.lib.styles import getSampleStyleSheet
+    styles = getSampleStyleSheet()
+    def sty(name, **kw):
+        return ParagraphStyle(name, parent=styles['Normal'], **kw)
+
+    page_w     = A4[0] - 4*cm
+    h1         = sty('H1',    fontSize=22, fontName='Helvetica-Bold', textColor=DARK, spaceAfter=2)
+    h2         = sty('H2',    fontSize=13, fontName='Helvetica-Bold', textColor=DARK, spaceBefore=14, spaceAfter=6)
+    h3         = sty('H3',    fontSize=9,  fontName='Helvetica-Bold', textColor=GREY, spaceBefore=10, spaceAfter=4, textTransform='uppercase')
+    body       = sty('Body',  fontSize=10, fontName='Helvetica',      textColor=DARK, spaceAfter=4, leading=15)
+    small      = sty('Small', fontSize=8,  fontName='Helvetica',      textColor=GREY)
+    footer_sty = sty('Foot',  fontSize=8,  fontName='Helvetica',      textColor=GREY, alignment=TA_CENTER)
+    cell_label = sty('CL',    fontSize=8,  fontName='Helvetica-Bold', textColor=GREY)
+    cell_val   = sty('CV',    fontSize=16, fontName='Helvetica-Bold', textColor=DARK)
+    cell_sub   = sty('CS',    fontSize=9,  fontName='Helvetica',      textColor=GREY)
+
+    story = []
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    logo_p = Paragraph(
+        '<font name="Helvetica-Bold" size="13" color="#1a7a3c">MMSU Medical</font><br/>'
+        '<font name="Helvetica" size="9" color="#555555">Health Records System</font>',
+        sty('Logo', fontSize=9, fontName='Helvetica', alignment=TA_RIGHT, leading=20)
+    )
+    title_p = Paragraph(
+        f'<font name="Helvetica-Bold" size="22" color="#111111">Monthly Health Report</font><br/>'
+        f'<font name="Helvetica" size="12" color="#555555">{month_str}</font>',
+        sty('TitleP', fontSize=9, fontName='Helvetica', leading=28)
+    )
+    hdr = Table([[title_p, logo_p]], colWidths=[12*cm, 5*cm])
+    hdr.setStyle(TableStyle([
+        ('VALIGN', (0,0),(-1,-1), 'MIDDLE'),
+        ('ALIGN',  (1,0),(1,0),  'RIGHT'),
+    ]))
+    story.append(hdr)
+    story.append(HRFlowable(width='100%', thickness=2, color=GREEN, spaceAfter=14, spaceBefore=10))
+
+    # ── KPI Summary row ───────────────────────────────────────────────────────
+    kpis = [
+        ('Total Personnel',    str(total_personnel),  'Registered in system',  LIGHT_GREY, DARK),
+        ('High-Risk Staff',    str(total_high_risk),  f'{risk_rate} of total',  RED_BG,     RED_TEXT),
+        ('Visits This Month',  str(total_visits_mo),  f'{unique_visitors} unique visitors', GREEN_LIGHT, GREEN),
+        ('Departments',        str(len(dept_map)),    'Active departments',     GOLD_LIGHT, GOLD),
+    ]
+    kpi_cells = []
+    for label, val, sub, bg, vc in kpis:
+        cell = Table([[
+            Paragraph(label, cell_label),
+            Paragraph(val,   sty(f'KV{label}', fontSize=22, fontName='Helvetica-Bold', textColor=vc)),
+            Paragraph(sub,   cell_sub),
+        ]], colWidths=[page_w/4 - 0.3*cm])
+        cell.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0),(-1,-1), bg),
+            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
+            ('TOPPADDING',    (0,0),(-1,-1), 10),
+            ('BOTTOMPADDING', (0,0),(-1,-1), 10),
+            ('LEFTPADDING',   (0,0),(-1,-1), 12),
+            ('RIGHTPADDING',  (0,0),(-1,-1), 12),
+            ('ROUNDEDCORNERS',(0,0),(-1,-1), [4,4,4,4]),
+        ]))
+        kpi_cells.append(cell)
+    kpi_row = Table([kpi_cells], colWidths=[page_w/4]*4)
+    kpi_row.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),4),('RIGHTPADDING',(0,0),(-1,-1),4)]))
+    story.append(kpi_row)
+    story.append(Spacer(1, 16))
+
+    # ── High-Risk Personnel ───────────────────────────────────────────────────
+    story.append(Paragraph('HIGH-RISK PERSONNEL', h3))
+    if high_risk:
+        hr_data = [['Name', 'Department', 'Age', 'Conditions']]
+        for p in sorted(high_risk, key=lambda x: x['name']):
+            hr_conds = [c2 for c2 in (p['conditions'] or '').split('|') if c2 in HIGH_RISK_CONDITIONS]
+            hr_data.append([
+                Paragraph(p['name'],          sty('HRN', fontSize=9,  fontName='Helvetica-Bold', textColor=DARK)),
+                Paragraph(p['department'] or '—', sty('HRD', fontSize=9, fontName='Helvetica', textColor=GREY)),
+                Paragraph(str(p['age'] or '—'), sty('HRA', fontSize=9, fontName='Helvetica', textColor=GREY)),
+                Paragraph(', '.join(hr_conds), sty('HRC', fontSize=9, fontName='Helvetica', textColor=RED_TEXT)),
+            ])
+        hr_tbl = Table(hr_data, colWidths=[page_w*0.30, page_w*0.28, page_w*0.10, page_w*0.32])
+        hr_tbl.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
+            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
+            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0,0),(-1,0),  8),
+            ('ROWBACKGROUNDS',(0,1),(-1,-1), [LIGHT_GREY, colors.white]),
+            ('BACKGROUND',    (0,1),(-1,-1), colors.white),
+            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
+            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
+            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
+            ('TOPPADDING',    (0,0),(-1,-1), 5),
+            ('BOTTOMPADDING', (0,0),(-1,-1), 5),
+            ('LEFTPADDING',   (0,0),(-1,-1), 8),
+            ('RIGHTPADDING',  (0,0),(-1,-1), 8),
+        ]))
+        story.append(hr_tbl)
+    else:
+        story.append(Paragraph('✓ No high-risk personnel recorded.', sty('NoHR', fontSize=10, fontName='Helvetica', textColor=GREEN)))
+    story.append(Spacer(1, 14))
+
+    # ── Department Summary ────────────────────────────────────────────────────
+    story.append(Paragraph('DEPARTMENT BREAKDOWN', h3))
+    dept_data = [['Department', 'Total Staff', 'High-Risk', 'Risk Rate', 'Visits This Month']]
+    dept_visit_map = {r['dept']: r['cnt'] for r in dept_visits}
+    for dept, info in sorted(dept_map.items(), key=lambda x: -x[1]['high_risk']):
+        rate = f'{info["high_risk"]/info["total"]*100:.0f}%' if info['total'] else '0%'
+        dv   = dept_visit_map.get(dept, 0)
+        dept_data.append([dept, str(info['total']), str(info['high_risk']), rate, str(dv)])
+    dept_tbl = Table(dept_data, colWidths=[page_w*0.32, page_w*0.15, page_w*0.15, page_w*0.15, page_w*0.23])
+    dept_tbl.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0),(-1,0),  GREEN),
+        ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
+        ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0),(-1,-1), 9),
+        ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
+        ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
+        ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
+        ('TOPPADDING',    (0,0),(-1,-1), 5),
+        ('BOTTOMPADDING', (0,0),(-1,-1), 5),
+        ('LEFTPADDING',   (0,0),(-1,-1), 8),
+        ('RIGHTPADDING',  (0,0),(-1,-1), 8),
+        ('ALIGN',         (1,0),(-1,-1), 'CENTER'),
+    ]))
+    story.append(dept_tbl)
+    story.append(Spacer(1, 14))
+
+    # ── Top Conditions ────────────────────────────────────────────────────────
+    story.append(Paragraph('TOP CONDITIONS AMONG PERSONNEL', h3))
+    if top_conds:
+        max_cnt = top_conds[0][1]
+        cond_data = [['Condition', 'Count', 'Prevalence']]
+        for cond, cnt in top_conds:
+            pct  = f'{cnt/total_personnel*100:.1f}%' if total_personnel else '0%'
+            flag = '⚠' if cond in HIGH_RISK_CONDITIONS else ''
+            cond_data.append([
+                Paragraph(f'{flag} {cond}'.strip(), sty('CN', fontSize=9, fontName='Helvetica-Bold' if cond in HIGH_RISK_CONDITIONS else 'Helvetica', textColor=RED_TEXT if cond in HIGH_RISK_CONDITIONS else DARK)),
+                str(cnt),
+                pct,
+            ])
+        cond_tbl = Table(cond_data, colWidths=[page_w*0.55, page_w*0.20, page_w*0.25])
+        cond_tbl.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
+            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
+            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0,0),(-1,-1), 9),
+            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
+            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
+            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
+            ('TOPPADDING',    (0,0),(-1,-1), 5),
+            ('BOTTOMPADDING', (0,0),(-1,-1), 5),
+            ('LEFTPADDING',   (0,0),(-1,-1), 8),
+            ('RIGHTPADDING',  (0,0),(-1,-1), 8),
+            ('ALIGN',         (1,0),(-1,-1), 'CENTER'),
+        ]))
+        story.append(cond_tbl)
+    story.append(Spacer(1, 14))
+
+    # ── Visit Reasons This Month ──────────────────────────────────────────────
+    if top_reasons:
+        story.append(Paragraph('TOP VISIT REASONS THIS MONTH', h3))
+        reason_data = [['Visit Reason', 'Count']]
+        for r in top_reasons:
+            reason_data.append([r['reason'], str(r['cnt'])])
+        reason_tbl = Table(reason_data, colWidths=[page_w*0.75, page_w*0.25])
+        reason_tbl.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
+            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
+            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0,0),(-1,-1), 9),
+            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
+            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
+            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
+            ('TOPPADDING',    (0,0),(-1,-1), 5),
+            ('BOTTOMPADDING', (0,0),(-1,-1), 5),
+            ('LEFTPADDING',   (0,0),(-1,-1), 8),
+            ('RIGHTPADDING',  (0,0),(-1,-1), 8),
+            ('ALIGN',         (1,0),(-1,-1), 'CENTER'),
+        ]))
+        story.append(reason_tbl)
+        story.append(Spacer(1, 14))
+
+    # ── Recent Visits This Month ──────────────────────────────────────────────
+    if month_visits:
+        story.append(Paragraph('CLINIC VISITS THIS MONTH', h3))
+        visit_data = [['Date', 'Patient', 'Department', 'Reason']]
+        for v in month_visits[:20]:
+            visit_data.append([
+                str(v['visit_date']),
+                Paragraph(v['name'],            sty('VN', fontSize=8, fontName='Helvetica-Bold', textColor=DARK)),
+                Paragraph(v['department'] or '—', sty('VD', fontSize=8, fontName='Helvetica',     textColor=GREY)),
+                Paragraph(v['reason']    or '—', sty('VR', fontSize=8, fontName='Helvetica',     textColor=GREY)),
+            ])
+        visit_tbl = Table(visit_data, colWidths=[page_w*0.18, page_w*0.28, page_w*0.24, page_w*0.30])
+        visit_tbl.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
+            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
+            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0,0),(-1,-1), 8),
+            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
+            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
+            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
+            ('TOPPADDING',    (0,0),(-1,-1), 4),
+            ('BOTTOMPADDING', (0,0),(-1,-1), 4),
+            ('LEFTPADDING',   (0,0),(-1,-1), 7),
+            ('RIGHTPADDING',  (0,0),(-1,-1), 7),
+        ]))
+        story.append(visit_tbl)
+        if len(month_visits) > 20:
+            story.append(Paragraph(f'Showing 20 of {len(month_visits)} visits this month.', small))
+        story.append(Spacer(1, 14))
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 10))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=8))
+    generated = now.strftime('%B %d, %Y at %I:%M %p')
+    story.append(Paragraph(
+        f'Generated on {generated}  ·  MMSU Medical Health Records System  ·  Confidential — For Administration Use Only',
+        footer_sty
+    ))
+
+    doc.build(story)
+    audit('EXPORT_MONTHLY_PDF', f'month={month_str}')
+    buf.seek(0)
+    fname = f'MMSU_Health_Report_{now.strftime("%Y_%m")}.pdf'
+    return Response(buf.getvalue(), mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename="{fname}"'})
+
+
 @app.route('/analytics/trends')
 @login_required
 def analytics_trends():
