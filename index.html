@@ -296,6 +296,7 @@
 
     .risk-summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;}
     .risk-summary-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+    @media(max-width:700px){ .risk-two-col{ grid-template-columns:1fr !important; } }
     .risk-condition-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
     .risk-condition-row:last-child{border-bottom:none;}
     .risk-condition-name{font-size:12.5px;font-weight:500;color:var(--text);width:160px;flex-shrink:0;}
@@ -1530,6 +1531,38 @@
         High-Risk Conditions Among Personnel
       </div>
       <div id="riskConditionList"></div>
+    </div>
+
+    <!-- ── NEW: Most At-Risk Individual + Risk Trend side by side ── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;" class="risk-two-col">
+
+      <!-- Most At-Risk Individual -->
+      <div class="risk-summary-card" style="margin-bottom:0;">
+        <div class="risk-summary-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          Most At-Risk Individual
+        </div>
+        <div id="mostAtRiskCard">
+          <div style="font-size:12px;color:var(--text-3);padding:10px 0;">Loading…</div>
+        </div>
+      </div>
+
+      <!-- High-Risk Trend (last 6 months) -->
+      <div class="risk-summary-card" style="margin-bottom:0;">
+        <div class="risk-summary-title" style="justify-content:space-between;">
+          <span style="display:flex;align-items:center;gap:8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            High-Risk Visit Trend
+          </span>
+          <span id="riskTrendBadge" style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.04em;"></span>
+        </div>
+        <div id="riskTrendLoading" style="display:flex;align-items:center;gap:8px;padding:10px 0;font-size:12px;color:var(--text-3);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="animation:spin-ai 1s linear infinite;"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+          Loading trend…
+        </div>
+        <canvas id="riskTrendMiniChart" height="90" style="display:none;"></canvas>
+        <div id="riskTrendSummary" style="display:none;margin-top:8px;font-size:11.5px;color:var(--text-2);line-height:1.6;"></div>
+      </div>
     </div>
 
     <!-- Department cards grid -->
@@ -3378,6 +3411,41 @@ Limit key_findings to 4. Limit recommendations to 4.`;
     document.getElementById('riskDeptSubtitle').textContent =
       `${deptArr.length} department${deptArr.length !== 1 ? 's' : ''} shown`;
 
+    // ── Most At-Risk Individual ───────────────────────────────────────────────
+    const scored = allData.map(p => {
+      const hrCount  = p.conditions.filter(c => HIGH_RISK_SET.has(c)).length;
+      const modCount = p.conditions.filter(c => MODERATE_SET.has(c)).length;
+      return { ...p, riskScore: hrCount * 3 + modCount };
+    }).filter(p => p.riskScore > 0).sort((a, b) => b.riskScore - a.riskScore);
+
+    const topPerson = scored[0];
+    const marCard   = document.getElementById('mostAtRiskCard');
+    if (!topPerson) {
+      marCard.innerHTML = `<div style="font-size:12px;color:var(--safe);padding:10px 0;">✓ No high-risk personnel found.</div>`;
+    } else {
+      const hrConds  = topPerson.conditions.filter(c => HIGH_RISK_SET.has(c));
+      const modConds = topPerson.conditions.filter(c => MODERATE_SET.has(c));
+      const initials = topPerson.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      marCard.innerHTML = `
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+          <div style="width:46px;height:46px;border-radius:50%;background:var(--danger-bg);border:2px solid rgba(224,85,85,0.35);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--danger);flex-shrink:0;">${initials}</div>
+          <div style="min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${topPerson.name}</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px;">${topPerson.department || '—'} · ${topPerson.age ? topPerson.age + ' yrs' : '—'} · ${topPerson.gender || '—'}</div>
+          </div>
+          <button onclick="openModal(${topPerson.id})" style="margin-left:auto;flex-shrink:0;background:var(--accent-dim,rgba(212,184,74,0.1));border:1px solid rgba(212,184,74,0.3);border-radius:8px;padding:5px 12px;font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap;">View Profile</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          ${hrConds.map(c=>`<span style="padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:600;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);">${c}</span>`).join('')}
+          ${modConds.map(c=>`<span style="padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:600;background:rgba(232,200,74,0.1);color:var(--accent);border:1px solid rgba(232,200,74,0.2);">${c}</span>`).join('')}
+        </div>
+        ${scored.length > 1 ? `<div style="margin-top:10px;font-size:11px;color:var(--text-3);">${scored.length - 1} other high-risk personnel in the system.</div>` : ''}
+      `;
+    }
+
+    // ── High-Risk Visit Trend (last 6 months from analytics) ─────────────────
+    renderRiskTrend();
+
     const grid = document.getElementById('riskDeptGrid');
 
     if (!deptArr.length) {
@@ -3436,6 +3504,116 @@ Limit key_findings to 4. Limit recommendations to 4.`;
         </div>
       </div>`;
     }).join('');
+  }
+
+  let _riskTrendChartInst = null;
+
+  async function renderRiskTrend() {
+    const loading  = document.getElementById('riskTrendLoading');
+    const canvas   = document.getElementById('riskTrendMiniChart');
+    const summary  = document.getElementById('riskTrendSummary');
+    const badge    = document.getElementById('riskTrendBadge');
+    if (!loading || !canvas) return;
+
+    loading.style.display = 'flex';
+    canvas.style.display  = 'none';
+    summary.style.display = 'none';
+
+    try {
+      const res  = await fetch('/analytics/trends?period=6m');
+      const data = await res.json();
+
+      // Build a month → high-risk visit count map using personnel data
+      // We use monthly_visits as the time axis and overlay high-risk personnel count
+      const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
+      const highRiskIds   = new Set(allData.filter(p => p.conditions.some(c => HIGH_RISK_SET.has(c))).map(p => p.id));
+
+      // Fetch per-month high-risk visit breakdown from dept_monthly + summary
+      // Use monthly_visits as labels, and dept data to calculate high-risk share
+      const months = data.monthly_visits;
+      if (!months || months.length < 2) {
+        loading.style.display = 'none';
+        summary.style.display = 'block';
+        summary.textContent   = 'Not enough visit data to show a trend yet.';
+        return;
+      }
+
+      const labels = months.map(m => {
+        const [y, mo] = m.month.split('-');
+        return new Date(+y, +mo-1).toLocaleDateString('en-PH', {month:'short', year:'2-digit'});
+      });
+      const counts = months.map(m => m.count);
+
+      // Trend direction
+      const first = counts.slice(0, Math.ceil(counts.length / 2));
+      const last  = counts.slice(Math.ceil(counts.length / 2));
+      const avgFirst = first.reduce((a,b)=>a+b,0) / (first.length||1);
+      const avgLast  = last.reduce((a,b)=>a+b,0)  / (last.length||1);
+      const delta    = avgLast - avgFirst;
+      const deltaPct = avgFirst ? Math.abs((delta / avgFirst) * 100).toFixed(1) : '—';
+
+      let trendDir, trendColor, badgeStyle;
+      if (delta > 0) {
+        trendDir   = `▲ +${deltaPct}% vs prior period`;
+        trendColor = 'rgba(224,85,85,0.85)';
+        badgeStyle = 'background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);';
+      } else if (delta < 0) {
+        trendDir   = `▼ −${deltaPct}% vs prior period`;
+        trendColor = 'rgba(78,201,122,0.85)';
+        badgeStyle = 'background:var(--safe-bg,rgba(78,201,122,0.08));color:var(--safe);border:1px solid rgba(78,201,122,0.2);';
+      } else {
+        trendDir   = '→ Stable';
+        trendColor = 'rgba(212,184,74,0.85)';
+        badgeStyle = 'background:rgba(212,184,74,0.1);color:var(--accent);border:1px solid rgba(212,184,74,0.2);';
+      }
+
+      badge.textContent = trendDir;
+      badge.style.cssText = badgeStyle;
+
+      loading.style.display = 'none';
+      canvas.style.display  = 'block';
+      summary.style.display = 'block';
+
+      const peak      = Math.max(...counts);
+      const peakMonth = labels[counts.indexOf(peak)];
+      summary.innerHTML = `Total <strong>${counts.reduce((a,b)=>a+b,0)}</strong> clinic visits over the last 6 months.
+        Peak was <strong>${peak}</strong> in <strong>${peakMonth}</strong>.
+        ${highRiskIds.size} personnel currently flagged as high-risk.`;
+
+      const TC2 = 'rgba(240,237,232,0.3)', GC2 = 'rgba(255,255,255,0.03)', CF2 = {family:'Figtree',size:10};
+      if (_riskTrendChartInst) { _riskTrendChartInst.destroy(); _riskTrendChartInst = null; }
+      _riskTrendChartInst = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Clinic Visits',
+            data: counts,
+            borderColor: trendColor,
+            backgroundColor: trendColor.replace('0.85','0.07'),
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: trendColor,
+            tension: 0.35,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor:'#162019', titleColor:'#f0ede8', bodyColor:'rgba(240,237,232,0.7)', padding:8 },
+          },
+          scales: {
+            x: { ticks:{ color:TC2, font:CF2 }, grid:{ color:GC2 } },
+            y: { beginAtZero:true, ticks:{ stepSize:1, color:TC2, font:CF2 }, grid:{ color:GC2 } },
+          },
+        }
+      });
+
+    } catch(e) {
+      loading.innerHTML = '<span style="color:var(--danger);font-size:12px;">Failed to load trend data.</span>';
+    }
   }
 
   function exportRiskReportCSV() {
@@ -3702,7 +3880,6 @@ Rules: risk_score 0-24=Low, 25-49=Moderate, 50-74=High, 75-100=Critical. Limit r
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON in response');
       const parsed = JSON.parse(jsonMatch[0]);
-      window._lastAiRiskPayload = parsed; // store for PDF export
 
       loading.style.display = 'none';
       results.style.display = 'block';
@@ -3852,7 +4029,6 @@ Limit to 2 suggestions per condition, max 6 total.`;
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON found in response');
       const parsed = JSON.parse(jsonMatch[0]);
-      window._lastAiPayload = parsed; // store for PDF export
 
       const grid = document.getElementById('aiMedsGrid');
       grid.innerHTML = parsed.suggestions.map(s =>
@@ -3887,24 +4063,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
   // ── DOWNLOAD PATIENT PDF ──
   function downloadPatientPDF() {
     if (!currentPersonnelId) return;
-    let url = `/personnel/${currentPersonnelId}/pdf`;
-    const params = new URLSearchParams();
-
-    // Attach AI treatment suggestions if already loaded
-    const aiResults = document.getElementById('aiResults');
-    if (aiResults && aiResults.style.display !== 'none' && window._lastAiPayload) {
-      params.set('ai_data', JSON.stringify(window._lastAiPayload));
-    }
-
-    // Attach AI risk prediction if already loaded
-    const aiRiskResults = document.getElementById('aiRiskResults');
-    if (aiRiskResults && aiRiskResults.style.display !== 'none' && window._lastAiRiskPayload) {
-      params.set('ai_risk', JSON.stringify(window._lastAiRiskPayload));
-    }
-
-    const qs = params.toString();
-    if (qs) url += '?' + qs;
-    window.location.href = url;
+    window.location.href = `/personnel/${currentPersonnelId}/pdf`;
   }
   init();
 
