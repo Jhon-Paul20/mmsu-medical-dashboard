@@ -9,7 +9,6 @@ import json
 import os
 import secrets
 import sys
-import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 from threading import Lock
@@ -182,6 +181,17 @@ def init_db():
             )
         ''')
 
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS login_attempts (
+                ip           TEXT NOT NULL,
+                attempted_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        ''')
+        c.execute('''
+            CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time
+            ON login_attempts (ip, attempted_at)
+        ''')
+
 
 # ── STARTUP HOOK ──────────────────────────────────────────────────────────────
 # init_db() is intentionally NOT called at import time.
@@ -344,23 +354,50 @@ def validate_personnel(d: dict) -> str | None:
     return None
 
 # ── RATE LIMITER ──────────────────────────────────────────────────────────────
+#
+# Stored in PostgreSQL so all gunicorn workers share the same state.
+# An in-memory dict would give each worker its own independent counter,
+# letting an attacker make LOGIN_MAX_ATTEMPTS * num_workers attempts before
+# being blocked.
 
-_login_attempts: dict[str, list[float]] = defaultdict(list)
-_rate_lock = Lock()
 LOGIN_MAX_ATTEMPTS = 10
 LOGIN_WINDOW_SECS  = 300  # 5 minutes
 
 
 def is_rate_limited(ip: str) -> bool:
-    """True if this IP has exceeded the login attempt limit."""
-    now = time.time()
-    with _rate_lock:
-        attempts = _login_attempts[ip]
-        _login_attempts[ip] = [t for t in attempts if now - t < LOGIN_WINDOW_SECS]
-        if len(_login_attempts[ip]) >= LOGIN_MAX_ATTEMPTS:
-            return True
-        _login_attempts[ip].append(now)
-        return False
+    """
+    Return True if this IP has hit the login attempt ceiling.
+
+    Each call atomically:
+      1. Prunes expired rows for this IP (keeps the table small).
+      2. Counts recent attempts within the window.
+      3. If under the limit, inserts a new attempt row and returns False.
+      4. If at/over the limit, returns True without inserting.
+
+    On DB error we fail open (return False) so a DB outage doesn't lock
+    everyone out, but the error is logged for ops.
+    """
+    window_start = datetime.utcnow() - timedelta(seconds=LOGIN_WINDOW_SECS)
+    try:
+        with get_db() as conn:
+            c = conn.cursor()
+            # Prune stale rows for this IP first
+            c.execute(
+                'DELETE FROM login_attempts WHERE ip = %s AND attempted_at < %s',
+                (ip, window_start),
+            )
+            c.execute(
+                'SELECT COUNT(*) FROM login_attempts WHERE ip = %s AND attempted_at >= %s',
+                (ip, window_start),
+            )
+            count = c.fetchone()[0]
+            if count >= LOGIN_MAX_ATTEMPTS:
+                return True
+            c.execute('INSERT INTO login_attempts (ip) VALUES (%s)', (ip,))
+            return False
+    except Exception:
+        app.logger.error('[rate_limit] DB error during rate limit check for %s', ip, exc_info=True)
+        return False  # fail open — DB outage shouldn't lock out all users
 
 # ── AUTH / CSRF DECORATORS ────────────────────────────────────────────────────
 
