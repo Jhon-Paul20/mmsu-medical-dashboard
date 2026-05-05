@@ -273,12 +273,19 @@ def csv_response(rows, headers, filename):
     return Response(
         buf.getvalue(),
         mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment; filename={filename}'},
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
 
 
 def audit(action, detail=''):
-    """Write an entry to the audit log."""
+    """
+    Write an entry to the audit log.
+
+    On DB failure the error is logged via app.logger (captured by gunicorn /
+    Railway) AND written to stderr as a plain-text fallback so the event is
+    never silently dropped — it will appear in at least one log sink even if
+    the structured logger is misconfigured.
+    """
     try:
         with get_db() as conn:
             conn.cursor().execute(
@@ -286,9 +293,15 @@ def audit(action, detail=''):
                 (session.get('user', 'system'), action, detail, request.remote_addr),
             )
     except Exception:
-        # Use app.logger so the full traceback appears in structured production
-        # logs (Railway, Heroku, gunicorn) rather than being lost on stderr.
         app.logger.error('[audit] Failed to write audit log (action=%s)', action, exc_info=True)
+        # Stderr fallback: guarantees the event appears somewhere even if the
+        # structured logger hasn't been set up yet (e.g. during DB init).
+        print(
+            f'[audit-fallback] action={action!r} detail={detail!r} '
+            f'user={session.get("user", "system")!r} ip={request.remote_addr!r}',
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def notify(title, body='', level='info'):
@@ -1257,7 +1270,7 @@ def export_personnel_pdf(pid):
     return Response(
         buf.getvalue(),
         mimetype='application/pdf',
-        headers={'Content-Disposition': f'attachment; filename={safe_name}_medical_record.pdf'}
+        headers={'Content-Disposition': f'attachment; filename="{safe_name}_medical_record.pdf"'}
     )
 
 # ── GROQ AI PROXY ─────────────────────────────────────────────────────────────
@@ -1310,6 +1323,15 @@ def ai_suggest():
         return jsonify({'error': 'No messages provided.'}), 400
 
     prompt_text = messages[0].get('content', '')
+    if not prompt_text or not prompt_text.strip():
+        return jsonify({'error': 'Prompt content is empty.'}), 400
+
+    # Hard cap: prevent runaway token costs and prompt-injection via huge payloads.
+    # 4 000 chars ≈ ~1 000 tokens, well within the model's context but enough for
+    # any legitimate clinical suggestion request from this app.
+    MAX_PROMPT_CHARS = 4_000
+    if len(prompt_text) > MAX_PROMPT_CHARS:
+        return jsonify({'error': f'Prompt exceeds maximum length of {MAX_PROMPT_CHARS} characters.'}), 400
 
     try:
         chat_completion = client.chat.completions.create(
@@ -1331,7 +1353,7 @@ def ai_suggest():
         return jsonify({'content': [{'text': text}]})
 
     except Exception as e:
-        print(f'[ai_suggest] Groq API error: {e}', file=sys.stderr)
+        app.logger.error('[ai_suggest] Groq API error: %s', e, exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 # ── PDF / EXCEL REPORTS ───────────────────────────────────────────────────────
@@ -1531,7 +1553,7 @@ def report_monthly():
     fname = f'monthly_report_{year}_{month:02d}.pdf'
     audit('REPORT_MONTHLY', f'{month_name}')
     return Response(buf.getvalue(), mimetype='application/pdf',
-                    headers={'Content-Disposition': f'attachment; filename={fname}'})
+                    headers={'Content-Disposition': f'attachment; filename="{fname}"'})
 
 
 # ── 2. YEARLY SUMMARY REPORT ──────────────────────────────────────────────────
@@ -1637,7 +1659,7 @@ def report_yearly():
     buf.seek(0)
     audit('REPORT_YEARLY', str(year))
     return Response(buf.getvalue(), mimetype='application/pdf',
-                    headers={'Content-Disposition': f'attachment; filename=yearly_report_{year}.pdf'})
+                    headers={'Content-Disposition': f'attachment; filename="yearly_report_{year}.pdf"'})
 
 
 # ── 3. DEPARTMENT REPORT ──────────────────────────────────────────────────────
@@ -1716,7 +1738,7 @@ def report_department():
     safe_dept = dept.replace(' ','_') if dept else 'all'
     audit('REPORT_DEPT', title_str)
     return Response(buf.getvalue(), mimetype='application/pdf',
-                    headers={'Content-Disposition': f'attachment; filename=dept_report_{safe_dept}.pdf'})
+                    headers={'Content-Disposition': f'attachment; filename="dept_report_{safe_dept}.pdf"'})
 
 
 # ── 4. CONSULTATION HISTORY (PDF) ─────────────────────────────────────────────
@@ -1794,7 +1816,7 @@ def report_consultation():
     buf.seek(0)
     audit('REPORT_CONSULTATION', subtitle)
     return Response(buf.getvalue(), mimetype='application/pdf',
-                    headers={'Content-Disposition': 'attachment; filename=consultation_history.pdf'})
+                    headers={'Content-Disposition': 'attachment; filename="consultation_history.pdf"'})
 
 
 # ── 5. MEDICINE INVENTORY REPORT (EXCEL) ─────────────────────────────────────
@@ -1997,7 +2019,7 @@ def report_medicine_inventory():
     audit('REPORT_MEDICINE_INVENTORY', f'{len(cond_counts)} conditions')
     return Response(buf.getvalue(),
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    headers={'Content-Disposition': 'attachment; filename=medicine_inventory_report.xlsx'})
+                    headers={'Content-Disposition': 'attachment; filename="medicine_inventory_report.xlsx"'})
 
 # ── TREND ANALYTICS ───────────────────────────────────────────────────────────
 
@@ -2258,7 +2280,7 @@ def create_backup():
     return Response(
         json.dumps(payload, indent=2),
         mimetype='application/json',
-        headers={'Content-Disposition': f'attachment; filename={filename}'},
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
 
 
