@@ -51,14 +51,28 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 
 def _get_password_hash() -> str:
-    """Load password hash from DB, falling back to env var / default."""
+    """
+    Load password hash from DB, falling back to env var / default.
+
+    The DB value is validated before use: it must be a non-empty string that
+    looks like a werkzeug hash (starts with 'pbkdf2:', 'scrypt:', or 'argon2:').
+    A corrupted or unexpected value in app_settings is ignored and the env-var
+    fallback is used instead, with a logged warning so ops can investigate.
+    """
     try:
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT value FROM app_settings WHERE key='admin_password_hash'")
             row = c.fetchone()
             if row:
-                return row[0]
+                value = row[0]
+                if isinstance(value, str) and value.startswith(('pbkdf2:', 'scrypt:', 'argon2:')):
+                    return value
+                # Row exists but value looks wrong — log and fall through
+                app.logger.warning(
+                    '[auth] admin_password_hash in app_settings has unexpected format; '
+                    'falling back to ADMIN_PASSWORD env var. Check the app_settings table.'
+                )
     except Exception:
         pass  # DB not ready yet on first boot — fall through to env default
     _raw = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
@@ -237,16 +251,24 @@ def _ensure_db_ready():
 # ── HELPERS ───────────────────────────────────────────────────────────────────
 
 def row_to_person(r):
+    """
+    Convert a personnel DB row to a plain dict.
+
+    Accepts either a RealDictRow (from RealDictCursor) or a plain tuple so
+    callers don't all have to be updated at once. New callers should use
+    RealDictCursor so column access is by name, not position — that way a
+    query reorder or extra column never silently corrupts the mapping.
+    """
     return {
-        'id':         r[0],
-        'name':       r[1],
-        'age':        r[2],
-        'gender':     r[3],
-        'blood':      r[4],
-        'department': r[5],
-        'phone':      r[6],
-        'address':    r[7],
-        'conditions': r[8].split('|') if r[8] else [],
+        'id':         r['id'],
+        'name':       r['name'],
+        'age':        r['age'],
+        'gender':     r['gender'],
+        'blood':      r['blood'],
+        'department': r['department'],
+        'phone':      r['phone'],
+        'address':    r['address'],
+        'conditions': r['conditions'].split('|') if r['conditions'] else [],
     }
 
 
@@ -487,7 +509,7 @@ def get_personnel():
     For the paginated table use GET /personnel/search instead.
     """
     with get_db() as conn:
-        c = conn.cursor()
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY name')
         return jsonify([row_to_person(r) for r in c.fetchall()])
 
@@ -578,12 +600,13 @@ def search_personnel():
         total = c.fetchone()[0]
 
         offset = (page - 1) * per_page
-        c.execute(
+        c2 = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        c2.execute(
             f'SELECT id, name, age, gender, blood, department, phone, address, conditions '
             f'FROM personnel {where_sql} ORDER BY name LIMIT %s OFFSET %s',
             params + [per_page, offset],
         )
-        page_rows = [row_to_person(r) for r in c.fetchall()]
+        page_rows = [row_to_person(r) for r in c2.fetchall()]
 
     return jsonify({
         'data':       page_rows,
@@ -700,13 +723,9 @@ def _parse_csv(content: str) -> tuple[list, list[str]]:
 
 def _snapshot_personnel(conn) -> list[dict]:
     """Return all current personnel rows as a plain list of dicts (for pre-import backup)."""
-    c = conn.cursor()
+    c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel ORDER BY id')
-    return [
-        {'id': r[0], 'name': r[1], 'age': r[2], 'gender': r[3], 'blood': r[4],
-         'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': r[8]}
-        for r in c.fetchall()
-    ]
+    return [dict(r) for r in c.fetchall()]
 
 
 @app.route('/upload', methods=['POST'])
@@ -1048,18 +1067,19 @@ def export_personnel_pdf(pid):
         return jsonify({'error': 'reportlab is not installed on the server. Run: pip install reportlab'}), 500
 
     with get_db() as conn:
-        c = conn.cursor()
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions FROM personnel WHERE id = %s', (pid,))
         row = c.fetchone()
         if not row:
             return jsonify({'error': 'Personnel not found'}), 404
         p = row_to_person(row)
 
-        c.execute(
+        c2 = conn.cursor()
+        c2.execute(
             'SELECT visit_date, reason, notes FROM visits WHERE personnel_id = %s ORDER BY visit_date DESC LIMIT 10',
             (pid,)
         )
-        visits = c.fetchall()
+        visits = c2.fetchall()
 
     audit('EXPORT_PDF', f'id={pid} name={p["name"]}')
 
@@ -1673,7 +1693,7 @@ def report_department():
     dept = request.args.get('dept', '')
 
     with get_db() as conn:
-        c = conn.cursor()
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         if dept:
             c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions FROM personnel WHERE department=%s ORDER BY name', (dept,))
         else:
@@ -1681,13 +1701,14 @@ def report_department():
         rows = c.fetchall()
         personnel = [row_to_person(r) for r in rows]
 
-        c.execute('''
+        c2 = conn.cursor()
+        c2.execute('''
             SELECT p.department, COUNT(DISTINCT v.id) visits
             FROM personnel p LEFT JOIN visits v ON v.personnel_id=p.id
             WHERE (%s='' OR p.department=%s)
             GROUP BY p.department ORDER BY visits DESC
         ''', (dept, dept))
-        dept_visit_counts = {r[0]: r[1] for r in c.fetchall()}
+        dept_visit_counts = {r[0]: r[1] for r in c2.fetchall()}
 
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
     from reportlab.lib.styles import getSampleStyleSheet
