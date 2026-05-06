@@ -438,6 +438,16 @@ HIGH_RISK_CONDITIONS = {
     'Chronic Kidney Disease', 'Stroke', 'Hepatitis B', 'Hepatitis C',
 }
 
+# Full allowlist of accepted condition values.
+# HIGH_RISK_CONDITIONS is a strict subset of this set.
+# Adding a new condition requires a code change — intentional, prevents
+# typos and naming inconsistencies from corrupting filters and reports.
+VALID_CONDITIONS = HIGH_RISK_CONDITIONS | {
+    'Arthritis', 'Anemia', 'Obesity',
+    'Anxiety', 'Depression', 'Migraine', 'GERD',
+    'Thyroid Disease', 'COPD', 'Allergies', 'Scoliosis',
+}
+
 
 def validate_personnel(d: dict) -> str | None:
     """Return an error string if the payload is invalid, else None."""
@@ -465,6 +475,9 @@ def validate_personnel(d: dict) -> str | None:
         return 'Conditions must be a list.'
     if len(conditions) > 30:
         return 'Too many conditions (max 30).'
+    invalid = [c for c in conditions if c not in VALID_CONDITIONS]
+    if invalid:
+        return f'Unknown condition(s): {", ".join(invalid)}'
     return None
 
 
