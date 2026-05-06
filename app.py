@@ -429,6 +429,24 @@ def validate_personnel(d: dict) -> str | None:
         return 'Too many conditions (max 30).'
     return None
 
+
+def validate_visit(d: dict) -> str | None:
+    """Return an error string if the visit payload is invalid, else None."""
+    visit_date = d.get('visit_date', '').strip()
+    if not visit_date:
+        return 'visit_date is required.'
+    try:
+        datetime.strptime(visit_date, '%Y-%m-%d')
+    except ValueError:
+        return 'visit_date must be in YYYY-MM-DD format.'
+    reason = d.get('reason', '')
+    if isinstance(reason, str) and len(reason) > 256:
+        return 'reason exceeds 256 characters.'
+    notes = d.get('notes', '')
+    if isinstance(notes, str) and len(notes) > 2000:
+        return 'notes exceeds 2000 characters.'
+    return None
+
 # ── RATE LIMITER ──────────────────────────────────────────────────────────────
 #
 # Stored in PostgreSQL so all gunicorn workers share the same state.
@@ -921,6 +939,9 @@ def get_visits(pid):
 @csrf_required
 def add_visit(pid):
     d = request.json or {}
+    err = validate_visit(d)
+    if err:
+        return jsonify({'error': err}), 400
     with get_db() as conn:
         c = conn.cursor()
         c.execute('SELECT id FROM personnel WHERE id = %s', (pid,))
