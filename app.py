@@ -29,8 +29,14 @@ import psycopg2.extras
 
 # ── APP SETUP ─────────────────────────────────────────────────────────────────
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=BASE_DIR)
+# Trust exactly one upstream proxy (Railway/Heroku load balancer) so that
+# request.remote_addr, request.scheme, and request.host reflect the real
+# client values rather than the proxy's.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.secret_key = os.environ.get('SECRET_KEY')
 if not app.secret_key:
@@ -286,6 +292,32 @@ def _ensure_db_ready():
                 'Check DATABASE_URL and server logs.',
                 503,
             )
+
+
+@app.after_request
+def set_security_headers(response):
+    """
+    Attach security headers to every response.
+
+    CSP sources are locked to what index.html actually loads:
+      - cdn.jsdelivr.net     → Chart.js
+      - fonts.googleapis.com → Google Fonts stylesheet
+      - fonts.gstatic.com    → Google Fonts files
+    data: is allowed under img-src only — required for base64 personnel photos.
+    """
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options']        = 'DENY'
+    response.headers['Referrer-Policy']        = 'strict-origin-when-cross-origin'
+    return response
 
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
