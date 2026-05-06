@@ -391,6 +391,12 @@ FIELD_LIMITS = {
 }
 VALID_GENDERS     = {'Male', 'Female', ''}
 VALID_BLOOD_TYPES = {'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''}
+# Allowlist of accepted photo MIME prefixes — blocks SVG and other XSS vectors.
+ALLOWED_PHOTO_PREFIXES = (
+    'data:image/jpeg;base64,',
+    'data:image/png;base64,',
+    'data:image/webp;base64,',
+)
 
 # Single source of truth for high-risk conditions.
 # Used by: search filters, add-personnel notifications, PDF export, all reports.
@@ -743,8 +749,8 @@ def update_personnel(pid):
 def upload_photo(pid):
     d = request.json or {}
     photo = d.get('photo', '').strip()
-    if photo and not photo.startswith('data:image/'):
-        return jsonify({'error': 'Invalid image format.'}), 400
+    if photo and not any(photo.startswith(p) for p in ALLOWED_PHOTO_PREFIXES):
+        return jsonify({'error': 'Only JPEG, PNG, or WebP images are accepted.'}), 400
     # Client compresses to ~60 KB JPEG before sending; base64 overhead is ~33%.
     # 120 000 chars ≈ ~90 KB binary — well above the expected output, with headroom
     # for edge cases, but far below the old 2.8 MB limit that allowed raw uploads.
