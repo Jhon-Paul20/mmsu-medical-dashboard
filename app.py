@@ -1366,6 +1366,288 @@ def export_personnel_pdf(pid):
             story.append(vt)
             story.append(Spacer(1, 5))
 
+    # ── AI TREATMENT SUGGESTIONS (server-side Groq call) ────────────────────────
+    ai_suggestions = None
+    ai_risk        = None
+    groq_client    = get_groq_client()
+
+    if groq_client and p['conditions']:
+        # ── Treatment suggestions ──────────────────────────────────────────────
+        sug_prompt = (
+            f"You are a clinical decision support assistant for a university health clinic in the Philippines.\n"
+            f"Patient profile:\n"
+            f"- Name: {p['name']}\n"
+            f"- Age: {p.get('age') or 'unknown'} years old\n"
+            f"- Gender: {p.get('gender') or 'unknown'}\n"
+            f"- Blood type: {p.get('blood') or 'unknown'}\n"
+            f"- Diagnosed conditions: {', '.join(p['conditions'])}\n\n"
+            f"Task: Provide treatment suggestions for this specific patient. Consider how their conditions interact with each other and their age/gender.\n"
+            f"Respond ONLY with a valid JSON object in this exact format (no markdown, no extra text):\n"
+            f'{{"suggestions":[{{"condition":"condition name","medicine":"medicine name","description":"1-2 sentence clinical rationale","warning":"any warning or empty string"}}],"interaction_note":"note about drug interactions or empty string"}}\n'
+            f"Limit to 2 suggestions per condition, max 6 total."
+        )
+        try:
+            resp = groq_client.chat.completions.create(
+                model='llama-3.1-8b-instant',
+                messages=[
+                    {'role': 'system', 'content': 'You are a clinical assistant. Respond with valid JSON only.'},
+                    {'role': 'user',   'content': sug_prompt},
+                ],
+                max_tokens=1024, temperature=0.3,
+                response_format={'type': 'json_object'},
+            )
+            import json as _json
+            ai_suggestions = _json.loads(resp.choices[0].message.content)
+        except Exception as e:
+            app.logger.warning('[pdf] AI suggestions failed: %s', e)
+
+        # ── Risk prediction ────────────────────────────────────────────────────
+        risk_prompt = (
+            f"You are a health risk assessment AI for a university clinic in the Philippines.\n"
+            f"Patient profile:\n"
+            f"- Name: {p['name']}\n"
+            f"- Age: {p.get('age') or 'unknown'} years old\n"
+            f"- Gender: {p.get('gender') or 'unknown'}\n"
+            f"- Blood type: {p.get('blood') or 'unknown'}\n"
+            f"- Current conditions: {', '.join(p['conditions']) if p['conditions'] else 'None recorded'}\n"
+            f"- Department: {p.get('department') or 'unknown'}\n\n"
+            f"Respond ONLY with a valid JSON object (no markdown, no extra text):\n"
+            f'{{"risk_score":<integer 0-100>,"risk_level":"Low"|"Moderate"|"High"|"Critical","risk_factors":[{{"factor":"name","impact":"low"|"medium"|"high","detail":"one sentence"}}],"future_outlook":"2-3 sentences","conditions_to_monitor":["cond1"],"preventive_actions":["action1"]}}\n'
+            f"Rules: 0-24=Low, 25-49=Moderate, 50-74=High, 75-100=Critical. Limit risk_factors to 4, conditions_to_monitor to 4, preventive_actions to 4."
+        )
+        try:
+            resp2 = groq_client.chat.completions.create(
+                model='llama-3.1-8b-instant',
+                messages=[
+                    {'role': 'system', 'content': 'You are a clinical assistant. Respond with valid JSON only.'},
+                    {'role': 'user',   'content': risk_prompt},
+                ],
+                max_tokens=1024, temperature=0.3,
+                response_format={'type': 'json_object'},
+            )
+            ai_risk = _json.loads(resp2.choices[0].message.content)
+        except Exception as e:
+            app.logger.warning('[pdf] AI risk prediction failed: %s', e)
+
+    # ── Render AI Treatment Suggestions into PDF ──────────────────────────────
+    BLUE      = colors.HexColor('#2563a8')
+    BLUE_BG   = colors.HexColor('#eff6ff')
+    BLUE_BDR  = colors.HexColor('#bfdbfe')
+    WARN_BG   = colors.HexColor('#fff7ed')
+    WARN_TEXT = colors.HexColor('#9a3412')
+    WARN_BDR  = colors.HexColor('#fed7aa')
+
+    story.append(Paragraph('AI TREATMENT SUGGESTIONS', section_style))
+
+    if ai_suggestions and ai_suggestions.get('suggestions'):
+        for sug in ai_suggestions['suggestions']:
+            sug_rows = [
+                [Paragraph(sug.get('condition', '').upper(),
+                           style(f'SC_{id(sug)}', fontSize=8, textColor=BLUE, fontName='Helvetica-Bold'))],
+                [Paragraph(sug.get('medicine', '—'),
+                           style(f'SM_{id(sug)}', fontSize=12, textColor=DARK, fontName='Helvetica-Bold'))],
+                [Paragraph(sug.get('description', ''),
+                           style(f'SD_{id(sug)}', fontSize=10, textColor=GREY, fontName='Helvetica', leading=14))],
+            ]
+            if sug.get('warning'):
+                sug_rows.append([Paragraph(
+                    f'⚠ {sug["warning"]}',
+                    style(f'SW_{id(sug)}', fontSize=10, textColor=WARN_TEXT, fontName='Helvetica-Oblique')
+                )])
+            sug_tbl = Table(sug_rows, colWidths=[page_w - 0.3*cm])
+            sug_tbl.setStyle(TableStyle([
+                ('BACKGROUND',   (0,0),(-1,-1), BLUE_BG),
+                ('BOX',          (0,0),(-1,-1), 0.5, BLUE_BDR),
+                ('TOPPADDING',   (0,0),(-1,-1), 6),
+                ('BOTTOMPADDING',(0,0),(-1,-1), 6),
+                ('LEFTPADDING',  (0,0),(-1,-1), 12),
+                ('RIGHTPADDING', (0,0),(-1,-1), 12),
+            ]))
+            story.append(sug_tbl)
+            story.append(Spacer(1, 5))
+
+        if ai_suggestions.get('interaction_note'):
+            note_tbl = Table([
+                [Paragraph('⚠ INTERACTION NOTE', style('IN_H', fontSize=8, textColor=WARN_TEXT, fontName='Helvetica-Bold'))],
+                [Paragraph(ai_suggestions['interaction_note'],
+                           style('IN_B', fontSize=10, textColor=WARN_TEXT, fontName='Helvetica', leading=14))],
+            ], colWidths=[page_w - 0.3*cm])
+            note_tbl.setStyle(TableStyle([
+                ('BACKGROUND',   (0,0),(-1,-1), WARN_BG),
+                ('BOX',          (0,0),(-1,-1), 0.5, WARN_BDR),
+                ('TOPPADDING',   (0,0),(-1,-1), 6),
+                ('BOTTOMPADDING',(0,0),(-1,-1), 6),
+                ('LEFTPADDING',  (0,0),(-1,-1), 12),
+                ('RIGHTPADDING', (0,0),(-1,-1), 12),
+            ]))
+            story.append(note_tbl)
+            story.append(Spacer(1, 5))
+
+        story.append(Paragraph(
+            'AI suggestions are for general reference only. Always defer to a licensed physician for final treatment decisions.',
+            style('AID', fontSize=8, textColor=GREY, fontName='Helvetica-Oblique')
+        ))
+    elif not groq_client:
+        story.append(Paragraph('AI suggestions unavailable — GROQ_API_KEY not configured.',
+                               style('AIN', fontSize=10, textColor=GREY, fontName='Helvetica-Oblique')))
+    elif not p['conditions']:
+        story.append(Paragraph('No conditions recorded — AI suggestions not applicable.',
+                               style('AIN2', fontSize=10, textColor=GREY, fontName='Helvetica-Oblique')))
+    else:
+        story.append(Paragraph('AI suggestions could not be generated at this time.',
+                               style('AINE', fontSize=10, textColor=GREY, fontName='Helvetica-Oblique')))
+
+    # ── Render AI Risk Prediction into PDF ───────────────────────────────────
+    story.append(Paragraph('AI RISK PREDICTION', section_style))
+
+    if ai_risk:
+        score      = ai_risk.get('risk_score', 0)
+        risk_level = ai_risk.get('risk_level', 'Unknown')
+        score_colors = {
+            'Low':      (colors.HexColor('#16a34a'), colors.HexColor('#dcfce7'), colors.HexColor('#86efac')),
+            'Moderate': (colors.HexColor('#d97706'), colors.HexColor('#fef3c7'), colors.HexColor('#fcd34d')),
+            'High':     (colors.HexColor('#dc2626'), colors.HexColor('#fdecea'), colors.HexColor('#fca5a5')),
+            'Critical': (colors.HexColor('#7f1d1d'), colors.HexColor('#fdecea'), colors.HexColor('#ef4444')),
+        }
+        sc_text, sc_bg, sc_bar = score_colors.get(risk_level, score_colors['Moderate'])
+
+        # Score header row
+        score_header = Table([[
+            Paragraph(f'<font name="Helvetica-Bold" size="26" color="#{sc_text.hexval()[2:]}">{score}</font>'
+                      f'<font name="Helvetica" size="10" color="#555555"> / 100</font>',
+                      style('RS', fontSize=10, fontName='Helvetica', leading=30)),
+            Paragraph(risk_level,
+                      style('RL', fontSize=13, fontName='Helvetica-Bold', textColor=sc_text, alignment=TA_RIGHT)),
+        ]], colWidths=[page_w * 0.6, page_w * 0.4 - 0.3*cm])
+        score_header.setStyle(TableStyle([
+            ('BACKGROUND',   (0,0),(-1,-1), sc_bg),
+            ('BOX',          (0,0),(-1,-1), 0.5, sc_bar),
+            ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
+            ('TOPPADDING',   (0,0),(-1,-1), 10),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 10),
+            ('LEFTPADDING',  (0,0),(-1,-1), 12),
+            ('RIGHTPADDING', (0,0),(-1,-1), 12),
+        ]))
+        story.append(score_header)
+        story.append(Spacer(1, 6))
+
+        # Risk factors + outlook side by side
+        impact_color = {'high': RED_TEXT, 'medium': colors.HexColor('#b45309'), 'low': colors.HexColor('#15803d')}
+        factors_paras = [Paragraph('RISK FACTORS', style('RFH', fontSize=8, textColor=GREY, fontName='Helvetica-Bold', spaceAfter=5))]
+        for f in (ai_risk.get('risk_factors') or []):
+            ic = impact_color.get(f.get('impact', 'low'), GREY)
+            factors_paras.append(Paragraph(
+                f'• <font color="#{ic.hexval()[2:]}" name="Helvetica-Bold">{f.get("factor","")}</font>: {f.get("detail","")}',
+                style(f'RF_{id(f)}', fontSize=9, fontName='Helvetica', leading=13, textColor=DARK, spaceAfter=4)
+            ))
+
+        outlook_paras = [Paragraph('FUTURE OUTLOOK', style('OLH', fontSize=8, textColor=GREY, fontName='Helvetica-Bold', spaceAfter=5))]
+        outlook_paras.append(Paragraph(
+            ai_risk.get('future_outlook', '—'),
+            style('OLB', fontSize=9, fontName='Helvetica', leading=13, textColor=DARK)
+        ))
+
+        side_data = [[factors_paras, outlook_paras]]
+        # Wrap lists in a KeepInFrame-style nested table
+        left_tbl  = Table([[p] for p in factors_paras], colWidths=[page_w * 0.5 - 0.2*cm])
+        right_tbl = Table([[p] for p in outlook_paras], colWidths=[page_w * 0.5 - 0.2*cm])
+        left_tbl.setStyle(TableStyle([
+            ('BACKGROUND',   (0,0),(-1,-1), LIGHT_GREY),
+            ('BOX',          (0,0),(-1,-1), 0.5, BORDER),
+            ('TOPPADDING',   (0,0),(-1,-1), 8),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 5),
+            ('LEFTPADDING',  (0,0),(-1,-1), 10),
+            ('RIGHTPADDING', (0,0),(-1,-1), 10),
+        ]))
+        right_tbl.setStyle(TableStyle([
+            ('BACKGROUND',   (0,0),(-1,-1), LIGHT_GREY),
+            ('BOX',          (0,0),(-1,-1), 0.5, BORDER),
+            ('TOPPADDING',   (0,0),(-1,-1), 8),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 5),
+            ('LEFTPADDING',  (0,0),(-1,-1), 10),
+            ('RIGHTPADDING', (0,0),(-1,-1), 10),
+        ]))
+        side_tbl = Table([[left_tbl, right_tbl]],
+                         colWidths=[page_w * 0.5 - 0.1*cm, page_w * 0.5 - 0.2*cm])
+        side_tbl.setStyle(TableStyle([
+            ('VALIGN',       (0,0),(-1,-1), 'TOP'),
+            ('LEFTPADDING',  (0,0),(-1,-1), 0),
+            ('RIGHTPADDING', (0,0),(-1,-1), 3),
+            ('TOPPADDING',   (0,0),(-1,-1), 0),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 0),
+        ]))
+        story.append(side_tbl)
+        story.append(Spacer(1, 6))
+
+        # Conditions to monitor
+        if ai_risk.get('conditions_to_monitor'):
+            mon_cells = []
+            for cond in ai_risk['conditions_to_monitor']:
+                ct = Table([[Paragraph(cond, style(f'CM_{id(cond)}', fontSize=9, textColor=RED_TEXT, fontName='Helvetica-Bold'))]],
+                           colWidths=[len(cond) * 6 + 20])
+                ct.setStyle(TableStyle([
+                    ('BACKGROUND',   (0,0),(-1,-1), RED_BG),
+                    ('BOX',          (0,0),(-1,-1), 0.5, colors.HexColor('#f5c6c6')),
+                    ('TOPPADDING',   (0,0),(-1,-1), 3),
+                    ('BOTTOMPADDING',(0,0),(-1,-1), 3),
+                    ('LEFTPADDING',  (0,0),(-1,-1), 8),
+                    ('RIGHTPADDING', (0,0),(-1,-1), 8),
+                ]))
+                mon_cells.append(ct)
+            mon_row = Table([mon_cells], colWidths=[len(c)*6+20 for c in ai_risk['conditions_to_monitor']])
+            mon_row.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),4),
+                                         ('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
+            mon_wrap = Table([
+                [Paragraph('⚠ CONDITIONS TO MONITOR', style('CMH', fontSize=8, textColor=RED_TEXT, fontName='Helvetica-Bold'))],
+                [mon_row],
+            ], colWidths=[page_w - 0.3*cm])
+            mon_wrap.setStyle(TableStyle([
+                ('BACKGROUND',   (0,0),(-1,-1), RED_BG),
+                ('BOX',          (0,0),(-1,-1), 0.5, colors.HexColor('#f5c6c6')),
+                ('TOPPADDING',   (0,0),(-1,-1), 8),
+                ('BOTTOMPADDING',(0,0),(-1,-1), 8),
+                ('LEFTPADDING',  (0,0),(-1,-1), 12),
+                ('RIGHTPADDING', (0,0),(-1,-1), 12),
+            ]))
+            story.append(mon_wrap)
+            story.append(Spacer(1, 5))
+
+        # Preventive actions
+        if ai_risk.get('preventive_actions'):
+            act_rows = [
+                [Paragraph('✓ PREVENTIVE ACTIONS', style('PAH', fontSize=8, textColor=colors.HexColor('#15803d'), fontName='Helvetica-Bold'))],
+            ]
+            for i, act in enumerate(ai_risk['preventive_actions'], 1):
+                act_rows.append([Paragraph(
+                    f'{i}. {act}',
+                    style(f'PA_{i}', fontSize=9, fontName='Helvetica', textColor=DARK, leading=13, spaceAfter=3)
+                )])
+            act_tbl = Table(act_rows, colWidths=[page_w - 0.3*cm])
+            act_tbl.setStyle(TableStyle([
+                ('BACKGROUND',   (0,0),(-1,-1), colors.HexColor('#f0fdf4')),
+                ('BOX',          (0,0),(-1,-1), 0.5, colors.HexColor('#86efac')),
+                ('TOPPADDING',   (0,0),(-1,-1), 8),
+                ('BOTTOMPADDING',(0,0),(-1,-1), 6),
+                ('LEFTPADDING',  (0,0),(-1,-1), 12),
+                ('RIGHTPADDING', (0,0),(-1,-1), 12),
+            ]))
+            story.append(act_tbl)
+            story.append(Spacer(1, 5))
+
+        story.append(Paragraph(
+            'Risk prediction is AI-generated for reference only. Consult a licensed physician for clinical decisions.',
+            style('RID', fontSize=8, textColor=GREY, fontName='Helvetica-Oblique')
+        ))
+    elif not groq_client:
+        story.append(Paragraph('AI risk prediction unavailable — GROQ_API_KEY not configured.',
+                               style('RIN', fontSize=10, textColor=GREY, fontName='Helvetica-Oblique')))
+    elif not p['conditions']:
+        story.append(Paragraph('No conditions recorded — risk prediction not applicable.',
+                               style('RIN2', fontSize=10, textColor=GREY, fontName='Helvetica-Oblique')))
+    else:
+        story.append(Paragraph('AI risk prediction could not be generated at this time.',
+                               style('RINE', fontSize=10, textColor=GREY, fontName='Helvetica-Oblique')))
+
     story.append(Spacer(1, 16))
     story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=8))
     now_str = datetime.now().strftime('%B %d, %Y at %I:%M %p')
