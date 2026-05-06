@@ -149,6 +149,46 @@ def init_db():
                 END $$;
             ''')
 
+        # Migrate conditions from pipe-delimited TEXT to TEXT[] array.
+        # Step 1: add the new column if it doesn't exist yet.
+        c.execute('''
+            DO $$ BEGIN
+                ALTER TABLE personnel ADD COLUMN conditions_arr TEXT[] NOT NULL DEFAULT '{}';
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$;
+        ''')
+        # Step 2: backfill any rows where the array is still empty but the legacy
+        # TEXT column has data. Safe to run repeatedly — the WHERE clause is a no-op
+        # once all rows have been migrated.
+        c.execute('''
+            UPDATE personnel
+            SET conditions_arr = (
+                SELECT array_remove(
+                    string_to_array(conditions, '|'),
+                    ''
+                )
+            )
+            WHERE conditions IS NOT NULL
+              AND conditions != ''
+              AND conditions_arr = '{}'
+        ''')
+        # Step 3: add a GIN index so array operators (@>, &&, = ANY) are fast.
+        c.execute('''
+            CREATE INDEX IF NOT EXISTS idx_personnel_conditions_arr
+            ON personnel USING GIN (conditions_arr)
+        ''')
+        # Step 4: force a full backfill on every init_db() call so that rows
+        # inserted/updated while the server was still running old code are caught.
+        # Safe to run repeatedly — postgres skips unchanged rows efficiently.
+        c.execute('''
+            UPDATE personnel
+            SET conditions_arr = array_remove(
+                string_to_array(COALESCE(conditions, ''), '|'),
+                ''
+            )
+            WHERE conditions IS NOT NULL AND conditions != ''
+        ''')
+
         c.execute('''
             CREATE TABLE IF NOT EXISTS visits (
                 id           SERIAL PRIMARY KEY,
@@ -268,7 +308,7 @@ def row_to_person(r):
         'department': r['department'],
         'phone':      r['phone'],
         'address':    r['address'],
-        'conditions': r['conditions'].split('|') if r['conditions'] else [],
+        'conditions': list(r['conditions_arr']) if r.get('conditions_arr') else [],
         'photo':      r.get('photo') or '',
     }
 
@@ -283,7 +323,7 @@ def person_params(d):
         d.get('department', ''),
         d.get('phone', ''),
         d.get('address', ''),
-        '|'.join(d.get('conditions', [])),
+        d.get('conditions', []),   # list — stored as TEXT[] in DB
     )
 
 
@@ -511,7 +551,7 @@ def get_personnel():
     """
     with get_db() as conn:
         c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel ORDER BY name')
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions_arr, photo FROM personnel ORDER BY name')
         return jsonify([row_to_person(r) for r in c.fetchall()])
 
 
@@ -564,33 +604,30 @@ def search_personnel():
         wheres.append('blood = %s')
         params.append(blood)
 
-    # ── conditions filter → SQL LIKE clauses ────────────────────────────────
-    # The conditions column stores pipe-delimited values e.g. "Diabetes|Asthma".
-    # We match each condition with %condition% which is safe: condition names
-    # contain only letters/spaces and cannot partially match each other across
-    # the pipe delimiter.
+    # ── conditions filter → exact array membership ───────────────────────────
+    # conditions_arr is a TEXT[] column. We use:
+    #   AND logic → @> operator: array contains ALL of the requested values
+    #   OR  logic → && operator: array overlaps (shares any element with) the list
+    # Both are exact matches — no false positives from substring overlap.
     if conds_raw:
         cond_list = [c2.strip() for c2 in conds_raw.split(',') if c2.strip()]
         if logic == 'AND':
-            for cond in cond_list:
-                wheres.append('conditions LIKE %s')
-                params.append(f'%{cond}%')
+            # conditions_arr @> ARRAY[...] — must contain every requested condition
+            wheres.append('conditions_arr @> %s')
+            params.append(cond_list)
         else:  # OR
-            or_parts = ['conditions LIKE %s'] * len(cond_list)
-            wheres.append('(' + ' OR '.join(or_parts) + ')')
-            params.extend(f'%{cond}%' for cond in cond_list)
+            # conditions_arr && ARRAY[...] — must contain at least one
+            wheres.append('conditions_arr && %s')
+            params.append(cond_list)
 
-    # ── risk filter → SQL LIKE clauses ───────────────────────────────────────
-    # Expand HIGH_RISK_CONDITIONS into OR-joined LIKE clauses so the DB engine
-    # can use its own optimiser rather than loading every row into Python.
+    # ── risk filter → exact array overlap with HIGH_RISK_CONDITIONS set ───────
     if risk == 'high':
-        risk_parts = ['conditions LIKE %s'] * len(HIGH_RISK_CONDITIONS)
-        wheres.append('(' + ' OR '.join(risk_parts) + ')')
-        params.extend(f'%{c2}%' for c2 in HIGH_RISK_CONDITIONS)
+        wheres.append('conditions_arr && %s')
+        params.append(list(HIGH_RISK_CONDITIONS))
     elif risk == 'normal':
-        for c2 in HIGH_RISK_CONDITIONS:
-            wheres.append('conditions NOT LIKE %s')
-            params.append(f'%{c2}%')
+        # NOT overlapping the high-risk set
+        wheres.append('NOT (conditions_arr && %s)')
+        params.append(list(HIGH_RISK_CONDITIONS))
 
     where_sql = ('WHERE ' + ' AND '.join(wheres)) if wheres else ''
 
@@ -603,7 +640,7 @@ def search_personnel():
         offset = (page - 1) * per_page
         c2 = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         c2.execute(
-            f'SELECT id, name, age, gender, blood, department, phone, address, conditions, photo '
+            f'SELECT id, name, age, gender, blood, department, phone, address, conditions_arr, photo '
             f'FROM personnel {where_sql} ORDER BY name LIMIT %s OFFSET %s',
             params + [per_page, offset],
         )
@@ -625,7 +662,7 @@ def get_single_personnel(pid):
     with get_db() as conn:
         c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         c.execute(
-            'SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel WHERE id = %s',
+            'SELECT id, name, age, gender, blood, department, phone, address, conditions_arr, photo FROM personnel WHERE id = %s',
             (pid,)
         )
         r = c.fetchone()
@@ -644,7 +681,7 @@ def add_personnel():
         return jsonify({'error': err}), 400
     with get_db() as conn:
         conn.cursor().execute(
-            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
+            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions_arr) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
             person_params(d),
         )
     audit('ADD_PERSONNEL', d.get('name', ''))
@@ -674,7 +711,7 @@ def update_personnel(pid):
         c.execute(
             '''UPDATE personnel
                SET name=%s, age=%s, gender=%s, blood=%s,
-                   department=%s, phone=%s, address=%s, conditions=%s
+                   department=%s, phone=%s, address=%s, conditions_arr=%s
                WHERE id=%s''',
             (*person_params(d), pid),
         )
@@ -690,8 +727,11 @@ def upload_photo(pid):
     photo = d.get('photo', '').strip()
     if photo and not photo.startswith('data:image/'):
         return jsonify({'error': 'Invalid image format.'}), 400
-    if len(photo) > 2_800_000:
-        return jsonify({'error': 'Image too large. Please use an image under 1.5 MB.'}), 400
+    # Client compresses to ~60 KB JPEG before sending; base64 overhead is ~33%.
+    # 120 000 chars ≈ ~90 KB binary — well above the expected output, with headroom
+    # for edge cases, but far below the old 2.8 MB limit that allowed raw uploads.
+    if len(photo) > 120_000:
+        return jsonify({'error': 'Image too large after processing. Please try a smaller image.'}), 400
     with get_db() as conn:
         c = conn.cursor()
         c.execute('SELECT id FROM personnel WHERE id = %s', (pid,))
@@ -752,7 +792,7 @@ def _parse_csv(content: str) -> tuple[list, list[str]]:
         else:
             records.append((
                 d['name'], d['age'], d['gender'], d['blood'],
-                d['department'], d['phone'], d['address'], raw_conditions,
+                d['department'], d['phone'], d['address'], cond_list,  # list → TEXT[]
             ))
 
     return records, errors
@@ -761,8 +801,13 @@ def _parse_csv(content: str) -> tuple[list, list[str]]:
 def _snapshot_personnel(conn) -> list[dict]:
     """Return all current personnel rows as a plain list of dicts (for pre-import backup)."""
     c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel ORDER BY id')
-    return [dict(r) for r in c.fetchall()]
+    c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions_arr, photo FROM personnel ORDER BY id')
+    rows = []
+    for r in c.fetchall():
+        row = dict(r)
+        row['conditions'] = list(row.pop('conditions_arr') or [])
+        rows.append(row)
+    return rows
 
 
 @app.route('/upload', methods=['POST'])
@@ -832,7 +877,7 @@ def upload():
         c.execute('DELETE FROM personnel')
         psycopg2.extras.execute_batch(
             c,
-            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions)'
+            'INSERT INTO personnel (name, age, gender, blood, department, phone, address, conditions_arr)'
             ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
             records,
         )
@@ -1074,10 +1119,15 @@ def export_audit_log():
 def export_personnel():
     with get_db() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel ORDER BY id')
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions_arr FROM personnel ORDER BY id')
         rows = c.fetchall()
     audit('EXPORT_CSV', f'{len(rows)} records')
-    return csv_response(rows, ['id', 'name', 'age', 'gender', 'blood', 'department', 'phone', 'address', 'conditions'], 'personnel_export.csv')
+    # Convert conditions_arr (list) back to pipe-delimited string for CSV compatibility
+    csv_rows = [
+        (r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], '|'.join(r[8] or []))
+        for r in rows
+    ]
+    return csv_response(csv_rows, ['id', 'name', 'age', 'gender', 'blood', 'department', 'phone', 'address', 'conditions'], 'personnel_export.csv')
 
 
 @app.route('/export/visits')
@@ -1105,7 +1155,7 @@ def export_personnel_pdf(pid):
 
     with get_db() as conn:
         c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel WHERE id = %s', (pid,))
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions_arr, photo FROM personnel WHERE id = %s', (pid,))
         row = c.fetchone()
         if not row:
             return jsonify({'error': 'Personnel not found'}), 404
@@ -1523,8 +1573,8 @@ def report_monthly():
         visits = c.fetchall()
 
         # All personnel stats
-        c.execute('SELECT id, name, age, gender, blood, department, conditions FROM personnel')
-        personnel = [{'id':r[0],'name':r[1],'age':r[2],'gender':r[3],'blood':r[4],'dept':r[5],'conds':r[6].split('|') if r[6] else []} for r in c.fetchall()]
+        c.execute('SELECT id, name, age, gender, blood, department, conditions_arr FROM personnel')
+        personnel = [{'id':r[0],'name':r[1],'age':r[2],'gender':r[3],'blood':r[4],'dept':r[5],'conds':list(r[6] or [])} for r in c.fetchall()]
 
         # Top reasons this month
         c.execute('''
@@ -1625,9 +1675,9 @@ def report_yearly():
 
     with get_db() as conn:
         c = conn.cursor()
-        c.execute('SELECT name, age, gender, blood, department, conditions FROM personnel')
+        c.execute('SELECT name, age, gender, blood, department, conditions_arr FROM personnel')
         personnel = [{'name':r[0],'age':r[1],'gender':r[2],'blood':r[3],'dept':r[4],
-                      'conds':r[5].split('|') if r[5] else []} for r in c.fetchall()]
+                      'conds':list(r[5] or [])} for r in c.fetchall()]
 
         # Visits per month
         c.execute('''
@@ -1732,9 +1782,9 @@ def report_department():
     with get_db() as conn:
         c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         if dept:
-            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions,photo FROM personnel WHERE department=%s ORDER BY name', (dept,))
+            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions_arr,photo FROM personnel WHERE department=%s ORDER BY name', (dept,))
         else:
-            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions,photo FROM personnel ORDER BY department,name')
+            c.execute('SELECT id,name,age,gender,blood,department,phone,address,conditions_arr,photo FROM personnel ORDER BY department,name')
         rows = c.fetchall()
         personnel = [row_to_person(r) for r in rows]
 
@@ -1891,9 +1941,9 @@ def report_medicine_inventory():
 
     with get_db() as conn:
         c = conn.cursor()
-        c.execute('SELECT name, age, gender, blood, department, conditions FROM personnel')
+        c.execute('SELECT name, age, gender, blood, department, conditions_arr FROM personnel')
         personnel = [{'name':r[0],'age':r[1],'gender':r[2],'blood':r[3],'dept':r[4],
-                      'conds':r[5].split('|') if r[5] else []} for r in c.fetchall()]
+                      'conds':list(r[5] or [])} for r in c.fetchall()]
 
     # Count condition occurrences
     cond_counts = defaultdict(int)
@@ -2081,337 +2131,6 @@ def report_medicine_inventory():
 
 # ── TREND ANALYTICS ───────────────────────────────────────────────────────────
 
-@app.route('/report/monthly-pdf')
-@login_required
-def monthly_health_report_pdf():
-    """Generate a one-click monthly health summary PDF for administration."""
-    if not REPORTLAB_AVAILABLE:
-        return jsonify({'error': 'reportlab is not installed'}), 500
-
-    from reportlab.lib import colors
-    from reportlab.lib.units import cm
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle, HRFlowable
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-
-    now       = datetime.now()
-    month_str = now.strftime('%B %Y')
-    # Current month window for visit stats
-    month_start = datetime(now.year, now.month, 1).date()
-
-    HIGH_RISK_CONDITIONS = [
-        'Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke',
-        'Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus'
-    ]
-
-    with get_db() as conn:
-        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        # All personnel
-        c.execute('SELECT id, name, age, gender, blood, department, conditions FROM personnel ORDER BY name')
-        personnel = c.fetchall()
-
-        # Current month visits
-        c.execute('''
-            SELECT v.visit_date, v.reason, v.notes, p.name, p.department
-            FROM visits v JOIN personnel p ON p.id = v.personnel_id
-            WHERE v.visit_date >= %s
-            ORDER BY v.visit_date DESC
-        ''', (month_start,))
-        month_visits = c.fetchall()
-
-        # Top visit reasons this month
-        c.execute('''
-            SELECT reason, COUNT(*) cnt FROM visits
-            WHERE visit_date >= %s AND reason IS NOT NULL AND reason != ''
-            GROUP BY reason ORDER BY cnt DESC LIMIT 8
-        ''', (month_start,))
-        top_reasons = c.fetchall()
-
-        # Dept visit counts this month
-        c.execute('''
-            SELECT COALESCE(p.department,'Unknown') dept, COUNT(*) cnt
-            FROM visits v JOIN personnel p ON p.id = v.personnel_id
-            WHERE v.visit_date >= %s
-            GROUP BY dept ORDER BY cnt DESC
-        ''', (month_start,))
-        dept_visits = c.fetchall()
-
-    # ── Derived stats ─────────────────────────────────────────────────────────
-    total_personnel  = len(personnel)
-    high_risk        = [p for p in personnel if any(c2 in HIGH_RISK_CONDITIONS for c2 in (p['conditions'] or '').split('|'))]
-    total_high_risk  = len(high_risk)
-    risk_rate        = f'{total_high_risk/total_personnel*100:.1f}%' if total_personnel else '0%'
-    total_visits_mo  = len(month_visits)
-    unique_visitors  = len(set(v['name'] for v in month_visits))
-
-    # Dept breakdown
-    dept_map = {}
-    for p in personnel:
-        d = p['department'] or 'Unknown'
-        if d not in dept_map:
-            dept_map[d] = {'total': 0, 'high_risk': 0}
-        dept_map[d]['total'] += 1
-        if any(c2 in HIGH_RISK_CONDITIONS for c2 in (p['conditions'] or '').split('|')):
-            dept_map[d]['high_risk'] += 1
-
-    # Condition frequency
-    cond_freq = {}
-    for p in personnel:
-        for c2 in (p['conditions'] or '').split('|'):
-            c2 = c2.strip()
-            if c2:
-                cond_freq[c2] = cond_freq.get(c2, 0) + 1
-    top_conds = sorted(cond_freq.items(), key=lambda x: -x[1])[:10]
-
-    # ── PDF Setup ─────────────────────────────────────────────────────────────
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=A4,
-        leftMargin=2*cm, rightMargin=2*cm,
-        topMargin=2*cm, bottomMargin=2*cm
-    )
-
-    GREEN       = colors.HexColor('#1a7a3c')
-    GREEN_LIGHT = colors.HexColor('#e8f5ee')
-    GOLD        = colors.HexColor('#d4b84a')
-    GOLD_LIGHT  = colors.HexColor('#fdf8e8')
-    DARK        = colors.HexColor('#111111')
-    GREY        = colors.HexColor('#555555')
-    LIGHT_GREY  = colors.HexColor('#f6f7f6')
-    BORDER      = colors.HexColor('#e0e0e0')
-    RED_BG      = colors.HexColor('#fdecea')
-    RED_TEXT    = colors.HexColor('#c0392b')
-    BLUE        = colors.HexColor('#2471a3')
-    BLUE_BG     = colors.HexColor('#eaf4fb')
-
-    from reportlab.lib.styles import getSampleStyleSheet
-    styles = getSampleStyleSheet()
-    def sty(name, **kw):
-        return ParagraphStyle(name, parent=styles['Normal'], **kw)
-
-    page_w     = A4[0] - 4*cm
-    h1         = sty('H1',    fontSize=22, fontName='Helvetica-Bold', textColor=DARK, spaceAfter=2)
-    h2         = sty('H2',    fontSize=13, fontName='Helvetica-Bold', textColor=DARK, spaceBefore=14, spaceAfter=6)
-    h3         = sty('H3',    fontSize=9,  fontName='Helvetica-Bold', textColor=GREY, spaceBefore=10, spaceAfter=4, textTransform='uppercase')
-    body       = sty('Body',  fontSize=10, fontName='Helvetica',      textColor=DARK, spaceAfter=4, leading=15)
-    small      = sty('Small', fontSize=8,  fontName='Helvetica',      textColor=GREY)
-    footer_sty = sty('Foot',  fontSize=8,  fontName='Helvetica',      textColor=GREY, alignment=TA_CENTER)
-    cell_label = sty('CL',    fontSize=8,  fontName='Helvetica-Bold', textColor=GREY)
-    cell_val   = sty('CV',    fontSize=16, fontName='Helvetica-Bold', textColor=DARK)
-    cell_sub   = sty('CS',    fontSize=9,  fontName='Helvetica',      textColor=GREY)
-
-    story = []
-
-    # ── Header ────────────────────────────────────────────────────────────────
-    logo_p = Paragraph(
-        '<font name="Helvetica-Bold" size="13" color="#1a7a3c">MMSU Medical</font><br/>'
-        '<font name="Helvetica" size="9" color="#555555">Health Records System</font>',
-        sty('Logo', fontSize=9, fontName='Helvetica', alignment=TA_RIGHT, leading=20)
-    )
-    title_p = Paragraph(
-        f'<font name="Helvetica-Bold" size="22" color="#111111">Monthly Health Report</font><br/>'
-        f'<font name="Helvetica" size="12" color="#555555">{month_str}</font>',
-        sty('TitleP', fontSize=9, fontName='Helvetica', leading=28)
-    )
-    hdr = Table([[title_p, logo_p]], colWidths=[12*cm, 5*cm])
-    hdr.setStyle(TableStyle([
-        ('VALIGN', (0,0),(-1,-1), 'MIDDLE'),
-        ('ALIGN',  (1,0),(1,0),  'RIGHT'),
-    ]))
-    story.append(hdr)
-    story.append(HRFlowable(width='100%', thickness=2, color=GREEN, spaceAfter=14, spaceBefore=10))
-
-    # ── KPI Summary row ───────────────────────────────────────────────────────
-    kpis = [
-        ('Total Personnel',    str(total_personnel),  'Registered in system',  LIGHT_GREY, DARK),
-        ('High-Risk Staff',    str(total_high_risk),  f'{risk_rate} of total',  RED_BG,     RED_TEXT),
-        ('Visits This Month',  str(total_visits_mo),  f'{unique_visitors} unique visitors', GREEN_LIGHT, GREEN),
-        ('Departments',        str(len(dept_map)),    'Active departments',     GOLD_LIGHT, GOLD),
-    ]
-    kpi_cells = []
-    for label, val, sub, bg, vc in kpis:
-        cell = Table([[
-            Paragraph(label, cell_label),
-            Paragraph(val,   sty(f'KV{label}', fontSize=22, fontName='Helvetica-Bold', textColor=vc)),
-            Paragraph(sub,   cell_sub),
-        ]], colWidths=[page_w/4 - 0.3*cm])
-        cell.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0),(-1,-1), bg),
-            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
-            ('TOPPADDING',    (0,0),(-1,-1), 10),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 10),
-            ('LEFTPADDING',   (0,0),(-1,-1), 12),
-            ('RIGHTPADDING',  (0,0),(-1,-1), 12),
-            ('ROUNDEDCORNERS',(0,0),(-1,-1), [4,4,4,4]),
-        ]))
-        kpi_cells.append(cell)
-    kpi_row = Table([kpi_cells], colWidths=[page_w/4]*4)
-    kpi_row.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),4),('RIGHTPADDING',(0,0),(-1,-1),4)]))
-    story.append(kpi_row)
-    story.append(Spacer(1, 16))
-
-    # ── High-Risk Personnel ───────────────────────────────────────────────────
-    story.append(Paragraph('HIGH-RISK PERSONNEL', h3))
-    if high_risk:
-        hr_data = [['Name', 'Department', 'Age', 'Conditions']]
-        for p in sorted(high_risk, key=lambda x: x['name']):
-            hr_conds = [c2 for c2 in (p['conditions'] or '').split('|') if c2 in HIGH_RISK_CONDITIONS]
-            hr_data.append([
-                Paragraph(p['name'],          sty('HRN', fontSize=9,  fontName='Helvetica-Bold', textColor=DARK)),
-                Paragraph(p['department'] or '—', sty('HRD', fontSize=9, fontName='Helvetica', textColor=GREY)),
-                Paragraph(str(p['age'] or '—'), sty('HRA', fontSize=9, fontName='Helvetica', textColor=GREY)),
-                Paragraph(', '.join(hr_conds), sty('HRC', fontSize=9, fontName='Helvetica', textColor=RED_TEXT)),
-            ])
-        hr_tbl = Table(hr_data, colWidths=[page_w*0.30, page_w*0.28, page_w*0.10, page_w*0.32])
-        hr_tbl.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
-            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
-            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
-            ('FONTSIZE',      (0,0),(-1,0),  8),
-            ('ROWBACKGROUNDS',(0,1),(-1,-1), [LIGHT_GREY, colors.white]),
-            ('BACKGROUND',    (0,1),(-1,-1), colors.white),
-            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
-            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
-            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
-            ('TOPPADDING',    (0,0),(-1,-1), 5),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 5),
-            ('LEFTPADDING',   (0,0),(-1,-1), 8),
-            ('RIGHTPADDING',  (0,0),(-1,-1), 8),
-        ]))
-        story.append(hr_tbl)
-    else:
-        story.append(Paragraph('✓ No high-risk personnel recorded.', sty('NoHR', fontSize=10, fontName='Helvetica', textColor=GREEN)))
-    story.append(Spacer(1, 14))
-
-    # ── Department Summary ────────────────────────────────────────────────────
-    story.append(Paragraph('DEPARTMENT BREAKDOWN', h3))
-    dept_data = [['Department', 'Total Staff', 'High-Risk', 'Risk Rate', 'Visits This Month']]
-    dept_visit_map = {r['dept']: r['cnt'] for r in dept_visits}
-    for dept, info in sorted(dept_map.items(), key=lambda x: -x[1]['high_risk']):
-        rate = f'{info["high_risk"]/info["total"]*100:.0f}%' if info['total'] else '0%'
-        dv   = dept_visit_map.get(dept, 0)
-        dept_data.append([dept, str(info['total']), str(info['high_risk']), rate, str(dv)])
-    dept_tbl = Table(dept_data, colWidths=[page_w*0.32, page_w*0.15, page_w*0.15, page_w*0.15, page_w*0.23])
-    dept_tbl.setStyle(TableStyle([
-        ('BACKGROUND',    (0,0),(-1,0),  GREEN),
-        ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
-        ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
-        ('FONTSIZE',      (0,0),(-1,-1), 9),
-        ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
-        ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
-        ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
-        ('TOPPADDING',    (0,0),(-1,-1), 5),
-        ('BOTTOMPADDING', (0,0),(-1,-1), 5),
-        ('LEFTPADDING',   (0,0),(-1,-1), 8),
-        ('RIGHTPADDING',  (0,0),(-1,-1), 8),
-        ('ALIGN',         (1,0),(-1,-1), 'CENTER'),
-    ]))
-    story.append(dept_tbl)
-    story.append(Spacer(1, 14))
-
-    # ── Top Conditions ────────────────────────────────────────────────────────
-    story.append(Paragraph('TOP CONDITIONS AMONG PERSONNEL', h3))
-    if top_conds:
-        max_cnt = top_conds[0][1]
-        cond_data = [['Condition', 'Count', 'Prevalence']]
-        for cond, cnt in top_conds:
-            pct  = f'{cnt/total_personnel*100:.1f}%' if total_personnel else '0%'
-            flag = '⚠' if cond in HIGH_RISK_CONDITIONS else ''
-            cond_data.append([
-                Paragraph(f'{flag} {cond}'.strip(), sty('CN', fontSize=9, fontName='Helvetica-Bold' if cond in HIGH_RISK_CONDITIONS else 'Helvetica', textColor=RED_TEXT if cond in HIGH_RISK_CONDITIONS else DARK)),
-                str(cnt),
-                pct,
-            ])
-        cond_tbl = Table(cond_data, colWidths=[page_w*0.55, page_w*0.20, page_w*0.25])
-        cond_tbl.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
-            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
-            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
-            ('FONTSIZE',      (0,0),(-1,-1), 9),
-            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
-            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
-            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
-            ('TOPPADDING',    (0,0),(-1,-1), 5),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 5),
-            ('LEFTPADDING',   (0,0),(-1,-1), 8),
-            ('RIGHTPADDING',  (0,0),(-1,-1), 8),
-            ('ALIGN',         (1,0),(-1,-1), 'CENTER'),
-        ]))
-        story.append(cond_tbl)
-    story.append(Spacer(1, 14))
-
-    # ── Visit Reasons This Month ──────────────────────────────────────────────
-    if top_reasons:
-        story.append(Paragraph('TOP VISIT REASONS THIS MONTH', h3))
-        reason_data = [['Visit Reason', 'Count']]
-        for r in top_reasons:
-            reason_data.append([r['reason'], str(r['cnt'])])
-        reason_tbl = Table(reason_data, colWidths=[page_w*0.75, page_w*0.25])
-        reason_tbl.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
-            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
-            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
-            ('FONTSIZE',      (0,0),(-1,-1), 9),
-            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
-            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
-            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
-            ('TOPPADDING',    (0,0),(-1,-1), 5),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 5),
-            ('LEFTPADDING',   (0,0),(-1,-1), 8),
-            ('RIGHTPADDING',  (0,0),(-1,-1), 8),
-            ('ALIGN',         (1,0),(-1,-1), 'CENTER'),
-        ]))
-        story.append(reason_tbl)
-        story.append(Spacer(1, 14))
-
-    # ── Recent Visits This Month ──────────────────────────────────────────────
-    if month_visits:
-        story.append(Paragraph('CLINIC VISITS THIS MONTH', h3))
-        visit_data = [['Date', 'Patient', 'Department', 'Reason']]
-        for v in month_visits[:20]:
-            visit_data.append([
-                str(v['visit_date']),
-                Paragraph(v['name'],            sty('VN', fontSize=8, fontName='Helvetica-Bold', textColor=DARK)),
-                Paragraph(v['department'] or '—', sty('VD', fontSize=8, fontName='Helvetica',     textColor=GREY)),
-                Paragraph(v['reason']    or '—', sty('VR', fontSize=8, fontName='Helvetica',     textColor=GREY)),
-            ])
-        visit_tbl = Table(visit_data, colWidths=[page_w*0.18, page_w*0.28, page_w*0.24, page_w*0.30])
-        visit_tbl.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0),(-1,0),  GREEN),
-            ('TEXTCOLOR',     (0,0),(-1,0),  colors.white),
-            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
-            ('FONTSIZE',      (0,0),(-1,-1), 8),
-            ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, LIGHT_GREY]),
-            ('BOX',           (0,0),(-1,-1), 0.5, BORDER),
-            ('GRID',          (0,0),(-1,-1), 0.3, BORDER),
-            ('TOPPADDING',    (0,0),(-1,-1), 4),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 4),
-            ('LEFTPADDING',   (0,0),(-1,-1), 7),
-            ('RIGHTPADDING',  (0,0),(-1,-1), 7),
-        ]))
-        story.append(visit_tbl)
-        if len(month_visits) > 20:
-            story.append(Paragraph(f'Showing 20 of {len(month_visits)} visits this month.', small))
-        story.append(Spacer(1, 14))
-
-    # ── Footer ────────────────────────────────────────────────────────────────
-    story.append(Spacer(1, 10))
-    story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=8))
-    generated = now.strftime('%B %d, %Y at %I:%M %p')
-    story.append(Paragraph(
-        f'Generated on {generated}  ·  MMSU Medical Health Records System  ·  Confidential — For Administration Use Only',
-        footer_sty
-    ))
-
-    doc.build(story)
-    audit('EXPORT_MONTHLY_PDF', f'month={month_str}')
-    buf.seek(0)
-    fname = f'MMSU_Health_Report_{now.strftime("%Y_%m")}.pdf'
-    return Response(buf.getvalue(), mimetype='application/pdf',
-                    headers={'Content-Disposition': f'attachment; filename="{fname}"'})
-
-
 @app.route('/analytics/trends')
 @login_required
 def analytics_trends():
@@ -2519,11 +2238,12 @@ def analytics_trends():
 
         # ── 5. Condition prevalence snapshot (current, not time-series) ──────
         c.execute("""
-            SELECT conditions FROM personnel WHERE conditions IS NOT NULL AND conditions != ''
+            SELECT conditions_arr FROM personnel
+            WHERE conditions_arr IS NOT NULL AND conditions_arr != '{}'
         """)
         cond_counts = {}
-        for (conds_str,) in c.fetchall():
-            for cond in conds_str.split('|'):
+        for (conds_arr,) in c.fetchall():
+            for cond in (conds_arr or []):
                 cond = cond.strip()
                 if cond:
                     cond_counts[cond] = cond_counts.get(cond, 0) + 1
@@ -2631,10 +2351,10 @@ def create_backup():
     """Download a full JSON backup of all data (personnel + visits + departments)."""
     with get_db() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions, photo FROM personnel ORDER BY id')
+        c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions_arr, photo FROM personnel ORDER BY id')
         personnel = [
             {'id': r[0], 'name': r[1], 'age': r[2], 'gender': r[3], 'blood': r[4],
-             'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': r[8]}
+             'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': list(r[8] or [])}
             for r in c.fetchall()
         ]
         c.execute(
@@ -2756,10 +2476,12 @@ def restore_backup():
         if personnel:
             psycopg2.extras.execute_batch(
                 c,
-                'INSERT INTO personnel (id, name, age, gender, blood, department, phone, address, conditions)'
+                'INSERT INTO personnel (id, name, age, gender, blood, department, phone, address, conditions_arr)'
                 ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
                 [(p['id'], p.get('name'), p.get('age'), p.get('gender'), p.get('blood'),
-                  p.get('department'), p.get('phone'), p.get('address'), p.get('conditions'))
+                  p.get('department'), p.get('phone'), p.get('address'),
+                  p.get('conditions', []) if isinstance(p.get('conditions'), list)
+                  else [c2.strip() for c2 in (p.get('conditions') or '').split('|') if c2.strip()])
                  for p in personnel],
             )
             c.execute("SELECT setval('personnel_id_seq', (SELECT COALESCE(MAX(id),0) FROM personnel))")
@@ -2821,6 +2543,38 @@ def change_password():
 def session_ping():
     session.modified = True
     return jsonify({'ok': True, 'timeout_minutes': 30})
+
+
+# ── ADMIN: ONE-TIME BACKFILL ──────────────────────────────────────────────────
+# Hits the DB directly so it works on a live running server without a restart.
+# Safe to call multiple times — the UPDATE only touches rows where conditions
+# TEXT has data and the array is out of sync (i.e. a no-op once migrated).
+
+@app.route('/admin/backfill-conditions', methods=['POST'])
+@login_required
+@csrf_required
+def backfill_conditions():
+    """
+    Force-sync conditions_arr from the legacy pipe-delimited conditions column.
+    Call this once after deploying the conditions_arr migration if the server
+    was already running (so init_db did not re-execute automatically).
+    """
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("""
+            UPDATE personnel
+            SET conditions_arr = array_remove(
+                string_to_array(COALESCE(conditions, ''), '|'),
+                ''
+            )
+            WHERE conditions IS NOT NULL AND conditions != ''
+        """)
+        updated = c.rowcount
+    audit('BACKFILL_CONDITIONS', f'{updated} rows synced')
+    app.logger.info('[backfill] conditions_arr synced for %d rows', updated)
+    return jsonify({'ok': True, 'rows_updated': updated,
+                    'message': f'{updated} personnel records synced.'})
+
 
 # ── GLOBAL ERROR HANDLERS ──────────────────────────────────────────────────────────────────────────────
 
