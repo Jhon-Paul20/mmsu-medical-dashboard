@@ -1781,7 +1781,7 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
           Refresh
         </button>
-        <button class="btn btn-ghost btn-sm" onclick="window.location.href='/reports/medicine-inventory'">
+        <button class="btn btn-ghost btn-sm" onclick="downloadReport('medicine')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           Export Excel
         </button>
@@ -4315,9 +4315,31 @@ Limit to 2 suggestions per condition, max 6 total.`;
   }
 
   // ── DOWNLOAD PATIENT PDF ──
-  function downloadPatientPDF() {
+  async function downloadPatientPDF() {
     if (!currentPersonnelId) return;
-    window.location.href = `/personnel/${currentPersonnelId}/pdf`;
+    try {
+      const res = await fetch(`/personnel/${currentPersonnelId}/pdf`, {
+        headers: { 'Accept': 'application/json, */*' },
+      });
+      if (!res.ok) {
+        let msg = `PDF export failed (${res.status})`;
+        if ((res.headers.get('content-type') || '').includes('application/json')) {
+          const d = await res.json();
+          msg = d.error || msg;
+        }
+        showToast(msg, true);
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const m = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/);
+      a.download = m ? m[1] : 'medical_record.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      showToast('PDF export failed — network error.', true);
+    }
   }
   init();
 
@@ -5203,23 +5225,27 @@ Limit to 2 suggestions per condition, max 6 total.`;
     if (panel) panel.classList.add('active');
   }
 
-  function downloadReport(type) {
+  async function downloadReport(type) {
     let url = '';
+    let fallbackName = 'report';
     switch (type) {
       case 'monthly': {
         const y = document.getElementById('rpt-month-year').value;
         const m = document.getElementById('rpt-month-month').value;
         url = `/reports/monthly?year=${y}&month=${m}`;
+        fallbackName = `monthly_report_${y}_${String(m).padStart(2,'0')}.pdf`;
         break;
       }
       case 'yearly': {
         const y = document.getElementById('rpt-year-year').value;
         url = `/reports/yearly?year=${y}`;
+        fallbackName = `yearly_report_${y}.pdf`;
         break;
       }
       case 'department': {
         const d = encodeURIComponent(document.getElementById('rpt-dept-select').value);
         url = `/reports/department?dept=${d}`;
+        fallbackName = 'dept_report.pdf';
         break;
       }
       case 'consultation': {
@@ -5227,13 +5253,36 @@ Limit to 2 suggestions per condition, max 6 total.`;
         const from = document.getElementById('rpt-consult-from').value;
         const to   = document.getElementById('rpt-consult-to').value;
         url = `/reports/consultation?dept=${dept}&from=${from}&to=${to}`;
+        fallbackName = 'consultation_history.pdf';
         break;
       }
       case 'medicine':
         url = '/reports/medicine-inventory';
+        fallbackName = 'medicine_inventory.xlsx';
         break;
     }
-    if (url) window.location.href = url;
+    if (!url) return;
+    try {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json, */*' } });
+      if (!res.ok) {
+        let msg = `Report generation failed (${res.status})`;
+        if ((res.headers.get('content-type') || '').includes('application/json')) {
+          const d = await res.json();
+          msg = d.error || msg;
+        }
+        showToast(msg, true);
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const m = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/);
+      a.download = m ? m[1] : fallbackName;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      showToast('Report download failed — network error.', true);
+    }
   }
 
   // Patch renderReports (called by showPage when navigating to Reports page)
