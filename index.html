@@ -3551,16 +3551,62 @@ Limit key_findings to 4. Limit recommendations to 4.`;
 
   // ── CSV UPLOAD ──
   let pendingUploadFile = null;
-  function requestUpload(file) {
+  async function requestUpload(file) {
     if (!file) return;
     document.getElementById('csvFileName').textContent = file.name;
     pendingUploadFile = file;
+
+    // ── Run the preview (dry-run) first so we can show real counts ──────────
+    // This validates the CSV and returns personnel + visit counts without
+    // touching the DB. We use those numbers to build an honest warning.
+    let previewData = null;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const pRes = await fetch('/upload?mode=preview', {
+        method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: fd,
+      });
+      if (pRes.ok) {
+        previewData = await pRes.json();
+      } else {
+        const err = await pRes.json();
+        // Validation errors — surface them and abort; no confirm needed.
+        const detail = (err.validation_errors || []).slice(0, 5).join('\n');
+        showToast((err.error || 'Validation failed') + (detail ? '\n' + detail : ''), true);
+        pendingUploadFile = null;
+        document.getElementById('csvFile').value = '';
+        document.getElementById('csvFileName').textContent = 'No file chosen';
+        return;
+      }
+    } catch (_) {
+      // Network error — fall through and show the generic confirm; the real
+      // upload will surface the error if it also fails.
+    }
+
+    // ── Build the confirm body with real numbers ──────────────────────────
+    const incoming  = previewData?.incoming_records ?? '?';
+    const replacing = previewData?.current_records  ?? '?';
+    const visits    = previewData?.visits_count     ?? 0;
+
+    const visitWarning = visits > 0
+      ? `<div style="margin-top:10px;padding:9px 12px;background:var(--danger-bg);border:1px solid rgba(217,85,85,.22);border-radius:8px;font-size:12.5px;color:var(--danger);line-height:1.5;">
+           <strong>⚠ Visit records will also be deleted.</strong><br>
+           ${visits} clinic visit record${visits === 1 ? '' : 's'} linked to current personnel will be
+           permanently removed. Download a full backup first if you need to keep them.
+         </div>`
+      : '';
+
     document.getElementById('confirmIcon').textContent = '⚠️';
     document.getElementById('confirmTitle').textContent = 'Replace all records?';
-    document.getElementById('confirmBody').innerHTML = `Uploading <strong>${file.name}</strong> will <strong style="color:var(--danger);">permanently delete</strong> all existing personnel records and replace them with the file contents. This cannot be undone.`;
+    document.getElementById('confirmBody').innerHTML =
+      `Uploading <strong>${file.name}</strong> will <strong style="color:var(--danger);">permanently delete</strong>
+       all <strong>${replacing}</strong> existing personnel record${replacing === 1 ? '' : 's'} and replace
+       them with <strong>${incoming}</strong> new record${incoming === 1 ? '' : 's'}.
+       This cannot be undone.${visitWarning}`;
     document.getElementById('confirmOkBtn').onclick = confirmUpload;
     document.getElementById('confirmOverlay').classList.add('open');
   }
+
   async function confirmUpload() {
     document.getElementById('confirmOverlay').classList.remove('open');
     if (!pendingUploadFile) return;
@@ -3569,8 +3615,15 @@ Limit key_findings to 4. Limit recommendations to 4.`;
     pendingUploadFile = null;
     const res = await fetch('/upload', { method:'POST', headers:{'X-CSRF-Token':csrfToken}, body:formData });
     const data = await res.json();
-    showToast(data.message || data.error, !res.ok);
-    if (res.ok) await loadPersonnel();
+    if (res.ok) {
+      const visitNote = data.visits_deleted > 0
+        ? ` ${data.visits_deleted} visit record${data.visits_deleted === 1 ? '' : 's'} removed.`
+        : '';
+      showToast((data.message || 'Import complete.') + visitNote);
+      await loadPersonnel();
+    } else {
+      showToast(data.error || 'Upload failed.', true);
+    }
   }
 
   // ── LOGOUT ──
