@@ -227,7 +227,7 @@
     .notif-bell:hover{background:rgba(255,255,255,0.04);color:var(--text);}
     .notif-badge{position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;font-size:9px;font-weight:700;border-radius:10px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;}
     .notif-badge.hidden{display:none;}
-    .notif-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:200;display:none;max-height:440px;overflow:hidden;flex-direction:column;}
+    .notif-dropdown{position:fixed;bottom:70px;left:12px;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:400;display:none;max-height:460px;overflow:hidden;flex-direction:column;}
     .notif-dropdown.open{display:flex;}
     .notif-dropdown-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
     .notif-dropdown-title{font-size:13px;font-weight:600;color:var(--text);}
@@ -680,7 +680,7 @@
 <aside class="sidebar" id="mainSidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
-      <img src="MMSU_LOGO.png" alt="MMSU Logo">
+      <img src="MMSU_LOGO.png" alt="MMSU Logo" onerror="this.style.display='none'">
     </div>
     <div>
       <div class="logo-title">MMSU Medical</div>
@@ -2167,6 +2167,7 @@
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.getElementById('page-' + name).classList.add('active');
     if (btn) btn.classList.add('active');
+    if (typeof _closeNotifDropdown === 'function') _closeNotifDropdown();
     if (name === 'audit') { loadAuditActions(); loadAuditLog(1); }
     if (name === 'reports') renderReports();
     if (name === 'riskReport') { renderRiskReport(); renderRiskTrend(); }
@@ -5423,6 +5424,16 @@ Limit to 2 suggestions per condition, max 6 total.`;
   // ── NOTIFICATIONS ──────────────────────────────────────────────────────────
   let _notifOpen = false;
 
+  function _relativeTime(isoStr) {
+    const d    = new Date(isoStr);
+    const now  = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60)   return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) { const h = Math.floor(diff/3600); return `${h} hour${h>1?'s':''} ago`; }
+    return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  }
+
   async function loadNotifications() {
     try {
       const res  = await fetch('/notifications');
@@ -5433,19 +5444,29 @@ Limit to 2 suggestions per condition, max 6 total.`;
 
       const list = document.getElementById('notifList');
       if (!json.data.length) {
-        list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-3);font-size:12px;">No notifications</div>';
+        list.innerHTML = `
+          <div style="padding:36px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;opacity:.5;">&#x1F514;</div>
+            <div style="font-size:12.5px;font-weight:500;color:var(--text-2);">All caught up</div>
+            <div style="font-size:11px;color:var(--text-3);">No notifications yet</div>
+          </div>`;
         return;
       }
       list.innerHTML = json.data.map(n => `
-        <div class="notif-item ${n.read ? '' : 'unread'}" onclick="markNotifRead(${n.id}, this)">
+        <div class="notif-item ${n.read ? '' : 'unread'}" onclick="markNotifRead(${n.id}, this)" data-id="${n.id}">
           <div class="notif-dot ${n.read ? 'read' : n.level}" style="margin-top:6px;flex-shrink:0;"></div>
           <div style="flex:1;min-width:0;">
             <div class="notif-title">${n.title}</div>
             ${n.body ? `<div class="notif-body">${n.body}</div>` : ''}
-            <div class="notif-time">${new Date(n.created_at).toLocaleString()}</div>
+            <div class="notif-time">${_relativeTime(n.created_at)}</div>
           </div>
         </div>`).join('');
     } catch(e) { console.error('loadNotifications:', e); }
+  }
+
+  function _closeNotifDropdown() {
+    _notifOpen = false;
+    document.getElementById('notifDropdown').classList.remove('open');
   }
 
   function toggleNotifDropdown(e) {
@@ -5458,16 +5479,20 @@ Limit to 2 suggestions per condition, max 6 total.`;
 
   document.addEventListener('click', (e) => {
     if (_notifOpen && !document.getElementById('notifBellWrap').contains(e.target)) {
-      _notifOpen = false;
-      document.getElementById('notifDropdown').classList.remove('open');
+      _closeNotifDropdown();
     }
   });
 
   async function markNotifRead(id, el) {
-    await fetch(`/notifications/${id}/read`, { method: 'POST' });
+    if (!el.classList.contains('unread')) return;
     el.classList.remove('unread');
     el.querySelector('.notif-dot').className = 'notif-dot read';
-    loadNotifications();
+    const badge = document.getElementById('notifBadge');
+    const cur  = parseInt(badge.textContent === '9+' ? '10' : badge.textContent, 10) || 1;
+    const next = cur - 1;
+    badge.textContent = next > 9 ? '9+' : next;
+    badge.classList.toggle('hidden', next <= 0);
+    fetch(`/notifications/${id}/read`, { method: 'POST' }).catch(() => {});
   }
 
   async function markAllNotifRead() {
@@ -5476,6 +5501,18 @@ Limit to 2 suggestions per condition, max 6 total.`;
   }
 
   async function clearAllNotif() {
+    const list = document.getElementById('notifList');
+    list.innerHTML = `
+      <div style="padding:22px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div style="font-size:12.5px;color:var(--text-2);line-height:1.5;">Clear all notifications?<br><span style="font-size:11px;color:var(--text-3);">This cannot be undone.</span></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="loadNotifications()" style="font-size:11px;">Cancel</button>
+          <button class="btn btn-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid rgba(217,85,85,.2);font-size:11px;" onclick="_confirmClearAllNotif()">Yes, clear all</button>
+        </div>
+      </div>`;
+  }
+
+  async function _confirmClearAllNotif() {
     const res = await fetch('/notifications/delete-all', {
       method: 'DELETE',
       headers: { 'X-CSRF-Token': csrfToken },
