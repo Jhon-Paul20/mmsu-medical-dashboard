@@ -586,6 +586,13 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/MMSU_LOGO.png')
+def serve_logo():
+    """Serve the logo from the application base directory."""
+    from flask import send_from_directory
+    return send_from_directory(BASE_DIR, 'MMSU_LOGO.png')
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -2683,7 +2690,6 @@ def get_notifications():
 
 @app.route('/notifications/read-all', methods=['POST'])
 @login_required
-@csrf_required
 def mark_notifications_read():
     with get_db() as conn:
         conn.cursor().execute('UPDATE notifications SET read = TRUE WHERE read = FALSE')
