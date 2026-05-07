@@ -2683,6 +2683,7 @@ def get_notifications():
 
 @app.route('/notifications/read-all', methods=['POST'])
 @login_required
+@csrf_required
 def mark_notifications_read():
     with get_db() as conn:
         conn.cursor().execute('UPDATE notifications SET read = TRUE WHERE read = FALSE')
