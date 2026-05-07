@@ -566,7 +566,7 @@ def login_required(f):
 def csrf_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('X-CSRF-Token') or (request.json or {}).get('_csrf')
+        token = request.headers.get('X-CSRF-Token') or (request.get_json(silent=True) or {}).get('_csrf')
         if not token or token != session.get('csrf_token'):
             return jsonify({'error': 'Invalid CSRF token'}), 403
         return f(*args, **kwargs)
