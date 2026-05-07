@@ -81,7 +81,15 @@ def _get_password_hash() -> str:
                 )
     except Exception:
         pass  # DB not ready yet on first boot — fall through to env default
-    _raw = os.environ.get('ADMIN_PASSWORD', 'mmsu2024')
+    _raw = os.environ.get('ADMIN_PASSWORD')
+    if not _raw:
+        if os.environ.get('FLASK_ENV') == 'production':
+            raise RuntimeError(
+                'ADMIN_PASSWORD environment variable must be set in production. '
+                'Set it in your Railway environment variables.'
+            )
+        _raw = 'mmsu2024'
+        print('[WARNING] ADMIN_PASSWORD not set — using insecure dev default. Set ADMIN_PASSWORD env var.', file=sys.stderr)
     return generate_password_hash(_raw)
 
 # ── DATABASE ──────────────────────────────────────────────────────────────────
