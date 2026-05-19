@@ -586,11 +586,11 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/MMSU_LOGO.png')
+@app.route('/MMSU LOGO.png')
 def serve_logo():
     """Serve the logo from the application base directory."""
     from flask import send_from_directory
-    return send_from_directory(BASE_DIR, 'MMSU_LOGO.png')
+    return send_from_directory(BASE_DIR, 'MMSU LOGO.png')
 
 
 @app.route('/login', methods=['GET', 'POST'])
