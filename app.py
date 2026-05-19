@@ -32,7 +32,7 @@ import psycopg2.extras
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app = Flask(__name__, template_folder=BASE_DIR)
+app = Flask(__name__, template_folder=BASE_DIR, static_folder=os.path.join(BASE_DIR, 'static'))
 # Trust exactly one upstream proxy (Railway/Heroku load balancer) so that
 # request.remote_addr, request.scheme, and request.host reflect the real
 # client values rather than the proxy's.
