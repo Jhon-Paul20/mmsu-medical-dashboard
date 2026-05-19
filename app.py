@@ -32,7 +32,7 @@ import psycopg2.extras
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app = Flask(__name__, template_folder=BASE_DIR, static_folder=os.path.join(BASE_DIR, 'static'))
+app = Flask(__name__, template_folder=BASE_DIR)
 # Trust exactly one upstream proxy (Railway/Heroku load balancer) so that
 # request.remote_addr, request.scheme, and request.host reflect the real
 # client values rather than the proxy's.
@@ -586,11 +586,11 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/MMSU LOGO.png')
+@app.route('/MMSU_LOGO.png')
 def serve_logo():
     """Serve the logo from the application base directory."""
     from flask import send_from_directory
-    return send_from_directory(BASE_DIR, 'MMSU LOGO.png')
+    return send_from_directory(BASE_DIR, 'MMSU_LOGO.png')
 
 
 @app.route('/login', methods=['GET', 'POST'])
