@@ -1475,7 +1475,7 @@ def export_personnel_pdf(pid):
         )
         try:
             resp = groq_client.chat.completions.create(
-                model='llama-3.1-8b-instant',
+                model='openai/gpt-oss-20b',
                 messages=[
                     {'role': 'system', 'content': 'You are a clinical assistant. Respond with valid JSON only.'},
                     {'role': 'user',   'content': sug_prompt},
@@ -1504,7 +1504,7 @@ def export_personnel_pdf(pid):
         )
         try:
             resp2 = groq_client.chat.completions.create(
-                model='llama-3.1-8b-instant',
+                model='openai/gpt-oss-20b',
                 messages=[
                     {'role': 'system', 'content': 'You are a clinical assistant. Respond with valid JSON only.'},
                     {'role': 'user',   'content': risk_prompt},
@@ -1777,7 +1777,7 @@ def ai_models():
     api_key = os.environ.get('GROQ_API_KEY', '').strip()
     if not api_key:
         return jsonify({'error': 'GROQ_API_KEY not set'}), 500
-    return jsonify({'model': 'llama-3.1-8b-instant', 'provider': 'Groq', 'status': 'configured'})
+    return jsonify({'model': 'openai/gpt-oss-20b', 'provider': 'Groq', 'status': 'configured'})
 
 
 @app.route('/ai/suggest', methods=['POST'])
@@ -1811,7 +1811,7 @@ def ai_suggest():
 
     try:
         chat_completion = client.chat.completions.create(
-            model='llama-3.1-8b-instant',
+            model='openai/gpt-oss-20b',
             messages=[
                 {'role': 'system', 'content': 'You are a clinical assistant. You MUST respond with valid JSON only. No explanation, no markdown, no extra text -- just the raw JSON object.'},
                 {'role': 'user',   'content': prompt_text},
