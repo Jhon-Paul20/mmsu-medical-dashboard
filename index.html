@@ -2136,6 +2136,34 @@
   let currentVisitPersonId = null;
   let allDepts = [];
 
+  // ── HTML ESCAPING ──
+  // Any personnel/department/visit field is free text (typed by a clinic user
+  // or imported from CSV) and gets inserted into innerHTML in several places.
+  // Escape before interpolating so stored data can never break out of the
+  // markup or an onclick="" attribute.
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  // For use inside a single-quoted JS string literal embedded in an
+  // onclick="..." attribute, e.g. onclick="foo('${escapeJsAttr(name)}')".
+  // Escapes the attribute delimiter, the JS string delimiter, and HTML
+  // metacharacters so the value can't close either context early.
+  function escapeJsAttr(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   // ── INIT ──
   async function init() {
     await fetchCsrfToken();
@@ -2197,17 +2225,17 @@
     tbody.innerHTML = data.map(p => {
       const risk = isHighRisk(p.conditions);
       return `<tr onclick="openModal(${p.id})">
-        <td class="name-col">${p.name}</td>
+        <td class="name-col">${escapeHtml(p.name)}</td>
         <td>${p.age || '—'}</td>
-        <td>${p.gender}</td>
-        <td><span class="blood-badge">${p.blood || '—'}</span></td>
-        <td>${p.department}</td>
-        <td>${p.phone || '—'}</td>
-        <td class="conditions-cell">${p.conditions.join(', ') || '—'}</td>
+        <td>${escapeHtml(p.gender)}</td>
+        <td><span class="blood-badge">${escapeHtml(p.blood) || '—'}</span></td>
+        <td>${escapeHtml(p.department)}</td>
+        <td>${escapeHtml(p.phone) || '—'}</td>
+        <td class="conditions-cell">${escapeHtml(p.conditions.join(', ')) || '—'}</td>
         <td>${risk ? '<span class="risk-tag high">⚠ High</span>' : '<span class="risk-tag normal">✓ Normal</span>'}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" style="margin-right:4px;" onclick="editPersonnel(${p.id})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${p.name.replace(/'/g,"\\'")}')">Del</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${escapeJsAttr(p.name)}')">Del</button>
         </td>
       </tr>`;
     }).join('');
@@ -2608,7 +2636,7 @@
 
   function populateDeptSelect(selected='') {
     const sel = document.getElementById('pDept');
-    sel.innerHTML = '<option value="">Select…</option>' + allDepts.map(d => `<option value="${d.name}" ${d.name===selected?'selected':''}>${d.name}</option>`).join('');
+    sel.innerHTML = '<option value="">Select…</option>' + allDepts.map(d => `<option value="${escapeHtml(d.name)}" ${d.name===selected?'selected':''}>${escapeHtml(d.name)}</option>`).join('');
   }
 
   async function savePersonnel() {
@@ -2659,7 +2687,7 @@
     if (!matches.length) { hideDuplicateWarning(); return; }
 
     const lines = matches.map(p =>
-      `<strong>${p.name}</strong> — ${p.department || '—'}${p.age ? ', ' + p.age + ' yrs' : ''}
+      `<strong>${escapeHtml(p.name)}</strong> — ${escapeHtml(p.department) || '—'}${p.age ? ', ' + p.age + ' yrs' : ''}
        <span style="margin-left:6px;cursor:pointer;color:var(--accent);font-size:11px;" onclick="openModal(${p.id});document.getElementById('addPersonnelOverlay').classList.remove('open');">View →</span>`
     ).join('<br>');
 
@@ -2827,8 +2855,8 @@
     const list = filter ? allData.filter(p => p.name.toLowerCase().includes(filter.toLowerCase())) : allData;
     container.innerHTML = list.map(p =>
       `<button onclick="selectPerson(${p.id})" style="width:100%;text-align:left;padding:10px 12px;border-radius:8px;border:none;background:${currentVisitPersonId===p.id?'var(--accent-dim)':'transparent'};color:${currentVisitPersonId===p.id?'var(--accent)':'var(--text-2)'};font-family:'Figtree',sans-serif;font-size:13px;cursor:pointer;margin-bottom:4px;transition:all .12s;" onmouseover="if(${p.id}!==${currentVisitPersonId})this.style.background='var(--border)'" onmouseout="if(${p.id}!==${currentVisitPersonId})this.style.background='transparent'">
-        <div style="font-weight:500;color:${currentVisitPersonId===p.id?'var(--accent)':'var(--text)'};">${p.name}</div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${p.department}</div>
+        <div style="font-weight:500;color:${currentVisitPersonId===p.id?'var(--accent)':'var(--text)'};">${escapeHtml(p.name)}</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${escapeHtml(p.department)}</div>
       </button>`
     ).join('');
   }
@@ -2857,8 +2885,8 @@
       `<div class="visit-item">
         <div style="flex:1;">
           <div class="visit-date">${v.visit_date}</div>
-          <div class="visit-reason">${v.reason || 'General Visit'}</div>
-          ${v.notes ? `<div class="visit-notes">${v.notes}</div>` : ''}
+          <div class="visit-reason">${escapeHtml(v.reason) || 'General Visit'}</div>
+          ${v.notes ? `<div class="visit-notes">${escapeHtml(v.notes)}</div>` : ''}
         </div>
         <button class="btn btn-danger btn-sm" onclick="deleteVisit(${v.id})">Delete</button>
       </div>`
@@ -3343,8 +3371,8 @@ Limit key_findings to 4. Limit recommendations to 4.`;
       banner.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px;">
         <span style="font-size:18px;flex-shrink:0;">${bc.icon}</span>
         <div>
-          <div style="font-size:11px;font-weight:700;color:${bc.text};text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;">Overall Status: ${parsed.overall_status}</div>
-          <div style="font-size:13px;color:var(--text);line-height:1.65;">${parsed.executive_summary}</div>
+          <div style="font-size:11px;font-weight:700;color:${bc.text};text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px;">Overall Status: ${escapeHtml(parsed.overall_status)}</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.65;">${escapeHtml(parsed.executive_summary)}</div>
         </div>
       </div>`;
 
@@ -3354,15 +3382,15 @@ Limit key_findings to 4. Limit recommendations to 4.`;
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
             <span style="width:7px;height:7px;border-radius:50%;background:${severityColor[f.severity]||'var(--accent)'};flex-shrink:0;"></span>
-            <span style="font-size:11px;font-weight:700;color:${severityColor[f.severity]||'var(--accent)'};text-transform:uppercase;letter-spacing:.07em;">${f.severity||'medium'}</span>
+            <span style="font-size:11px;font-weight:700;color:${severityColor[f.severity]||'var(--accent)'};text-transform:uppercase;letter-spacing:.07em;">${escapeHtml(f.severity)||'medium'}</span>
           </div>
-          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">${f.title}</div>
-          <div style="font-size:12px;color:var(--text-2);line-height:1.6;">${f.detail}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">${escapeHtml(f.title)}</div>
+          <div style="font-size:12px;color:var(--text-2);line-height:1.6;">${escapeHtml(f.detail)}</div>
         </div>`).join('');
       const riskCard = parsed.risk_analysis ? `
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;${findings.length%2===0?'grid-column:1/-1;':''}">
           <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Risk Profile Analysis</div>
-          <div style="font-size:12.5px;color:var(--text-2);line-height:1.65;">${parsed.risk_analysis}</div>
+          <div style="font-size:12.5px;color:var(--text-2);line-height:1.65;">${escapeHtml(parsed.risk_analysis)}</div>
         </div>` : '';
       document.getElementById('aiSummarySectionGrid').innerHTML = findingCards + riskCard;
 
@@ -3372,7 +3400,7 @@ Limit key_findings to 4. Limit recommendations to 4.`;
         document.getElementById('aiSummaryRecs').innerHTML = recs.map((r,i) =>
           `<div style="display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text-2);line-height:1.6;">
             <span style="background:rgba(232,200,74,0.15);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px;">${i+1}</span>
-            ${r}
+            ${escapeHtml(r)}
           </div>`).join('');
       } else {
         document.getElementById('aiSummaryRecsBox').style.display = 'none';
@@ -3412,7 +3440,7 @@ Limit key_findings to 4. Limit recommendations to 4.`;
     const container = document.getElementById('deptList');
     if (!container) return;
     container.innerHTML = allDepts.length ? allDepts.map(d =>
-      `<div class="dept-item"><span class="dept-name">${d.name}</span><button class="btn btn-danger btn-sm" onclick="deleteDepartment(${d.id},'${d.name}')">Remove</button></div>`
+      `<div class="dept-item"><span class="dept-name">${escapeHtml(d.name)}</span><button class="btn btn-danger btn-sm" onclick="deleteDepartment(${d.id},'${escapeJsAttr(d.name)}')">Remove</button></div>`
     ).join('') : '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No departments added yet.</div>';
   }
 
@@ -3505,7 +3533,7 @@ Limit key_findings to 4. Limit recommendations to 4.`;
             <div class="audit-icon ${classMap[l.action]||'other'}">${iconMap[l.action]||'📋'}</div>
             <div style="flex:1;min-width:0;">
               <div class="audit-action">${l.action.replace(/_/g,' ')}</div>
-              <div class="audit-detail">${l.detail || ''}${l.ip ? ` · IP: ${l.ip}` : ''}</div>
+              <div class="audit-detail">${escapeHtml(l.detail) || ''}${l.ip ? ` · IP: ${escapeHtml(l.ip)}` : ''}</div>
             </div>
             <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
           </div>`).join('')
@@ -3600,7 +3628,7 @@ Limit key_findings to 4. Limit recommendations to 4.`;
     document.getElementById('confirmIcon').textContent = '⚠️';
     document.getElementById('confirmTitle').textContent = 'Replace all records?';
     document.getElementById('confirmBody').innerHTML =
-      `Uploading <strong>${file.name}</strong> will <strong style="color:var(--danger);">permanently delete</strong>
+      `Uploading <strong>${escapeHtml(file.name)}</strong> will <strong style="color:var(--danger);">permanently delete</strong>
        all <strong>${replacing}</strong> existing personnel record${replacing === 1 ? '' : 's'} and replace
        them with <strong>${incoming}</strong> new record${incoming === 1 ? '' : 's'}.
        This cannot be undone.${visitWarning}`;
@@ -3763,8 +3791,8 @@ Limit key_findings to 4. Limit recommendations to 4.`;
                   ${p.photo ? `<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:7px;">` : ri}
                 </div>
                 <div style="flex:1;min-width:0;">
-                  <div style="font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-                  <div style="font-size:11px;color:var(--text-3);">${p.department || '—'}</div>
+                  <div style="font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</div>
+                  <div style="font-size:11px;color:var(--text-3);">${escapeHtml(p.department) || '—'}</div>
                 </div>
                 <div style="display:flex;gap:4px;flex-shrink:0;">
                   ${rHr > 0 ? `<span style="padding:2px 7px;border-radius:12px;font-size:10px;font-weight:700;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);">${rHr} high</span>` : ''}
@@ -3788,13 +3816,13 @@ Limit key_findings to 4. Limit recommendations to 4.`;
           <!-- Info -->
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <div style="font-size:16px;font-weight:700;color:var(--text);">${topPerson.name}</div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);">${escapeHtml(topPerson.name)}</div>
               <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);">
                 ${topPerson._hrCount} High-Risk · ${topPerson._modCount} Moderate
               </span>
             </div>
             <div style="font-size:12px;color:var(--text-3);margin-top:3px;">
-              ${topPerson.department || '—'}&nbsp;·&nbsp;${topPerson.age ? topPerson.age + ' yrs' : 'Age unknown'}&nbsp;·&nbsp;${topPerson.gender || '—'}
+              ${escapeHtml(topPerson.department) || '—'}&nbsp;·&nbsp;${topPerson.age ? topPerson.age + ' yrs' : 'Age unknown'}&nbsp;·&nbsp;${escapeHtml(topPerson.gender) || '—'}
             </div>
             <!-- Condition pills -->
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;">
@@ -3837,13 +3865,13 @@ Limit key_findings to 4. Limit recommendations to 4.`;
       const shown = d.persons.slice(0, 6);
       const extra = d.persons.length - shown.length;
       const personPills = shown.map(p =>
-        `<span class="risk-person-pill" onclick="openModal(${p.id})" title="View ${p.name}"><span class="risk-person-pill-dot"></span>${p.name}</span>`
+        `<span class="risk-person-pill" onclick="openModal(${p.id})" title="View ${escapeHtml(p.name)}"><span class="risk-person-pill-dot"></span>${escapeHtml(p.name)}</span>`
       ).join('') + (extra > 0 ? `<span class="risk-person-pill" style="cursor:default;opacity:.6;">+${extra} more</span>` : '');
 
       return `<div class="risk-dept-card ${level === 'critical' ? 'critical' : ''}">
         <div class="risk-dept-header">
           <div>
-            <div class="risk-dept-name">${d.name}</div>
+            <div class="risk-dept-name">${escapeHtml(d.name)}</div>
             <div class="risk-dept-total">${d.total} personnel total · ${d.highRiskCount} high risk</div>
           </div>
           <span class="risk-dept-badge ${level}">${label}</span>
@@ -4050,10 +4078,10 @@ Limit to 4 medicine suggestions. Focus on medicines commonly available in the Ph
 
       document.getElementById('aiMedLookupGrid').innerHTML = parsed.suggestions.map(s =>
         `<div class="modal-med-card">
-          <div class="modal-med-name">${s.medicine}</div>
-          ${s.dosage ? `<div style="font-size:10px;font-weight:600;color:var(--accent);margin:3px 0 4px;text-transform:uppercase;letter-spacing:.06em;">${s.dosage}</div>` : ''}
-          <div class="modal-med-desc">${s.description}</div>
-          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${s.warning}</div>` : ''}
+          <div class="modal-med-name">${escapeHtml(s.medicine)}</div>
+          ${s.dosage ? `<div style="font-size:10px;font-weight:600;color:var(--accent);margin:3px 0 4px;text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(s.dosage)}</div>` : ''}
+          <div class="modal-med-desc">${escapeHtml(s.description)}</div>
+          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${escapeHtml(s.warning)}</div>` : ''}
         </div>`
       ).join('');
 
@@ -4165,8 +4193,8 @@ Rules: risk_score 0-24=Low, 25-49=Moderate, 50-74=High, 75-100=Critical. Limit r
         `<div style="display:flex;align-items:flex-start;gap:7px;">
           <span style="margin-top:3px;width:7px;height:7px;border-radius:50%;background:${impactColor[f.impact]||'var(--accent)'};flex-shrink:0;"></span>
           <div>
-            <div style="font-size:12px;font-weight:600;color:var(--text);">${f.factor}</div>
-            <div style="font-size:11px;color:var(--text-2);line-height:1.5;">${f.detail}</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);">${escapeHtml(f.factor)}</div>
+            <div style="font-size:11px;color:var(--text-2);line-height:1.5;">${escapeHtml(f.detail)}</div>
           </div>
         </div>`
       ).join('');
@@ -4176,7 +4204,7 @@ Rules: risk_score 0-24=Low, 25-49=Moderate, 50-74=High, 75-100=Critical. Limit r
       const condBox = document.getElementById('aiRiskCondBox');
       if (parsed.conditions_to_monitor?.length) {
         document.getElementById('aiRiskCondList').innerHTML = parsed.conditions_to_monitor.map(c =>
-          `<span style="padding:3px 10px;background:rgba(217,85,85,0.1);border:1px solid rgba(217,85,85,0.2);border-radius:20px;font-size:11px;color:var(--danger);font-weight:500;">${c}</span>`
+          `<span style="padding:3px 10px;background:rgba(217,85,85,0.1);border:1px solid rgba(217,85,85,0.2);border-radius:20px;font-size:11px;color:var(--danger);font-weight:500;">${escapeHtml(c)}</span>`
         ).join('');
         condBox.style.display = 'block';
       } else { condBox.style.display = 'none'; }
@@ -4186,7 +4214,7 @@ Rules: risk_score 0-24=Low, 25-49=Moderate, 50-74=High, 75-100=Critical. Limit r
         document.getElementById('aiRiskActions').innerHTML = parsed.preventive_actions.map((a, i) =>
           `<div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-2);line-height:1.6;">
             <span style="background:rgba(78,201,122,0.15);color:var(--safe);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px;">${i+1}</span>
-            ${a}
+            ${escapeHtml(a)}
           </div>`
         ).join('');
         actBox.style.display = 'block';
@@ -4288,10 +4316,10 @@ Limit to 2 suggestions per condition, max 6 total.`;
       const grid = document.getElementById('aiMedsGrid');
       grid.innerHTML = parsed.suggestions.map(s =>
         `<div class="modal-med-card">
-          <div class="modal-med-cond-label">${s.condition}</div>
-          <div class="modal-med-name">${s.medicine}</div>
-          <div class="modal-med-desc">${s.description}</div>
-          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${s.warning}</div>` : ''}
+          <div class="modal-med-cond-label">${escapeHtml(s.condition)}</div>
+          <div class="modal-med-name">${escapeHtml(s.medicine)}</div>
+          <div class="modal-med-desc">${escapeHtml(s.description)}</div>
+          ${s.warning ? `<div style="font-size:10.5px;color:var(--danger);margin-top:5px;">⚠ ${escapeHtml(s.warning)}</div>` : ''}
         </div>`
       ).join('');
 
@@ -4509,17 +4537,17 @@ Limit to 2 suggestions per condition, max 6 total.`;
           }).join('')
         : '—';
       return `<tr onclick="openModal(${p.id})">
-        <td class="name-col">${p.name}</td>
+        <td class="name-col">${escapeHtml(p.name)}</td>
         <td>${p.age || '—'}</td>
-        <td>${p.gender}</td>
-        <td><span class="blood-badge">${p.blood || '—'}</span></td>
-        <td>${p.department}</td>
-        <td>${p.phone || '—'}</td>
+        <td>${escapeHtml(p.gender)}</td>
+        <td><span class="blood-badge">${escapeHtml(p.blood) || '—'}</span></td>
+        <td>${escapeHtml(p.department)}</td>
+        <td>${escapeHtml(p.phone) || '—'}</td>
         <td class="conditions-cell">${pillsHtml}</td>
         <td>${risk ? '<span class="risk-tag high">⚠ High</span>' : '<span class="risk-tag normal">✓ Normal</span>'}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" style="margin-right:4px;" onclick="editPersonnel(${p.id})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${p.name.replace(/'/g,"\'")}')">Del</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id},'${escapeJsAttr(p.name)}')">Del</button>
         </td>
       </tr>`;
     }).join('');
@@ -4591,8 +4619,8 @@ Limit to 2 suggestions per condition, max 6 total.`;
       container.innerHTML = recent.map(v =>
         `<div class="modal-visit-item">
           <div class="modal-visit-date">${v.visit_date}</div>
-          <div class="modal-visit-reason">${v.reason || 'General Visit'}</div>
-          ${v.notes ? `<div class="modal-visit-notes">${v.notes}</div>` : ''}
+          <div class="modal-visit-reason">${escapeHtml(v.reason) || 'General Visit'}</div>
+          ${v.notes ? `<div class="modal-visit-notes">${escapeHtml(v.notes)}</div>` : ''}
         </div>`
       ).join('') + (visits.length > 3 ? `<div style="font-size:11px;color:var(--text-3);padding:6px 2px;">+ ${visits.length - 3} more visit${visits.length-3===1?'':'s'} — see Patient Visits page</div>` : '');
     } catch(e) {
@@ -5101,7 +5129,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
             const rate = parseInt(d.rate);
             const badgeCls = rate >= 50 ? 'critical' : rate >= 20 ? 'moderate' : 'low';
             return `<tr>
-              <td style="font-weight:500;">${d.name}</td>
+              <td style="font-weight:500;">${escapeHtml(d.name)}</td>
               <td>${d.total}</td>
               <td style="color:${d.highRisk > 0 ? '#c0392b' : '#1e7e45'};font-weight:600;">${d.highRisk}</td>
               <td><span class="risk-badge ${badgeCls}">${d.rate}%</span></td>
@@ -5135,8 +5163,8 @@ Limit to 2 suggestions per condition, max 6 total.`;
       <tbody>
         ${topAtRisk.map((p, i) => `<tr>
           <td style="color:#bbb;font-weight:700;">${i+1}</td>
-          <td style="font-weight:600;">${p.name}</td>
-          <td style="color:#666;">${p.department || '—'}</td>
+          <td style="font-weight:600;">${escapeHtml(p.name)}</td>
+          <td style="color:#666;">${escapeHtml(p.department) || '—'}</td>
           <td>${p.age || '—'}</td>
           <td>${p.gender || '—'}</td>
           <td>${p.conditions.map(c => `<span class="${HIGH_RISK.includes(c) ? 'pill-sm' : 'pill-normal'}">${c}</span>`).join('')}</td>
@@ -5456,8 +5484,8 @@ Limit to 2 suggestions per condition, max 6 total.`;
         <div class="notif-item ${n.read ? '' : 'unread'}" onclick="markNotifRead(${n.id}, this)" data-id="${n.id}">
           <div class="notif-dot ${n.read ? 'read' : n.level}" style="margin-top:6px;flex-shrink:0;"></div>
           <div style="flex:1;min-width:0;">
-            <div class="notif-title">${n.title}</div>
-            ${n.body ? `<div class="notif-body">${n.body}</div>` : ''}
+            <div class="notif-title">${escapeHtml(n.title)}</div>
+            ${n.body ? `<div class="notif-body">${escapeHtml(n.body)}</div>` : ''}
             <div class="notif-time">${_relativeTime(n.created_at)}</div>
           </div>
         </div>`).join('');
@@ -5534,7 +5562,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     document.getElementById('confirmIcon').textContent = '⚠️';
     document.getElementById('confirmTitle').textContent = 'Restore from backup?';
     document.getElementById('confirmBody').innerHTML =
-      `Restoring <strong>${file.name}</strong> will <strong style="color:var(--danger);">permanently replace</strong> all current personnel, visit, and department records. This cannot be undone.`;
+      `Restoring <strong>${escapeHtml(file.name)}</strong> will <strong style="color:var(--danger);">permanently replace</strong> all current personnel, visit, and department records. This cannot be undone.`;
     document.getElementById('confirmOkBtn').onclick = () => confirmRestore(file);
     document.getElementById('confirmOverlay').classList.add('open');
   }
