@@ -39,11 +39,12 @@
 
     /* ── SIDEBAR ── */
     .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;overflow:hidden;}
-    .sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;}
-    .logo-mark{width:48px;height:48px;flex-shrink:0;background:transparent;display:flex;align-items:center;justify-content:center;}
-    .logo-mark img{width:48px;height:48px;object-fit:contain;}
-    .logo-title{font-family:'Instrument Serif',serif;font-size:14.5px;color:var(--text);line-height:1.2;letter-spacing:.01em;}
-    .logo-sub{font-size:10px;color:var(--text-3);margin-top:2px;letter-spacing:.04em;}
+    .sidebar-logo{padding:22px 16px 18px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;flex-shrink:0;}
+    .logo-mark{width:56px;height:56px;flex-shrink:0;background:transparent;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+    .logo-mark img{width:100%;height:100%;object-fit:contain;display:block;}
+    .logo-text-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;}
+    .logo-title{font-family:'Instrument Serif',serif;font-size:16px;color:var(--text);line-height:1.2;letter-spacing:.02em;}
+    .logo-sub{font-size:10.5px;color:var(--text-3);margin-top:2px;letter-spacing:.04em;}
     .sidebar-nav{padding:14px 10px;flex:1;overflow-y:auto;overflow-x:hidden;}
     .sidebar-nav::-webkit-scrollbar{width:2px;}
     .sidebar-nav::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
@@ -680,9 +681,9 @@
 <aside class="sidebar" id="mainSidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
-      <img src="MMSU_LOGO.png" alt="MMSU Logo" onerror="this.style.display='none'">
+      <img src="MMSU_LOGO.png" alt="MMSU Logo" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src='/MMSU_LOGO.png';}else if(this.dataset.retry==='1'){this.dataset.retry='2';this.src='LOGO.png';}else if(this.dataset.retry==='2'){this.dataset.retry='3';this.src='MMSU%20LOGO.png';}">
     </div>
-    <div>
+    <div class="logo-text-wrap">
       <div class="logo-title">MMSU Medical</div>
       <div class="logo-sub">Health Records System</div>
     </div>
