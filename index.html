@@ -732,39 +732,6 @@
     </button>
 
     <div class="sidebar-divider"></div>
-    <div style="padding:6px 10px 2px;display:flex;align-items:center;justify-content:space-between;">
-      <div class="nav-label" style="padding:0;margin:0;">Conditions</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <button class="cond-clear-all" id="condClearAll" onclick="clearConditionFilters()" style="display:none;">Clear all</button>
-        <button id="condVisToggle" onclick="toggleConditionsVisibility()"
-                style="background:none;border:none;cursor:pointer;color:var(--text-3);display:flex;align-items:center;gap:4px;font-size:11px;padding:2px 4px;">
-          <svg id="condVisIcon" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-            <path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z"/><circle cx="10" cy="10" r="2.2"/>
-          </svg>
-          <span id="condVisLabel">Show</span>
-        </button>
-      </div>
-    </div>
-    <div id="condListWrap" style="display:none;">
-      <div class="cond-search-wrap">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3.5 3.5"/></svg>
-        <input class="cond-search" type="text" placeholder="Search conditions…" oninput="searchConditionSidebar(this.value)" id="condSidebarSearch">
-      </div>
-      <div id="condBtnList" style="padding:0 4px;flex:1;overflow-y:auto;max-height:220px;"></div>
-    </div>
-    <div id="condHiddenNote" style="padding:6px 10px;font-size:11.5px;color:var(--text-3);">Hidden — click "Show" to browse or filter by condition.</div>
-
-    <!-- Active condition tags + AND/OR toggle -->
-    <div class="multi-cond-bar" id="multiCondBar" style="display:none;">
-      <div class="multi-cond-tags" id="multiCondTags"></div>
-      <div class="cond-logic-row">
-        <div class="cond-logic-toggle">
-          <button class="cond-logic-btn active" id="logicBtnOR"  onclick="setCondLogic('OR')">OR</button>
-          <button class="cond-logic-btn"        id="logicBtnAND" onclick="setCondLogic('AND')">AND</button>
-        </div>
-        <span style="font-size:10px;color:var(--text-3);" id="condLogicHint">match any</span>
-      </div>
-    </div>
 
   </nav>
 
@@ -2399,84 +2366,13 @@
   // Conditions panel is hidden by default (shoulder-surfing / privacy on shared
   // screens) — the list still builds normally in the background so search and
   // active filters keep working the moment it's revealed.
-  let conditionsVisible = false;
-
-  function toggleConditionsVisibility() {
-    conditionsVisible = !conditionsVisible;
-    const wrap  = document.getElementById('condListWrap');
-    const note  = document.getElementById('condHiddenNote');
-    const label = document.getElementById('condVisLabel');
-    if (!wrap || !note || !label) return;
-    wrap.style.display = conditionsVisible ? 'block' : 'none';
-    note.style.display = conditionsVisible ? 'none'  : 'block';
-    label.textContent  = conditionsVisible ? 'Hide'   : 'Show';
-    if (conditionsVisible) buildConditionSidebar(document.getElementById('condSidebarSearch')?.value || '');
-  }
-
-  function buildConditionSidebar(filterQuery = '') {
-    // Collect all conditions from data, sorted by frequency
-    const freq = {};
-    allData.forEach(p => p.conditions.forEach(c => freq[c] = (freq[c] || 0) + 1));
-    let conditions = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([c]) => c);
-    if (filterQuery) {
-      const q = filterQuery.toLowerCase();
-      conditions = conditions.filter(c => c.toLowerCase().includes(q));
-    }
-    const container = document.getElementById('condBtnList');
-    if (!container) return;
-    if (!conditions.length) {
-      container.innerHTML = `<div style="padding:8px 12px;font-size:11.5px;color:var(--text-3);">No conditions found</div>`;
-      return;
-    }
-    container.innerHTML = conditions.map(c => {
-      const isActive = activeConditions.has(c);
-      const isHigh = HIGH_RISK_SET.has(c);
-      const count = freq[c];
-      return `<button class="cond-btn ${isActive ? 'active' : ''}" data-cond="${c}" onclick="toggleCondition('${c}')">
-        <div class="cond-check">
-          <svg class="cond-check-tick" viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#06090a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <span style="flex:1;${isHigh ? 'color:var(--danger);' : ''}">${c}</span>
-        <span style="font-size:10px;color:var(--text-3);flex-shrink:0;">${count}</span>
-      </button>`;
-    }).join('');
-  }
-
+  // Conditions panel is hidden by default (shoulder-surfing / privacy on shared
   function toggleCondition(cond) {
     if (activeConditions.has(cond)) {
       activeConditions.delete(cond);
     } else {
       activeConditions.add(cond);
     }
-    applyConditionFilter();
-    buildConditionSidebar(document.getElementById('condSidebarSearch')?.value || '');
-    updateConditionTagBar();
-  }
-
-  function updateConditionTagBar() {
-    const bar = document.getElementById('multiCondBar');
-    const tagsEl = document.getElementById('multiCondTags');
-    const clearBtn = document.getElementById('condClearAll');
-
-    if (!activeConditions.size) {
-      if (bar) bar.style.display = 'none';
-      if (clearBtn) clearBtn.style.display = 'none';
-      return;
-    }
-    if (bar) bar.style.display = 'block';
-    if (clearBtn) clearBtn.style.display = '';
-
-    tagsEl.innerHTML = [...activeConditions].map(c => {
-      const cls = HIGH_RISK_SET.has(c) ? 'danger' : '';
-      return `<span class="multi-cond-tag ${cls}">${c}<button onclick="toggleCondition('${c}')" title="Remove">×</button></span>`;
-    }).join('');
-  }
-
-  function setCondLogic(logic) {
-    conditionLogic = logic;
-    document.getElementById('logicBtnOR').classList.toggle('active', logic === 'OR');
-    document.getElementById('logicBtnAND').classList.toggle('active', logic === 'AND');
-    document.getElementById('condLogicHint').textContent = logic === 'OR' ? 'match any' : 'match all';
     applyConditionFilter();
   }
 
@@ -2535,39 +2431,22 @@
 
   function clearConditionFilters() {
     activeConditions.clear();
-    document.getElementById('condSidebarSearch').value = '';
     applyConditionFilter();
-    buildConditionSidebar();
-    updateConditionTagBar();
-  }
-
-  function searchConditionSidebar(q) {
-    buildConditionSidebar(q);
   }
 
   // Legacy compat — kept so existing calls don't break
   function filterData(condition) {
-    if (condition === 'All') {
-      clearConditionFilters();
-    } else {
-      activeConditions.clear();
-      activeConditions.add(condition);
-      applyConditionFilter();
-      buildConditionSidebar();
-      updateConditionTagBar();
-    }
+    activeConditions.clear();
+    if (condition !== 'All') activeConditions.add(condition);
+    applyConditionFilter();
   }
 
   function searchTable(q) {
     applyAllFilters();
   }
 
-  function searchCondition(q) {
-    searchConditionSidebar(q);
-  }
-
   function generateConditionList() {
-    buildConditionSidebar();
+    // Condition sidebar removed — nothing to build.
   }
 
 
@@ -4612,7 +4491,6 @@ Limit to 2 suggestions per condition, max 6 total.`;
     filteredData = allData;
     processData(allData);
     populateDeptFilter();
-    buildConditionSidebar();
     renderPersonPicker();
     // Load first page of the table from the server
     currentPage = 1;
