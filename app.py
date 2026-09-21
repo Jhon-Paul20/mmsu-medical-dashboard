@@ -2714,7 +2714,8 @@ def create_backup():
         c.execute('SELECT id, name, age, gender, blood, department, phone, address, conditions_arr, photo FROM personnel ORDER BY id')
         personnel = [
             {'id': r[0], 'name': r[1], 'age': r[2], 'gender': r[3], 'blood': r[4],
-             'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': list(r[8] or [])}
+             'department': r[5], 'phone': r[6], 'address': r[7], 'conditions': list(r[8] or []),
+             'photo': r[9] or ''}
             for r in c.fetchall()
         ]
         c.execute(
@@ -2789,6 +2790,9 @@ def restore_backup():
                 val_errors.append(f'personnel[{i}]: missing or invalid "id" (integer required)')
             if not p.get('name') or not isinstance(p.get('name'), str):
                 val_errors.append(f'personnel[{i}]: missing or invalid "name"')
+            photo = p.get('photo')
+            if photo and not any(photo.startswith(pre) for pre in ALLOWED_PHOTO_PREFIXES):
+                val_errors.append(f'personnel[{i}]: "photo" is not a recognised image format')
 
     if not isinstance(visits, list):
         val_errors.append('visits must be a list')
@@ -2836,12 +2840,13 @@ def restore_backup():
         if personnel:
             psycopg2.extras.execute_batch(
                 c,
-                'INSERT INTO personnel (id, name, age, gender, blood, department, phone, address, conditions_arr)'
-                ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                'INSERT INTO personnel (id, name, age, gender, blood, department, phone, address, conditions_arr, photo)'
+                ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
                 [(p['id'], p.get('name'), p.get('age'), p.get('gender'), p.get('blood'),
                   p.get('department'), p.get('phone'), p.get('address'),
                   p.get('conditions', []) if isinstance(p.get('conditions'), list)
-                  else [c2.strip() for c2 in (p.get('conditions') or '').split('|') if c2.strip()])
+                  else [c2.strip() for c2 in (p.get('conditions') or '').split('|') if c2.strip()],
+                  p.get('photo') or None)
                  for p in personnel],
             )
             c.execute("SELECT setval('personnel_id_seq', (SELECT COALESCE(MAX(id),0) FROM personnel))")
