@@ -1474,8 +1474,7 @@ def export_personnel_pdf(pid):
                 max_tokens=1024, temperature=0.3,
                 response_format={'type': 'json_object'},
             )
-            import json as _json
-            ai_suggestions = _json.loads(resp.choices[0].message.content)
+            ai_suggestions = json.loads(resp.choices[0].message.content)
         except Exception as e:
             app.logger.warning('[pdf] AI suggestions failed: %s', e)
 
@@ -1503,7 +1502,7 @@ def export_personnel_pdf(pid):
                 max_tokens=1024, temperature=0.3,
                 response_format={'type': 'json_object'},
             )
-            ai_risk = _json.loads(resp2.choices[0].message.content)
+            ai_risk = json.loads(resp2.choices[0].message.content)
         except Exception as e:
             app.logger.warning('[pdf] AI risk prediction failed: %s', e)
 
