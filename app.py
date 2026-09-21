@@ -431,10 +431,13 @@ ALLOWED_PHOTO_PREFIXES = (
 
 # Single source of truth for high-risk conditions.
 # Used by: search filters, add-personnel notifications, PDF export, all reports.
+# Canonical names below match index.html's condition picker (allConditionsList) —
+# keep the two in sync; a mismatch means the frontend can silently offer a
+# checkbox that the backend then rejects with "Unknown condition(s)".
 HIGH_RISK_CONDITIONS = {
-    'Hypertension', 'Diabetes', 'Asthma',
-    'Heart Disease', 'Tuberculosis', 'Cancer', 'HIV/AIDS', 'Epilepsy',
-    'Chronic Kidney Disease', 'Stroke', 'Hepatitis B', 'Hepatitis C',
+    'Hypertension', 'Diabetes', 'Asthma', 'Heart Disease', 'Tuberculosis',
+    'Cancer', 'HIV/AIDS', 'Epilepsy', 'Kidney Disease', 'Stroke',
+    'Hepatitis', 'Liver Disease', 'Pneumonia', 'Lupus',
 }
 
 # Full allowlist of accepted condition values.
@@ -442,9 +445,11 @@ HIGH_RISK_CONDITIONS = {
 # Adding a new condition requires a code change — intentional, prevents
 # typos and naming inconsistencies from corrupting filters and reports.
 VALID_CONDITIONS = HIGH_RISK_CONDITIONS | {
-    'Arthritis', 'Anemia', 'Obesity',
-    'Anxiety', 'Depression', 'Migraine', 'GERD',
-    'Thyroid Disease', 'COPD', 'Allergies', 'Scoliosis',
+    'Allergies', 'Obesity', 'Anemia', 'Arthritis', 'Covid-19', 'Mental Health',
+    'Migraine', 'Ulcer', 'Gastritis', 'Thyroid Disorder', 'Dengue', 'Bronchitis',
+    'Glaucoma', 'Cyst', 'Scoliosis', 'Gallstones', 'Sinusitis', 'Tonsillitis',
+    'GERD', 'Psoriasis', 'Vertigo', 'Gout', 'Hernia',
+    'Anxiety', 'Depression', 'COPD',
 }
 
 
@@ -684,16 +689,22 @@ def search_personnel():
     #   AND logic → @> operator: array contains ALL of the requested values
     #   OR  logic → && operator: array overlaps (shares any element with) the list
     # Both are exact matches — no false positives from substring overlap.
+    #
+    # Guarded on a non-empty cond_list: if conds_raw is truthy but strips down to
+    # nothing (e.g. "," or ", ,"), an empty list makes @> match EVERY row (the
+    # empty set is a subset of any array) and && match NONE — both silently wrong
+    # rather than an error, so we skip the clause entirely in that case.
     if conds_raw:
         cond_list = [c2.strip() for c2 in conds_raw.split(',') if c2.strip()]
-        if logic == 'AND':
-            # conditions_arr @> ARRAY[...] — must contain every requested condition
-            wheres.append('conditions_arr @> %s')
-            params.append(cond_list)
-        else:  # OR
-            # conditions_arr && ARRAY[...] — must contain at least one
-            wheres.append('conditions_arr && %s')
-            params.append(cond_list)
+        if cond_list:
+            if logic == 'AND':
+                # conditions_arr @> ARRAY[...] — must contain every requested condition
+                wheres.append('conditions_arr @> %s')
+                params.append(cond_list)
+            else:  # OR
+                # conditions_arr && ARRAY[...] — must contain at least one
+                wheres.append('conditions_arr && %s')
+                params.append(cond_list)
 
     # ── risk filter → exact array overlap with HIGH_RISK_CONDITIONS set ───────
     if risk == 'high':

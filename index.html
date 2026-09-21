@@ -2361,7 +2361,6 @@
       renderChartEmpty('conditionsOverviewChart', 'No condition data recorded yet');
     } else {
       clearChartEmpty('conditionsOverviewChart');
-      const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
       const condColors = topConds.map(([c]) => HIGH_RISK_SET.has(c) ? 'rgba(224,85,85,0.8)' : 'rgba(91,164,212,0.75)');
       conditionsOverviewChart = new Chart(document.getElementById('conditionsOverviewChart'), {
         type:'bar',
@@ -2394,7 +2393,6 @@
       const q = filterQuery.toLowerCase();
       conditions = conditions.filter(c => c.toLowerCase().includes(q));
     }
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
     const container = document.getElementById('condBtnList');
     if (!container) return;
     if (!conditions.length) {
@@ -2430,7 +2428,6 @@
     const bar = document.getElementById('multiCondBar');
     const tagsEl = document.getElementById('multiCondTags');
     const clearBtn = document.getElementById('condClearAll');
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
 
     if (!activeConditions.size) {
       if (bar) bar.style.display = 'none';
@@ -2578,7 +2575,7 @@
     document.getElementById('modalPhone').textContent = p.phone || '—';
     document.getElementById('modalAddress').textContent = p.address || '—';
     document.getElementById('modalConditions').innerHTML = p.conditions.length
-      ? p.conditions.map(c => `<span class="pill ${HIGH_RISK.includes(c)?'high':''}">${c}</span>`).join('')
+      ? p.conditions.map(c => `<span class="pill ${HIGH_RISK_SET.has(c)?'high':''}">${c}</span>`).join('')
       : '<span style="color:var(--text-3);font-size:13px;">No conditions recorded</span>';
     // Reset AI treatment panel
     document.getElementById('aiPlaceholder').style.display = 'block';
@@ -3219,9 +3216,6 @@
       condCanvas.style.display = 'block';
       if (condTrendChartInst) condTrendChartInst.destroy();
 
-      const HIGH_RISK = new Set(['Cancer','Heart Disease','Tuberculosis','HIV/AIDS','Epilepsy',
-        'Chronic Kidney Disease','Stroke','Hepatitis B','Hepatitis C']);
-
       condTrendChartInst = new Chart(condCanvas, {
         type: 'bar',
         data: {
@@ -3230,7 +3224,7 @@
             label: 'Personnel',
             data: top_conditions.map(c => c.count),
             backgroundColor: top_conditions.map(c =>
-              HIGH_RISK.has(c.condition) ? 'rgba(224,85,85,0.75)' : 'rgba(80,150,200,0.6)'
+              HIGH_RISK_SET.has(c.condition) ? 'rgba(224,85,85,0.75)' : 'rgba(80,150,200,0.6)'
             ),
             borderRadius: 5, borderSkipped: false,
           }]
@@ -3254,7 +3248,6 @@
 
   // ── AI DEPARTMENT HEALTH SUMMARY ──
   async function runAIDeptSummary() {
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
     const selectedDept = document.getElementById('aiSummaryDeptSelect')?.value || 'all';
     const btn         = document.getElementById('aiSummaryBtn');
     const placeholder = document.getElementById('aiSummaryPlaceholder');
@@ -3674,7 +3667,6 @@ Limit key_findings to 4. Limit recommendations to 4.`;
 
   // ── HEALTH RISK REPORT ──
   function renderRiskReport() {
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
     const MODERATE_SET = new Set(['Hypertension','Diabetes','Obesity','Migraine','Arthritis','Gout','Anemia','Asthma','Mental Health','Allergies','Thyroid Disorder']);
 
     const sortVal   = document.getElementById('riskSortSelect')?.value  || 'risk_desc';
@@ -3901,7 +3893,6 @@ Limit key_findings to 4. Limit recommendations to 4.`;
   }
 
   function exportRiskReportCSV() {
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
     const highRiskPersonnel = allData.filter(p => isHighRisk(p.conditions));
     if (!highRiskPersonnel.length) { showToast('No high-risk personnel to export', true); return; }
     const headers = ['Name','Age','Gender','Blood Type','Department','Phone','High-Risk Conditions','All Conditions'];
@@ -3925,10 +3916,18 @@ Limit key_findings to 4. Limit recommendations to 4.`;
   }
 
   // ── HELPERS ──
-  const HIGH_RISK = ['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus'];
-  function isHighRisk(conditions) { return conditions.some(c => HIGH_RISK.includes(c)); }
+  // Single source of truth for "high risk" across the whole dashboard — must
+  // match HIGH_RISK_CONDITIONS in app.py. Every other high-risk check in this
+  // file should reference HIGH_RISK_SET rather than declaring its own copy;
+  // five stale local copies previously omitted Hypertension/Diabetes/Asthma
+  // and a sixth used retired backend names (Chronic Kidney Disease, Hepatitis
+  // B/C), so conditions could show as high-risk in one view and normal in
+  // another.
+  const HIGH_RISK_SET = new Set(['Hypertension','Diabetes','Asthma','Heart Disease','Tuberculosis',
+    'Cancer','HIV/AIDS','Epilepsy','Kidney Disease','Stroke','Hepatitis','Liver Disease','Pneumonia','Lupus']);
+  function isHighRisk(conditions) { return conditions.some(c => HIGH_RISK_SET.has(c)); }
 
-  const allConditionsList = ['Hypertension','Diabetes','Asthma','Heart Disease','Allergies','Obesity','Tuberculosis','Anemia','Cancer','Arthritis','Covid-19','Mental Health','Liver Disease','Kidney Disease','Migraine','Ulcer','Gastritis','Hepatitis','Thyroid Disorder','Pneumonia','HIV/AIDS','Dengue','Stroke','Bronchitis','Epilepsy','Glaucoma','Cyst','Scoliosis','Gallstones','Sinusitis','Tonsillitis','Lupus','GERD','Psoriasis','Vertigo','Gout','Hernia'];
+  const allConditionsList = ['Hypertension','Diabetes','Asthma','Heart Disease','Allergies','Obesity','Tuberculosis','Anemia','Cancer','Arthritis','Covid-19','Mental Health','Liver Disease','Kidney Disease','Migraine','Ulcer','Gastritis','Hepatitis','Thyroid Disorder','Pneumonia','HIV/AIDS','Dengue','Stroke','Bronchitis','Epilepsy','Glaucoma','Cyst','Scoliosis','Gallstones','Sinusitis','Tonsillitis','Lupus','GERD','Psoriasis','Vertigo','Gout','Hernia','Anxiety','Depression','COPD'];
 
   const MEDICINES = {
     'Hypertension':[{name:'Amlodipine',desc:'Calcium channel blocker for blood pressure control.',warn:''},{name:'Losartan',desc:'ARB for hypertension and kidney protection.',warn:''},{name:'Hydrochlorothiazide',desc:'Diuretic for mild hypertension.',warn:''}],
@@ -4532,7 +4531,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
       const pillsHtml = p.conditions.length
         ? p.conditions.map(c => {
             let cls = 'cond-pill';
-            if (HIGH_RISK.includes(c)) cls += ' danger';
+            if (HIGH_RISK_SET.has(c)) cls += ' danger';
             else if (MODERATE.includes(c)) cls += ' warn';
             return `<span class="${cls}">${c}</span>`;
           }).join('')
@@ -4653,7 +4652,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     // Top at-risk individuals
     const topAtRisk = allData
       .filter(p => isHighRisk(p.conditions))
-      .sort((a,b) => b.conditions.filter(c => HIGH_RISK.includes(c)).length - a.conditions.filter(c => HIGH_RISK.includes(c)).length)
+      .sort((a,b) => b.conditions.filter(c => HIGH_RISK_SET.has(c)).length - a.conditions.filter(c => HIGH_RISK_SET.has(c)).length)
       .slice(0, 10);
 
     // Dept breakdown
@@ -5074,7 +5073,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
     </div>
     <div class="cond-list">
       ${topConditions.map(([c,n], i) => {
-        const isHR = HIGH_RISK.includes(c);
+        const isHR = HIGH_RISK_SET.has(c);
         const pct = ((n / total) * 100).toFixed(1);
         const barW = ((n / condMaxVal) * 100).toFixed(1);
         return `<div class="cond-row">
@@ -5168,7 +5167,7 @@ Limit to 2 suggestions per condition, max 6 total.`;
           <td style="color:#666;">${escapeHtml(p.department) || '—'}</td>
           <td>${p.age || '—'}</td>
           <td>${p.gender || '—'}</td>
-          <td>${p.conditions.map(c => `<span class="${HIGH_RISK.includes(c) ? 'pill-sm' : 'pill-normal'}">${c}</span>`).join('')}</td>
+          <td>${p.conditions.map(c => `<span class="${HIGH_RISK_SET.has(c) ? 'pill-sm' : 'pill-normal'}">${c}</span>`).join('')}</td>
         </tr>`).join('')}
       </tbody>
     </table>
@@ -5821,7 +5820,6 @@ Limit to 2 suggestions per condition, max 6 total.`;
     empty.style.display   = 'none';
     badge.textContent     = '';
 
-    const HIGH_RISK_SET = new Set(['Cancer','Heart Disease','HIV/AIDS','Tuberculosis','Stroke','Kidney Disease','Liver Disease','Pneumonia','Epilepsy','Lupus']);
     const highRiskIds   = new Set(allData.filter(p => p.conditions.some(c => HIGH_RISK_SET.has(c))).map(p => p.id));
 
     try {
