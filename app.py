@@ -515,13 +515,13 @@ LOGIN_WINDOW_SECS  = 300  # 5 minutes
 
 def is_rate_limited(ip: str) -> bool:
     """
-    Return True if this IP has hit the login attempt ceiling.
+    Return True if this IP has hit the failed-login ceiling.
 
-    Each call atomically:
-      1. Prunes expired rows for this IP (keeps the table small).
-      2. Counts recent attempts within the window.
-      3. If under the limit, inserts a new attempt row and returns False.
-      4. If at/over the limit, returns True without inserting.
+    Only failed attempts count toward the limit (see record_failed_login) --
+    a successful login clears the IP's history entirely (see
+    clear_login_attempts), so a legitimate admin who logs in often, or
+    mistypes a password once or twice before getting it right, is never
+    locked out. This function only reads/prunes; it never inserts.
 
     On DB error we fail open (return False) so a DB outage doesn't lock
     everyone out, but the error is logged for ops.
@@ -530,7 +530,7 @@ def is_rate_limited(ip: str) -> bool:
     try:
         with get_db() as conn:
             c = conn.cursor()
-            # Prune stale rows for this IP first
+            # Prune stale rows for this IP first (keeps the table small)
             c.execute(
                 'DELETE FROM login_attempts WHERE ip = %s AND attempted_at < %s',
                 (ip, window_start),
@@ -540,13 +540,28 @@ def is_rate_limited(ip: str) -> bool:
                 (ip, window_start),
             )
             count = c.fetchone()[0]
-            if count >= LOGIN_MAX_ATTEMPTS:
-                return True
-            c.execute('INSERT INTO login_attempts (ip) VALUES (%s)', (ip,))
-            return False
+            return count >= LOGIN_MAX_ATTEMPTS
     except Exception:
-        app.logger.error('[rate_limit] DB error during rate limit check for %s', ip, exc_info=True)
+        app.logger.error('[rate_limit] DB error checking rate limit for %s', ip, exc_info=True)
         return False  # fail open — DB outage shouldn't lock out all users
+
+
+def record_failed_login(ip: str) -> None:
+    """Record one failed login attempt for this IP, counted toward the rate limit."""
+    try:
+        with get_db() as conn:
+            conn.cursor().execute('INSERT INTO login_attempts (ip) VALUES (%s)', (ip,))
+    except Exception:
+        app.logger.error('[rate_limit] DB error recording failed login for %s', ip, exc_info=True)
+
+
+def clear_login_attempts(ip: str) -> None:
+    """Clear an IP's failed-login history after a successful login."""
+    try:
+        with get_db() as conn:
+            conn.cursor().execute('DELETE FROM login_attempts WHERE ip = %s', (ip,))
+    except Exception:
+        app.logger.error('[rate_limit] DB error clearing login attempts for %s', ip, exc_info=True)
 
 # ── AUTH / CSRF DECORATORS ────────────────────────────────────────────────────
 
@@ -597,10 +612,12 @@ def login():
             return jsonify({'success': False, 'error': 'Too many login attempts. Please wait 5 minutes.'}), 429
         data = request.json or {}
         if data.get('username') == ADMIN_USERNAME and check_password_hash(_get_password_hash(), data.get('password', '')):
+            clear_login_attempts(ip)
             session.permanent = True
             session['user'] = data['username']
             audit('LOGIN', f'Admin logged in from {request.remote_addr}')
             return jsonify({'success': True})
+        record_failed_login(ip)
         audit('LOGIN_FAIL', f'Failed login attempt for "{data.get("username")}"')
         notify('Failed login attempt', f'Username: {data.get("username","")} from {request.remote_addr}', 'warning')
         return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
