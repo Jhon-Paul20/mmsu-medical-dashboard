@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, Response, request, jsonify, render_template, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
+from jinja2 import TemplateNotFound
 from functools import wraps
 from contextlib import contextmanager
 import csv
@@ -171,38 +172,28 @@ def init_db():
             EXCEPTION WHEN duplicate_column THEN NULL;
             END $$;
         ''')
-        # Step 2: backfill any rows where the array is still empty but the legacy
-        # TEXT column has data. Safe to run repeatedly — the WHERE clause is a no-op
-        # once all rows have been migrated.
+        # Step 2: one-way backfill. For each row that still has legacy pipe-delimited
+        # text, copy it into conditions_arr ONLY if the array is still empty (so we
+        # never clobber edits made through the UI, which write conditions_arr only),
+        # then retire the legacy value by setting it to NULL. Because the WHERE clause
+        # requires a non-empty `conditions`, a migrated row is never touched again --
+        # this is what makes repeated runs safe.
         c.execute('''
             UPDATE personnel
-            SET conditions_arr = (
-                SELECT array_remove(
-                    string_to_array(conditions, '|'),
-                    ''
-                )
-            )
+            SET conditions_arr = CASE
+                    WHEN conditions_arr = '{}'
+                        THEN array_remove(string_to_array(conditions, '|'), '')
+                    ELSE conditions_arr
+                END,
+                conditions = NULL
             WHERE conditions IS NOT NULL
               AND conditions != ''
-              AND conditions_arr = '{}'
         ''')
         # Step 3: add a GIN index so array operators (@>, &&, = ANY) are fast.
         c.execute('''
             CREATE INDEX IF NOT EXISTS idx_personnel_conditions_arr
             ON personnel USING GIN (conditions_arr)
         ''')
-        # Step 4: force a full backfill on every init_db() call so that rows
-        # inserted/updated while the server was still running old code are caught.
-        # Safe to run repeatedly — postgres skips unchanged rows efficiently.
-        c.execute('''
-            UPDATE personnel
-            SET conditions_arr = array_remove(
-                string_to_array(COALESCE(conditions, ''), '|'),
-                ''
-            )
-            WHERE conditions IS NOT NULL AND conditions != ''
-        ''')
-
         c.execute('''
             CREATE TABLE IF NOT EXISTS visits (
                 id           SERIAL PRIMARY KEY,
@@ -2932,10 +2923,12 @@ def backfill_conditions():
         c = conn.cursor()
         c.execute("""
             UPDATE personnel
-            SET conditions_arr = array_remove(
-                string_to_array(COALESCE(conditions, ''), '|'),
-                ''
-            )
+            SET conditions_arr = CASE
+                    WHEN conditions_arr = '{}'
+                        THEN array_remove(string_to_array(conditions, '|'), '')
+                    ELSE conditions_arr
+                END,
+                conditions = NULL
             WHERE conditions IS NOT NULL AND conditions != ''
         """)
         updated = c.rowcount
@@ -2951,13 +2944,23 @@ def backfill_conditions():
 def not_found(e):
     if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
         return jsonify({'error': 'Not found'}), 404
-    return render_template('404.html'), 404
+    try:
+        return render_template('404.html'), 404
+    except TemplateNotFound:
+        # Never let the error page itself raise -- that would escalate a 404
+        # into a 500, and then the 500 handler would fail the same way.
+        app.logger.error('[error] 404.html template is missing from %s', BASE_DIR)
+        return 'Page not found (404).', 404
 
 @app.errorhandler(500)
 def internal_error(e):
     if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
         return jsonify({'error': 'Internal server error'}), 500
-    return render_template('500.html'), 500
+    try:
+        return render_template('500.html'), 500
+    except TemplateNotFound:
+        app.logger.error('[error] 500.html template is missing from %s', BASE_DIR)
+        return 'Internal server error (500).', 500
 
 # ── ENTRYPOINT ────────────────────────────────────────────────────────────────
 
