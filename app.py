@@ -251,6 +251,42 @@ def init_db():
             ON login_attempts (ip, attempted_at)
         ''')
 
+        # ── Medicine inventory ──
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS medicines (
+                id            SERIAL PRIMARY KEY,
+                name          TEXT NOT NULL,
+                category      TEXT,
+                unit          TEXT NOT NULL DEFAULT 'pcs',
+                quantity      INTEGER NOT NULL DEFAULT 0,
+                reorder_level INTEGER NOT NULL DEFAULT 0,
+                expiry_date   DATE,
+                notes         TEXT,
+                created_at    TIMESTAMP DEFAULT NOW(),
+                updated_at    TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        c.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_medicines_name_lower
+            ON medicines (LOWER(name))
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS medicine_transactions (
+                id           SERIAL PRIMARY KEY,
+                medicine_id  INTEGER REFERENCES medicines(id) ON DELETE CASCADE,
+                type         TEXT NOT NULL,
+                quantity     INTEGER NOT NULL,
+                personnel_id INTEGER REFERENCES personnel(id) ON DELETE SET NULL,
+                notes        TEXT,
+                created_by   TEXT,
+                created_at   TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        c.execute('''
+            CREATE INDEX IF NOT EXISTS idx_medtx_medicine_id
+            ON medicine_transactions (medicine_id, created_at DESC)
+        ''')
+
 
 # ── STARTUP HOOK ──────────────────────────────────────────────────────────────
 # init_db() is intentionally NOT called at import time.
@@ -501,6 +537,75 @@ def validate_visit(d: dict) -> str | None:
     if isinstance(notes, str) and len(notes) > 2000:
         return 'notes exceeds 2000 characters.'
     return None
+
+
+# ── MEDICINE INVENTORY VALIDATION ────────────────────────────────────────────
+
+MEDICINE_FIELD_LIMITS = {'name': 256, 'category': 128, 'unit': 32, 'notes': 1024}
+LOW_STOCK_ONLY = 'low'
+EXPIRING_SOON_DAYS = 30
+
+
+def validate_medicine(d: dict) -> str | None:
+    """Return an error string if the medicine payload is invalid, else None."""
+    name = d.get('name', '').strip()
+    if not name:
+        return 'Medicine name is required.'
+    for field, limit in MEDICINE_FIELD_LIMITS.items():
+        val = d.get(field, '')
+        if isinstance(val, str) and len(val) > limit:
+            return f'Field "{field}" exceeds maximum length of {limit} characters.'
+    try:
+        qty = int(d.get('quantity', 0) or 0)
+        reorder = int(d.get('reorder_level', 0) or 0)
+    except (TypeError, ValueError):
+        return 'Quantity and reorder level must be whole numbers.'
+    if qty < 0 or reorder < 0:
+        return 'Quantity and reorder level cannot be negative.'
+    expiry = d.get('expiry_date') or ''
+    if expiry:
+        try:
+            datetime.strptime(expiry, '%Y-%m-%d')
+        except ValueError:
+            return 'expiry_date must be in YYYY-MM-DD format.'
+    return None
+
+
+def validate_stock_move(d: dict) -> str | None:
+    """Shared validation for stock-in / dispense payloads."""
+    try:
+        qty = int(d.get('quantity', 0) or 0)
+    except (TypeError, ValueError):
+        return 'Quantity must be a whole number.'
+    if qty <= 0:
+        return 'Quantity must be greater than zero.'
+    notes = d.get('notes', '')
+    if isinstance(notes, str) and len(notes) > 1024:
+        return 'notes exceeds 1024 characters.'
+    return None
+
+
+def medicine_status(qty: int, reorder: int, expiry_date) -> str:
+    """Compute a single at-a-glance status for a medicine row."""
+    if qty <= 0:
+        return 'out'
+    if expiry_date and (expiry_date - datetime.now().date()).days < 0:
+        return 'expired'
+    if expiry_date and 0 <= (expiry_date - datetime.now().date()).days <= EXPIRING_SOON_DAYS:
+        return 'expiring'
+    if qty <= reorder:
+        return 'low'
+    return 'ok'
+
+
+def row_to_medicine(r):
+    qty, reorder, expiry = r[4], r[5], r[6]
+    return {
+        'id': r[0], 'name': r[1], 'category': r[2] or '', 'unit': r[3],
+        'quantity': qty, 'reorder_level': reorder,
+        'expiry_date': expiry.isoformat() if expiry else None,
+        'notes': r[7] or '', 'status': medicine_status(qty, reorder, expiry),
+    }
 
 # ── RATE LIMITER ──────────────────────────────────────────────────────────────
 #
@@ -1093,6 +1198,202 @@ def delete_department(did):
         c.execute('DELETE FROM departments WHERE id = %s', (did,))
     audit('DELETE_DEPT', row[0])
     return jsonify({'message': 'Department deleted!'})
+
+# ── MEDICINE INVENTORY ────────────────────────────────────────────────────────
+
+@app.route('/medicines')
+@login_required
+def get_medicines():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT id, name, category, unit, quantity, reorder_level, expiry_date, notes
+            FROM medicines ORDER BY name
+        ''')
+        return jsonify([row_to_medicine(r) for r in c.fetchall()])
+
+
+@app.route('/medicines/alerts')
+@login_required
+def get_medicine_alerts():
+    """Low-stock, out-of-stock, and expiring-soon items for banner/badges."""
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT id, name, category, unit, quantity, reorder_level, expiry_date, notes
+            FROM medicines ORDER BY name
+        ''')
+        meds = [row_to_medicine(r) for r in c.fetchall()]
+    return jsonify({
+        'low_stock': [m for m in meds if m['status'] == 'low'],
+        'out_of_stock': [m for m in meds if m['status'] == 'out'],
+        'expiring': [m for m in meds if m['status'] == 'expiring'],
+        'expired': [m for m in meds if m['status'] == 'expired'],
+    })
+
+
+@app.route('/medicines/add', methods=['POST'])
+@login_required
+@csrf_required
+def add_medicine():
+    d = request.json or {}
+    err = validate_medicine(d)
+    if err:
+        return jsonify({'error': err}), 400
+    try:
+        with get_db() as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO medicines (name, category, unit, quantity, reorder_level, expiry_date, notes)
+                VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id
+            ''', (d['name'].strip(), d.get('category', '').strip() or None,
+                  d.get('unit', 'pcs').strip() or 'pcs', int(d.get('quantity', 0) or 0),
+                  int(d.get('reorder_level', 0) or 0), d.get('expiry_date') or None,
+                  d.get('notes', '').strip() or None))
+            mid = c.fetchone()[0]
+            if int(d.get('quantity', 0) or 0) > 0:
+                c.execute('''
+                    INSERT INTO medicine_transactions (medicine_id, type, quantity, notes, created_by)
+                    VALUES (%s,'stock_in',%s,'Initial stock',%s)
+                ''', (mid, int(d.get('quantity', 0)), session.get('user', 'system')))
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({'error': 'A medicine with that name already exists.'}), 409
+    audit('ADD_MEDICINE', d['name'])
+    return jsonify({'message': f'"{d["name"]}" added to inventory!', 'id': mid})
+
+
+@app.route('/medicines/update/<int:mid>', methods=['PUT'])
+@login_required
+@csrf_required
+def update_medicine(mid):
+    d = request.json or {}
+    err = validate_medicine(d)
+    if err:
+        return jsonify({'error': err}), 400
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name FROM medicines WHERE id = %s', (mid,))
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        try:
+            c.execute('''
+                UPDATE medicines SET name=%s, category=%s, unit=%s, reorder_level=%s,
+                       expiry_date=%s, notes=%s, updated_at=NOW()
+                WHERE id=%s
+            ''', (d['name'].strip(), d.get('category', '').strip() or None,
+                  d.get('unit', 'pcs').strip() or 'pcs', int(d.get('reorder_level', 0) or 0),
+                  d.get('expiry_date') or None, d.get('notes', '').strip() or None, mid))
+        except psycopg2.errors.UniqueViolation:
+            return jsonify({'error': 'A medicine with that name already exists.'}), 409
+    audit('UPDATE_MEDICINE', d['name'])
+    return jsonify({'message': 'Medicine updated!'})
+
+
+@app.route('/medicines/delete/<int:mid>', methods=['DELETE'])
+@login_required
+@csrf_required
+def delete_medicine(mid):
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name FROM medicines WHERE id = %s', (mid,))
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        c.execute('DELETE FROM medicines WHERE id = %s', (mid,))
+    audit('DELETE_MEDICINE', row[0])
+    return jsonify({'message': 'Medicine deleted!'})
+
+
+@app.route('/medicines/<int:mid>/stock-in', methods=['POST'])
+@login_required
+@csrf_required
+def medicine_stock_in(mid):
+    d = request.json or {}
+    err = validate_stock_move(d)
+    if err:
+        return jsonify({'error': err}), 400
+    qty = int(d['quantity'])
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name, quantity FROM medicines WHERE id = %s FOR UPDATE', (mid,))
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        name, current = row
+        new_qty = current + qty
+        update_fields = ['quantity = %s', 'updated_at = NOW()']
+        params = [new_qty]
+        if d.get('expiry_date'):
+            try:
+                datetime.strptime(d['expiry_date'], '%Y-%m-%d')
+                update_fields.append('expiry_date = %s')
+                params.append(d['expiry_date'])
+            except ValueError:
+                return jsonify({'error': 'expiry_date must be in YYYY-MM-DD format.'}), 400
+        params.append(mid)
+        c.execute(f'UPDATE medicines SET {", ".join(update_fields)} WHERE id = %s', params)
+        c.execute('''
+            INSERT INTO medicine_transactions (medicine_id, type, quantity, notes, created_by)
+            VALUES (%s,'stock_in',%s,%s,%s)
+        ''', (mid, qty, d.get('notes', '').strip() or None, session.get('user', 'system')))
+    audit('MEDICINE_STOCK_IN', f'{name}: +{qty}')
+    return jsonify({'message': f'Added {qty} {("unit" if qty==1 else "units")} to "{name}".', 'quantity': new_qty})
+
+
+@app.route('/medicines/<int:mid>/dispense', methods=['POST'])
+@login_required
+@csrf_required
+def medicine_dispense(mid):
+    d = request.json or {}
+    err = validate_stock_move(d)
+    if err:
+        return jsonify({'error': err}), 400
+    qty = int(d['quantity'])
+    personnel_id = d.get('personnel_id') or None
+    if personnel_id is not None:
+        try:
+            personnel_id = int(personnel_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid personnel_id.'}), 400
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name, quantity, reorder_level FROM medicines WHERE id = %s FOR UPDATE', (mid,))
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        name, current, reorder = row
+        if qty > current:
+            return jsonify({'error': f'Only {current} {name} in stock.'}), 400
+        new_qty = current - qty
+        c.execute('UPDATE medicines SET quantity=%s, updated_at=NOW() WHERE id=%s', (new_qty, mid))
+        c.execute('''
+            INSERT INTO medicine_transactions (medicine_id, type, quantity, personnel_id, notes, created_by)
+            VALUES (%s,'dispense',%s,%s,%s,%s)
+        ''', (mid, qty, personnel_id, d.get('notes', '').strip() or None, session.get('user', 'system')))
+    audit('MEDICINE_DISPENSE', f'{name}: -{qty}')
+    if new_qty <= reorder:
+        notify(f'Low stock: {name}', f'Only {new_qty} left (reorder level: {reorder}).',
+               'danger' if new_qty == 0 else 'warning')
+    return jsonify({'message': f'Dispensed {qty} {("unit" if qty==1 else "units")} of "{name}".', 'quantity': new_qty})
+
+
+@app.route('/medicines/<int:mid>/transactions')
+@login_required
+def get_medicine_transactions(mid):
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT mt.id, mt.type, mt.quantity, mt.notes, mt.created_by, mt.created_at, p.name
+            FROM medicine_transactions mt
+            LEFT JOIN personnel p ON p.id = mt.personnel_id
+            WHERE mt.medicine_id = %s ORDER BY mt.created_at DESC LIMIT 100
+        ''', (mid,))
+        return jsonify([{
+            'id': r[0], 'type': r[1], 'quantity': r[2], 'notes': r[3] or '',
+            'created_by': r[4] or '', 'created_at': r[5].isoformat() if r[5] else None,
+            'personnel_name': r[6],
+        } for r in c.fetchall()])
 
 # ── AUDIT LOG ─────────────────────────────────────────────────────────────────
 
@@ -2475,6 +2776,48 @@ def report_medicine_inventory():
                       color='888888')
             r += 1
 
+    # ── SHEET 3b: Current Stock (actual tracked inventory) ────────────────────
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT name, category, unit, quantity, reorder_level, expiry_date, notes
+            FROM medicines ORDER BY name
+        ''')
+        stock_rows = c.fetchall()
+
+    ws3b = wb.create_sheet('Current Stock')
+    ws3b.freeze_panes = 'A2'
+    ws3b.row_dimensions[1].height = 30
+
+    STATUS_LABEL = {'ok': 'OK', 'low': '⚠ Low Stock', 'out': '✕ Out of Stock',
+                     'expiring': '⏳ Expiring Soon', 'expired': '☠ Expired'}
+    STATUS_COLOR = {'ok': '1a7a3c', 'low': 'b8860b', 'out': 'c0392b',
+                     'expiring': 'b8860b', 'expired': 'c0392b'}
+
+    h3b = ['Medicine', 'Category', 'Unit', 'Qty on Hand', 'Reorder Level', 'Expiry Date', 'Status', 'Notes']
+    cw3b = [28, 18, 10, 13, 14, 14, 16, 34]
+    for i, (h, w) in enumerate(zip(h3b, cw3b), 1):
+        hdr_cell(ws3b, 1, i, h)
+        ws3b.column_dimensions[get_column_letter(i)].width = w
+
+    if stock_rows:
+        for r, (name, cat, unit, qty, reorder, expiry, notes) in enumerate(stock_rows, 2):
+            status = medicine_status(qty, reorder, expiry)
+            is_flag = status in ('low', 'out', 'expiring', 'expired')
+            fill = RISK_FILL if is_flag else (ALT_FILL if r % 2 == 0 else WHITE)
+            data_cell(ws3b, r, 1, name, bold=True, fill=fill)
+            data_cell(ws3b, r, 2, cat or '—', fill=fill)
+            data_cell(ws3b, r, 3, unit, align='center', fill=fill)
+            data_cell(ws3b, r, 4, qty, align='center', fill=fill)
+            data_cell(ws3b, r, 5, reorder, align='center', fill=fill)
+            data_cell(ws3b, r, 6, expiry.strftime('%Y-%m-%d') if expiry else '—', align='center', fill=fill)
+            data_cell(ws3b, r, 7, STATUS_LABEL[status], align='center', fill=fill,
+                      color=STATUS_COLOR[status], bold=is_flag)
+            data_cell(ws3b, r, 8, notes or '', fill=fill)
+        ws3b.auto_filter.ref = f'A1:H{len(stock_rows)+1}'
+    else:
+        data_cell(ws3b, 2, 1, 'No medicines tracked yet — add stock from the Medicine Stock page.', fill=WHITE)
+
     # ── SHEET 4: Summary Dashboard ────────────────────────────────────────────
     ws4 = wb.create_sheet('Summary')
     ws4.sheet_view.showGridLines = False
@@ -2499,6 +2842,11 @@ def report_medicine_inventory():
         ('Personnel — High Risk', sum(1 for p in personnel if any(c in HIGH_RISK_CONDITIONS for c in p['conds']))),
         ('Most Common Condition', sorted_conds[0][0] if sorted_conds else '—'),
         ('Least Common Condition', sorted_conds[-1][0] if sorted_conds else '—'),
+        ('', ''),
+        ('Medicines Tracked in Stock', len(stock_rows)),
+        ('Low Stock Items', sum(1 for r in stock_rows if medicine_status(r[3], r[4], r[5]) == 'low')),
+        ('Out of Stock Items', sum(1 for r in stock_rows if medicine_status(r[3], r[4], r[5]) == 'out')),
+        ('Expiring Within 30 Days', sum(1 for r in stock_rows if medicine_status(r[3], r[4], r[5]) == 'expiring')),
     ]
     for sr, (label, val) in enumerate(summary_rows, 4):
         if label == 'KPI':

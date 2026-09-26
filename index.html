@@ -145,6 +145,17 @@
     .risk-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:600;letter-spacing:.02em;}
     .risk-tag.high{background:var(--danger-bg);color:var(--danger);}
     .risk-tag.normal{background:var(--safe-bg);color:var(--safe);}
+    .stock-tag{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block;}
+    .stock-tag.ok{background:var(--safe-bg);color:var(--safe);}
+    .stock-tag.low{background:rgba(184,134,11,.12);color:#b8860b;}
+    .stock-tag.expiring{background:rgba(184,134,11,.12);color:#b8860b;}
+    .stock-tag.out{background:var(--danger-bg);color:var(--danger);}
+    .stock-tag.expired{background:var(--danger-bg);color:var(--danger);}
+    .med-tx-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:12.5px;}
+    .med-tx-row:last-child{border-bottom:none;}
+    .med-tx-type{font-weight:600;padding:2px 9px;border-radius:14px;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;}
+    .med-tx-type.stock_in{background:var(--safe-bg);color:var(--safe);}
+    .med-tx-type.dispense{background:var(--danger-bg);color:var(--danger);}
 
     /* ── FORM ELEMENTS ── */
     .form-group{margin-bottom:14px;}
@@ -718,6 +729,11 @@
     <button class="nav-item" onclick="showPage('medanalytics',this)">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="8" y="8" width="3" height="10" rx="1"/><rect x="14" y="4" width="3" height="14" rx="1"/><path d="M3.5 9l4-4 4 3 4-5"/></svg>
       Medicine Analytics
+    </button>
+    <button class="nav-item" onclick="showPage('medstock',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6l7-4 7 4v8l-7 4-7-4V6z"/><path d="M3 6l7 4 7-4M10 10v8"/></svg>
+      Medicine Stock
+      <span id="stockAlertDot" style="display:none;width:6px;height:6px;border-radius:50%;background:var(--danger);margin-left:auto;"></span>
     </button>
 
     <div class="sidebar-divider"></div>
@@ -1841,6 +1857,73 @@
     </div>
   </div>
 
+  <!-- ═══════════════ MEDICINE STOCK PAGE ═══════════════ -->
+  <div class="page" id="page-medstock">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Medicine <em>Stock</em></div>
+        <div class="page-sub">Track quantities on hand, stock-ins, dispensing and expiry</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="openAddMedicineModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add Medicine
+        </button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+      <div class="kpi-card">
+        <div class="kpi-icon gold">💊</div>
+        <div class="kpi-label">Medicines Tracked</div>
+        <div class="kpi-value" id="stockKpiTotal">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(184,134,11,.12);">⚠️</div>
+        <div class="kpi-label">Low Stock</div>
+        <div class="kpi-value" id="stockKpiLow">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:var(--danger-bg);">✕</div>
+        <div class="kpi-label">Out of Stock</div>
+        <div class="kpi-value" id="stockKpiOut">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(184,134,11,.12);">⏳</div>
+        <div class="kpi-label">Expiring ≤30 Days</div>
+        <div class="kpi-value" id="stockKpiExpiring">—</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Medicine Inventory</div>
+          <div class="table-count" id="medStockCountLabel">Loading…</div>
+        </div>
+        <div class="table-actions">
+          <select class="filter-select" id="medStockFilter" onchange="renderMedicineStockTable()">
+            <option value="">All Statuses</option>
+            <option value="ok">OK</option>
+            <option value="low">Low Stock</option>
+            <option value="out">Out of Stock</option>
+            <option value="expiring">Expiring Soon</option>
+            <option value="expired">Expired</option>
+          </select>
+          <input type="text" class="table-search" placeholder="Search medicine or category…" oninput="renderMedicineStockTable()" id="medStockSearch">
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Medicine</th><th>Category</th><th>On Hand</th><th>Reorder Level</th><th>Expiry</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="medStockTable"></tbody>
+      </table>
+    </div>
+  </div>
+
 </main>
 
 <!-- ── PERSONNEL DETAIL MODAL ── -->
@@ -2089,6 +2172,79 @@
   </div>
 </div>
 
+<!-- ── ADD/EDIT MEDICINE MODAL ── -->
+<div class="modal-overlay" id="addMedicineOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="width:480px;">
+    <button class="modal-close" onclick="document.getElementById('addMedicineOverlay').classList.remove('open')">✕</button>
+    <div class="modal-name" id="addMedicineTitle" style="margin-bottom:20px;font-size:20px;">Add Medicine</div>
+    <input type="hidden" id="medId">
+    <div class="form-group"><label class="form-label">Medicine Name</label><input class="form-input" id="medName" placeholder="e.g. Amlodipine 5mg"></div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="medCategory" placeholder="e.g. Antihypertensive"></div>
+      <div class="form-group"><label class="form-label">Unit</label><input class="form-input" id="medUnit" placeholder="e.g. tablet, bottle, box" value="pcs"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Starting Quantity</label><input class="form-input" id="medQuantity" type="number" min="0" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Reorder Level</label><input class="form-input" id="medReorder" type="number" min="0" placeholder="e.g. 20"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Expiry Date <span style="font-weight:400;color:var(--text-3);">optional</span></label><input class="form-input" id="medExpiry" type="date"></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="medNotes" placeholder="Storage instructions, supplier, etc."></textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('addMedicineOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMedicine()">Save Medicine</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── STOCK IN MODAL ── -->
+<div class="modal-overlay" id="stockInOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="width:420px;">
+    <button class="modal-close" onclick="document.getElementById('stockInOverlay').classList.remove('open')">✕</button>
+    <div class="modal-name" style="margin-bottom:4px;font-size:20px;">Stock In</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:18px;" id="stockInMedName"></div>
+    <input type="hidden" id="stockInMedId">
+    <div class="form-group"><label class="form-label">Quantity Received</label><input class="form-input" id="stockInQty" type="number" min="1" placeholder="e.g. 100"></div>
+    <div class="form-group"><label class="form-label">New Expiry Date <span style="font-weight:400;color:var(--text-3);">optional — updates the tracked expiry</span></label><input class="form-input" id="stockInExpiry" type="date"></div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="stockInNotes" placeholder="e.g. Supplier, delivery receipt #"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('stockInOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitStockIn()">Add Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DISPENSE MODAL ── -->
+<div class="modal-overlay" id="dispenseOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="width:420px;">
+    <button class="modal-close" onclick="document.getElementById('dispenseOverlay').classList.remove('open')">✕</button>
+    <div class="modal-name" style="margin-bottom:4px;font-size:20px;">Dispense</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:18px;" id="dispenseMedName"></div>
+    <input type="hidden" id="dispenseMedId">
+    <div class="form-group"><label class="form-label">Quantity</label><input class="form-input" id="dispenseQty" type="number" min="1" placeholder="e.g. 5"></div>
+    <div class="form-group"><label class="form-label">Personnel <span style="font-weight:400;color:var(--text-3);">optional</span></label>
+      <input class="form-input" id="dispensePersonSearch" placeholder="Search name…" oninput="filterDispensePersonList(this.value)" autocomplete="off">
+      <input type="hidden" id="dispensePersonId">
+      <div id="dispensePersonList" style="max-height:140px;overflow-y:auto;margin-top:6px;border:1px solid var(--border);border-radius:8px;display:none;"></div>
+      <div id="dispensePersonSelected" style="display:none;margin-top:6px;font-size:12px;color:var(--accent);"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="dispenseNotes" placeholder="e.g. Reason for dispensing"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('dispenseOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitDispense()">Dispense</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MEDICINE TRANSACTION HISTORY MODAL ── -->
+<div class="modal-overlay" id="medHistoryOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="width:520px;">
+    <button class="modal-close" onclick="document.getElementById('medHistoryOverlay').classList.remove('open')">✕</button>
+    <div class="modal-name" style="margin-bottom:4px;font-size:20px;">Transaction History</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:18px;" id="medHistoryName"></div>
+    <div id="medHistoryList" style="max-height:420px;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <!-- ── CONFIRM MODAL ── -->
 <div class="modal-overlay" id="confirmOverlay" style="z-index:250;">
   <div class="modal" style="max-width:400px;text-align:center;">
@@ -2115,6 +2271,8 @@
   let currentPersonnelId = null;
   let currentVisitPersonId = null;
   let allDepts = [];
+  let allMedicines = [];
+  let medStockAlerts = null;
 
   // ── HTML ESCAPING ──
   // Any personnel/department/visit field is free text (typed by a clinic user
@@ -2151,6 +2309,7 @@
     generateConditionList();
     loadDepartments();
     loadNotifications();
+    refreshMedicineAlerts();
   }
 
   async function fetchCsrfToken() {
@@ -2183,6 +2342,7 @@
     if (name === 'visits') renderPersonPicker();
     if (name === 'medlookup') initMedLookupPage();
     if (name === 'medanalytics') renderMedAnalytics();
+    if (name === 'medstock') loadMedicineStock();
   }
 
   // ── PERSONNEL ──
@@ -3361,6 +3521,213 @@ Limit key_findings to 4. Limit recommendations to 4.`;
     const data = await res.json();
     showToast(data.message || data.error, !res.ok);
     if (res.ok) await loadDepartments();
+  }
+
+  // ── MEDICINE STOCK ──
+  const STOCK_LABEL = { ok:'OK', low:'Low Stock', out:'Out of Stock', expiring:'Expiring Soon', expired:'Expired' };
+
+  async function loadMedicineStock() {
+    const res = await fetch('/medicines');
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    allMedicines = await res.json();
+    renderMedicineStockTable();
+    refreshMedicineAlerts();
+  }
+
+  async function refreshMedicineAlerts() {
+    try {
+      const res = await fetch('/medicines/alerts');
+      if (!res.ok) return;
+      medStockAlerts = await res.json();
+      const dot = document.getElementById('stockAlertDot');
+      const flagged = medStockAlerts.low_stock.length + medStockAlerts.out_of_stock.length + medStockAlerts.expiring.length + medStockAlerts.expired.length;
+      if (dot) dot.style.display = flagged > 0 ? 'block' : 'none';
+    } catch(e) {}
+  }
+
+  function renderMedicineStockTable() {
+    const q = (document.getElementById('medStockSearch')?.value || '').toLowerCase();
+    const statusFilter = document.getElementById('medStockFilter')?.value || '';
+    let rows = allMedicines.filter(m =>
+      (!q || m.name.toLowerCase().includes(q) || (m.category||'').toLowerCase().includes(q)) &&
+      (!statusFilter || m.status === statusFilter)
+    );
+
+    document.getElementById('stockKpiTotal').textContent = allMedicines.length;
+    document.getElementById('stockKpiLow').textContent = allMedicines.filter(m=>m.status==='low').length;
+    document.getElementById('stockKpiOut').textContent = allMedicines.filter(m=>m.status==='out').length;
+    document.getElementById('stockKpiExpiring').textContent = allMedicines.filter(m=>m.status==='expiring').length;
+
+    const tbody = document.getElementById('medStockTable');
+    document.getElementById('medStockCountLabel').textContent =
+      rows.length ? `${rows.length} medicine${rows.length===1?'':'s'}` : 'No results';
+
+    tbody.innerHTML = rows.length ? rows.map(m => `
+      <tr>
+        <td style="font-weight:600;">${escapeHtml(m.name)}</td>
+        <td>${escapeHtml(m.category) || '—'}</td>
+        <td>${m.quantity} ${escapeHtml(m.unit)}</td>
+        <td>${m.reorder_level}</td>
+        <td>${m.expiry_date || '—'}</td>
+        <td><span class="stock-tag ${m.status}">${STOCK_LABEL[m.status]}</span></td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" onclick="openStockInModal(${m.id})">Stock In</button>
+          <button class="btn btn-ghost btn-sm" onclick="openDispenseModal(${m.id})">Dispense</button>
+          <button class="btn btn-ghost btn-sm" onclick="openMedicineHistory(${m.id})">History</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditMedicineModal(${m.id})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteMedicine(${m.id},'${escapeJsAttr(m.name)}')">Delete</button>
+        </td>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px;">No medicines match your filters.</td></tr>';
+  }
+
+  function openAddMedicineModal() {
+    document.getElementById('addMedicineTitle').textContent = 'Add Medicine';
+    document.getElementById('medId').value = '';
+    document.getElementById('medName').value = '';
+    document.getElementById('medCategory').value = '';
+    document.getElementById('medUnit').value = 'pcs';
+    document.getElementById('medQuantity').value = '';
+    document.getElementById('medQuantity').disabled = false;
+    document.getElementById('medReorder').value = '';
+    document.getElementById('medExpiry').value = '';
+    document.getElementById('medNotes').value = '';
+    document.getElementById('addMedicineOverlay').classList.add('open');
+  }
+
+  function openEditMedicineModal(id) {
+    const m = allMedicines.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('addMedicineTitle').textContent = 'Edit Medicine';
+    document.getElementById('medId').value = m.id;
+    document.getElementById('medName').value = m.name;
+    document.getElementById('medCategory').value = m.category;
+    document.getElementById('medUnit').value = m.unit;
+    document.getElementById('medQuantity').value = m.quantity;
+    document.getElementById('medQuantity').disabled = true; // change via Stock In / Dispense only
+    document.getElementById('medReorder').value = m.reorder_level;
+    document.getElementById('medExpiry').value = m.expiry_date || '';
+    document.getElementById('medNotes').value = m.notes;
+    document.getElementById('addMedicineOverlay').classList.add('open');
+  }
+
+  async function saveMedicine() {
+    const id = document.getElementById('medId').value;
+    const body = {
+      name: document.getElementById('medName').value.trim(),
+      category: document.getElementById('medCategory').value.trim(),
+      unit: document.getElementById('medUnit').value.trim() || 'pcs',
+      quantity: parseInt(document.getElementById('medQuantity').value || 0, 10),
+      reorder_level: parseInt(document.getElementById('medReorder').value || 0, 10),
+      expiry_date: document.getElementById('medExpiry').value || null,
+      notes: document.getElementById('medNotes').value.trim(),
+    };
+    if (!body.name) { showToast('Medicine name is required', true); return; }
+    const url = id ? `/medicines/update/${id}` : '/medicines/add';
+    const res = await fetch(url, { method: id ? 'PUT' : 'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) { document.getElementById('addMedicineOverlay').classList.remove('open'); await loadMedicineStock(); }
+  }
+
+  async function deleteMedicine(id, name) {
+    if (!confirm(`Delete "${name}" from inventory? This removes its stock history too.`)) return;
+    const res = await fetch(`/medicines/delete/${id}`, { method:'DELETE', headers:{'X-CSRF-Token':csrfToken} });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) await loadMedicineStock();
+  }
+
+  function openStockInModal(id) {
+    const m = allMedicines.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('stockInMedId').value = id;
+    document.getElementById('stockInMedName').textContent = `${m.name} — currently ${m.quantity} ${m.unit} on hand`;
+    document.getElementById('stockInQty').value = '';
+    document.getElementById('stockInExpiry').value = '';
+    document.getElementById('stockInNotes').value = '';
+    document.getElementById('stockInOverlay').classList.add('open');
+  }
+
+  async function submitStockIn() {
+    const id = document.getElementById('stockInMedId').value;
+    const body = {
+      quantity: parseInt(document.getElementById('stockInQty').value || 0, 10),
+      expiry_date: document.getElementById('stockInExpiry').value || undefined,
+      notes: document.getElementById('stockInNotes').value.trim(),
+    };
+    if (!body.quantity || body.quantity <= 0) { showToast('Enter a quantity greater than zero', true); return; }
+    const res = await fetch(`/medicines/${id}/stock-in`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) { document.getElementById('stockInOverlay').classList.remove('open'); await loadMedicineStock(); }
+  }
+
+  function openDispenseModal(id) {
+    const m = allMedicines.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('dispenseMedId').value = id;
+    document.getElementById('dispenseMedName').textContent = `${m.name} — ${m.quantity} ${m.unit} available`;
+    document.getElementById('dispenseQty').value = '';
+    document.getElementById('dispenseNotes').value = '';
+    document.getElementById('dispensePersonSearch').value = '';
+    document.getElementById('dispensePersonId').value = '';
+    document.getElementById('dispensePersonList').style.display = 'none';
+    document.getElementById('dispensePersonSelected').style.display = 'none';
+    document.getElementById('dispenseOverlay').classList.add('open');
+  }
+
+  function filterDispensePersonList(q) {
+    const listEl = document.getElementById('dispensePersonList');
+    document.getElementById('dispensePersonId').value = '';
+    document.getElementById('dispensePersonSelected').style.display = 'none';
+    if (!q || q.length < 2) { listEl.style.display = 'none'; return; }
+    const matches = allData.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+    listEl.innerHTML = matches.map(p =>
+      `<div style="padding:8px 10px;cursor:pointer;font-size:12.5px;border-bottom:1px solid var(--border);" onmousedown="selectDispensePerson(${p.id},'${escapeJsAttr(p.name)}')">${escapeHtml(p.name)} <span style="color:var(--text-3);">— ${escapeHtml(p.department||'')}</span></div>`
+    ).join('') || '<div style="padding:8px 10px;font-size:12px;color:var(--text-3);">No match</div>';
+    listEl.style.display = 'block';
+  }
+
+  function selectDispensePerson(id, name) {
+    document.getElementById('dispensePersonId').value = id;
+    document.getElementById('dispensePersonSearch').value = '';
+    document.getElementById('dispensePersonList').style.display = 'none';
+    const sel = document.getElementById('dispensePersonSelected');
+    sel.style.display = 'block';
+    sel.innerHTML = `Selected: <strong>${escapeHtml(name)}</strong> <a href="#" onclick="event.preventDefault();document.getElementById('dispensePersonId').value='';this.parentElement.style.display='none';">clear</a>`;
+  }
+
+  async function submitDispense() {
+    const id = document.getElementById('dispenseMedId').value;
+    const body = {
+      quantity: parseInt(document.getElementById('dispenseQty').value || 0, 10),
+      personnel_id: document.getElementById('dispensePersonId').value || null,
+      notes: document.getElementById('dispenseNotes').value.trim(),
+    };
+    if (!body.quantity || body.quantity <= 0) { showToast('Enter a quantity greater than zero', true); return; }
+    const res = await fetch(`/medicines/${id}/dispense`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify(body) });
+    const data = await res.json();
+    showToast(data.message || data.error, !res.ok);
+    if (res.ok) { document.getElementById('dispenseOverlay').classList.remove('open'); await loadMedicineStock(); }
+  }
+
+  async function openMedicineHistory(id) {
+    const m = allMedicines.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('medHistoryName').textContent = m.name;
+    document.getElementById('medHistoryList').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-3);font-size:12.5px;">Loading…</div>';
+    document.getElementById('medHistoryOverlay').classList.add('open');
+    const res = await fetch(`/medicines/${id}/transactions`);
+    const tx = await res.json();
+    document.getElementById('medHistoryList').innerHTML = tx.length ? tx.map(t => `
+      <div class="med-tx-row">
+        <div>
+          <span class="med-tx-type ${t.type}">${t.type === 'stock_in' ? 'Stock In' : 'Dispense'}</span>
+          <div style="margin-top:4px;color:var(--text-2);">${t.type==='stock_in'?'+':'−'}${t.quantity} ${escapeHtml(m.unit)}${t.personnel_name ? ' → ' + escapeHtml(t.personnel_name) : ''}</div>
+          ${t.notes ? `<div style="color:var(--text-3);font-size:11.5px;margin-top:2px;">${escapeHtml(t.notes)}</div>` : ''}
+        </div>
+        <div style="text-align:right;color:var(--text-3);font-size:11px;white-space:nowrap;">${t.created_at ? new Date(t.created_at).toLocaleDateString() : ''}<br>${escapeHtml(t.created_by||'')}</div>
+      </div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--text-3);font-size:12.5px;">No transactions yet.</div>';
   }
 
   // ── AUDIT LOG ──
