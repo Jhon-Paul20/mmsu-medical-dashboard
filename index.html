@@ -1606,6 +1606,70 @@
       </div>
     </div>
 
+    <!-- Condition × Department Heatmap -->
+    <div class="risk-summary-card" style="margin-top:20px;">
+      <div class="risk-summary-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Condition Hotspots by Department
+      </div>
+      <div style="font-size:11.5px;color:var(--text-3);margin-bottom:16px;">Where each top condition is concentrated — darker cells mean more affected personnel in that department.</div>
+      <div class="meda-heatmap-wrap">
+        <table class="meda-heatmap" id="condHeatmapTable">
+          <thead id="condHeatmapHead"></thead>
+          <tbody id="condHeatmapBody"></tbody>
+        </table>
+      </div>
+      <div id="condHeatmapEmpty" style="display:none;padding:20px 0;font-size:12.5px;color:var(--text-3);text-align:center;">No condition data recorded yet.</div>
+    </div>
+
+    <!-- Recurring / Chronic Visitors -->
+    <div class="risk-summary-card" style="margin-top:20px;">
+      <div class="risk-summary-title" style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M17.5 12a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/><path d="M12 9v3l2 2"/></svg>
+          Recurring &amp; Chronic Visitors
+        </span>
+        <select id="chronicMinVisits" class="filter-select" style="font-size:11px;padding:4px 8px;" onchange="renderChronicCases()">
+          <option value="2">2+ visits</option>
+          <option value="3" selected>3+ visits</option>
+          <option value="5">5+ visits</option>
+        </select>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-3);margin-bottom:16px;">Personnel with repeated clinic visits over the last 12 months — worth a closer follow-up.</div>
+      <div id="chronicCasesLoading" style="padding:20px 0;font-size:12px;color:var(--text-3);">Loading…</div>
+      <div id="chronicCasesEmpty" style="display:none;padding:20px 0;font-size:12.5px;color:var(--text-3);text-align:center;">No personnel meet this threshold yet.</div>
+      <div id="chronicCasesTableWrap" style="display:none;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 10px;font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Name</th>
+              <th style="text-align:left;padding:6px 10px;font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Department</th>
+              <th style="text-align:center;padding:6px 10px;font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Visits</th>
+              <th style="text-align:left;padding:6px 10px;font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Most Common Reason</th>
+              <th style="text-align:left;padding:6px 10px;font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Last Visit</th>
+              <th style="text-align:center;padding:6px 10px;font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);">Flag</th>
+            </tr>
+          </thead>
+          <tbody id="chronicCasesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Year-over-Year Comparison -->
+    <div class="risk-summary-card" style="margin-top:20px;">
+      <div class="risk-summary-title" style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+          Year-over-Year Visit Comparison
+        </span>
+        <span id="yoyBadge" style="font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;letter-spacing:.04em;"></span>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-3);margin-bottom:16px;">Compares clinic visit volume month-by-month against the same period last year.</div>
+      <div style="position:relative;height:220px;">
+        <canvas id="yoyChart"></canvas>
+      </div>
+    </div>
+
   </div>
 
   <!-- ═══════════════ SETTINGS PAGE ═══════════════ -->
@@ -2337,7 +2401,7 @@
     if (typeof _closeNotifDropdown === 'function') _closeNotifDropdown();
     if (name === 'audit') { loadAuditActions(); loadAuditLog(1); }
     if (name === 'reports') renderReports();
-    if (name === 'riskReport') { renderRiskReport(); renderRiskTrend(); }
+    if (name === 'riskReport') { renderRiskReport(); renderRiskTrend(); renderConditionHeatmap(); renderChronicCases(); renderYoyChart(); }
     if (name === 'settings') loadDepartments();
     if (name === 'visits') renderPersonPicker();
     if (name === 'medlookup') initMedLookupPage();
@@ -6262,6 +6326,135 @@ Limit to 2 suggestions per condition, max 6 total.`;
 
     } catch(e) {
       loading.innerHTML = '<span style="color:var(--danger);font-size:12px;">Failed to load trend data.</span>';
+    }
+  }
+
+  // ── CONDITION × DEPARTMENT HEATMAP ──
+  function renderConditionHeatmap() {
+    const condCounts = {}, deptCondMap = {};
+    allData.forEach(p => {
+      const dept = p.department || 'Unassigned';
+      if (!deptCondMap[dept]) deptCondMap[dept] = {};
+      (p.conditions || []).forEach(c => {
+        condCounts[c] = (condCounts[c] || 0) + 1;
+        deptCondMap[dept][c] = (deptCondMap[dept][c] || 0) + 1;
+      });
+    });
+    const topConds = Object.entries(condCounts).sort((a,b) => b[1]-a[1]).slice(0, 8).map(([c]) => c);
+    const depts = Object.keys(deptCondMap).sort((a,b) => {
+      const totalA = Object.values(deptCondMap[a]).reduce((s,v)=>s+v,0);
+      const totalB = Object.values(deptCondMap[b]).reduce((s,v)=>s+v,0);
+      return totalB - totalA;
+    });
+    const head = document.getElementById('condHeatmapHead');
+    const body = document.getElementById('condHeatmapBody');
+    const empty = document.getElementById('condHeatmapEmpty');
+
+    if (!depts.length || !topConds.length) {
+      head.innerHTML = ''; body.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    const condMax = {};
+    topConds.forEach(c => { condMax[c] = Math.max(...depts.map(d => deptCondMap[d]?.[c] || 0)); });
+
+    head.innerHTML = `<tr><th>Department</th><th style="text-align:center;">Total</th>${topConds.map(c => {
+      const isH = HIGH_RISK_SET.has(c);
+      return `<th style="text-align:center;color:${isH?'var(--danger)':'var(--text-3)'};">${escapeHtml(c)}${isH?' ⚠':''}</th>`;
+    }).join('')}</tr>`;
+
+    body.innerHTML = depts.map(dept => {
+      const dTotal = allData.filter(p => (p.department||'Unassigned') === dept).length;
+      return `<tr>
+        <td class="meda-hm-dept">${escapeHtml(dept)}</td>
+        <td class="meda-hm-cell" style="color:var(--text-2);font-weight:600;">${dTotal}</td>
+        ${topConds.map(c => {
+          const v = deptCondMap[dept]?.[c] || 0;
+          return `<td class="meda-hm-cell" style="background:${heatColor(v,condMax[c])};color:${heatTextColor(v,condMax[c])};">${v||''}</td>`;
+        }).join('')}
+      </tr>`;
+    }).join('');
+  }
+
+  // ── RECURRING / CHRONIC VISITORS ──
+  async function renderChronicCases() {
+    const minVisits = document.getElementById('chronicMinVisits')?.value || 3;
+    const loading = document.getElementById('chronicCasesLoading');
+    const empty = document.getElementById('chronicCasesEmpty');
+    const wrap = document.getElementById('chronicCasesTableWrap');
+    loading.style.display = 'block'; empty.style.display = 'none'; wrap.style.display = 'none';
+    try {
+      const res = await fetch(`/analytics/chronic-cases?min_visits=${minVisits}&window_months=12`);
+      const data = await res.json();
+      const cases = data.cases || [];
+      loading.style.display = 'none';
+      if (!cases.length) { empty.style.display = 'block'; return; }
+      wrap.style.display = 'block';
+      document.getElementById('chronicCasesBody').innerHTML = cases.map(cs => {
+        const flag = cs.visit_count >= 5
+          ? '<span class="stock-tag out">Chronic</span>'
+          : '<span class="stock-tag low">Recurring</span>';
+        return `<tr>
+          <td style="padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;">${escapeHtml(cs.name)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-2);">${escapeHtml(cs.department)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:center;">${cs.visit_count}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-2);">${escapeHtml(cs.top_reason || '—')}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-3);">${cs.last_visit || '—'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:center;">${flag}</td>
+        </tr>`;
+      }).join('');
+    } catch(e) {
+      loading.innerHTML = '<span style="color:var(--danger);font-size:12px;">Failed to load recurring visitor data.</span>';
+    }
+  }
+
+  // ── YEAR-OVER-YEAR COMPARISON ──
+  let _yoyChartInst = null;
+  async function renderYoyChart() {
+    try {
+      const res = await fetch('/analytics/yoy');
+      const data = await res.json();
+      const badge = document.getElementById('yoyBadge');
+      if (data.pct_change === null || data.pct_change === undefined) {
+        badge.textContent = 'No prior-year data'; badge.style.cssText = 'background:var(--surface2);color:var(--text-3);';
+      } else if (data.pct_change > 0) {
+        badge.textContent = `▲ +${data.pct_change}% vs ${data.previous_year}`;
+        badge.style.cssText = 'background:var(--danger-bg);color:var(--danger);border:1px solid rgba(224,85,85,0.2);';
+      } else if (data.pct_change < 0) {
+        badge.textContent = `▼ ${data.pct_change}% vs ${data.previous_year}`;
+        badge.style.cssText = 'background:rgba(78,201,122,0.08);color:var(--safe);border:1px solid rgba(78,201,122,0.2);';
+      } else {
+        badge.textContent = '→ Flat vs last year'; badge.style.cssText = 'background:rgba(212,184,74,0.1);color:var(--accent);border:1px solid rgba(212,184,74,0.2);';
+      }
+
+      if (_yoyChartInst) { _yoyChartInst.destroy(); _yoyChartInst = null; }
+      const ctx = document.getElementById('yoyChart').getContext('2d');
+      const TC = 'rgba(240,237,232,0.3)', GC = 'rgba(255,255,255,0.04)', CF = { family:'Figtree', size:10 };
+      _yoyChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [
+            { label: String(data.previous_year), data: data.previous, backgroundColor: 'rgba(240,237,232,0.14)', borderRadius: 4 },
+            { label: String(data.current_year), data: data.current, backgroundColor: 'rgba(212,184,74,0.75)', borderRadius: 4 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { color: TC, font: CF, boxWidth: 12 } },
+            tooltip: { backgroundColor: '#162019', titleColor: '#f0ede8', bodyColor: 'rgba(240,237,232,0.7)', padding: 10 },
+          },
+          scales: {
+            x: { ticks: { color: TC, font: CF }, grid: { color: GC } },
+            y: { beginAtZero: true, ticks: { stepSize: 1, color: TC, font: CF }, grid: { color: GC } },
+          },
+        }
+      });
+    } catch(e) {
+      console.error('YoY chart failed', e);
     }
   }
 

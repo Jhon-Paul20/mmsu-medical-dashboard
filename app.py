@@ -3032,6 +3032,96 @@ def analytics_trends():
     })
 
 
+@app.route('/analytics/chronic-cases')
+@login_required
+def analytics_chronic_cases():
+    """
+    Personnel with repeated clinic visits — flags recurring/chronic cases.
+
+    Query params:
+      min_visits    – minimum visit count to qualify (default 3)
+      window_months – lookback window in months (default 12)
+    """
+    try:
+        min_visits = max(2, int(request.args.get('min_visits', 3)))
+    except (TypeError, ValueError):
+        min_visits = 3
+    try:
+        window_months = max(1, int(request.args.get('window_months', 12)))
+    except (TypeError, ValueError):
+        window_months = 12
+    cutoff = (datetime.now() - timedelta(days=window_months * 31)).date()
+
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('''
+            WITH recent_visits AS (
+                SELECT personnel_id, visit_date,
+                       COALESCE(NULLIF(TRIM(reason), ''), 'Unspecified') AS reason
+                FROM visits WHERE visit_date >= %s
+            ),
+            counts AS (
+                SELECT personnel_id, COUNT(*) AS total, MAX(visit_date) AS last_visit
+                FROM recent_visits GROUP BY personnel_id HAVING COUNT(*) >= %s
+            ),
+            reason_rank AS (
+                SELECT personnel_id, reason, COUNT(*) AS cnt,
+                       ROW_NUMBER() OVER (PARTITION BY personnel_id ORDER BY COUNT(*) DESC) AS rn
+                FROM recent_visits GROUP BY personnel_id, reason
+            )
+            SELECT c.personnel_id, p.name, COALESCE(p.department, 'Unassigned'),
+                   c.total, c.last_visit, rr.reason, rr.cnt
+            FROM counts c
+            JOIN personnel p ON p.id = c.personnel_id
+            LEFT JOIN reason_rank rr ON rr.personnel_id = c.personnel_id AND rr.rn = 1
+            ORDER BY c.total DESC, c.last_visit DESC
+            LIMIT 25
+        ''', (cutoff, min_visits))
+        rows = c.fetchall()
+
+    return jsonify({
+        'window_months': window_months,
+        'min_visits': min_visits,
+        'cases': [{
+            'personnel_id': r[0], 'name': r[1], 'department': r[2],
+            'visit_count': r[3], 'last_visit': r[4].isoformat() if r[4] else None,
+            'top_reason': r[5], 'top_reason_count': r[6],
+        } for r in rows],
+    })
+
+
+@app.route('/analytics/yoy')
+@login_required
+def analytics_yoy():
+    """Monthly visit counts for the current year vs. the previous year."""
+    cur_year = datetime.now().year
+    prev_year = cur_year - 1
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT EXTRACT(YEAR FROM visit_date)::int AS yr,
+                   EXTRACT(MONTH FROM visit_date)::int AS mo,
+                   COUNT(*) AS cnt
+            FROM visits
+            WHERE EXTRACT(YEAR FROM visit_date) IN (%s, %s)
+            GROUP BY yr, mo
+        ''', (cur_year, prev_year))
+        raw = {(r[0], r[1]): r[2] for r in c.fetchall()}
+
+    month_labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    current = [raw.get((cur_year, m), 0) for m in range(1, 13)]
+    previous = [raw.get((prev_year, m), 0) for m in range(1, 13)]
+    cur_total, prev_total = sum(current), sum(previous)
+    pct_change = round((cur_total - prev_total) / prev_total * 100, 1) if prev_total else None
+
+    return jsonify({
+        'labels': month_labels,
+        'current_year': cur_year, 'current': current, 'current_total': cur_total,
+        'previous_year': prev_year, 'previous': previous, 'previous_total': prev_total,
+        'pct_change': pct_change,
+    })
+
+
 # ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
 @app.route('/notifications')
